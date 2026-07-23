@@ -161,6 +161,17 @@
     color: #8a8a8a;
     padding: 18px;
   }
+  openSpreadsheet {
+    display: block;
+    margin: 12px auto 0;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -169,6 +180,7 @@
   <img class="site-logo" src="aikido-logo.png" alt="Newcastle Aikido logo">
   <h1 id="pageHeading">Newcastle Aikido - Grading Eligibility</h1>
   <p id="updatedLine">Loading...</p>
+  <button id="openSpreadsheet" onclick="window.open('https://docs.google.com/spreadsheets/d/158_37ouxn3yC-JLNB3zqWnqvC0-zFmUyf2GM6DNpVIE/edit?gid=680756908#gid=680756908', '_blank')">Open Spreadsheet</button>
   <nav class="site-nav">
     <button data-tab="home" class="active">Overview</button>
     <button data-tab="adults">Regular Adult Grading</button>
@@ -240,6 +252,30 @@ const PAGE_CONFIGS = {
 let jsonpCounter = 0;
 const sheetCache = {};
 
+const HEADER_FALLBACKS = {
+  homeAdults: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  homeJuniors: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal.'],
+  adults: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  juniors: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  members: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Enough Att. For Rank?', 'Last Test Date']
+};
+
+function normalizeRow(row, length) {
+  const normalized = (row || []).slice();
+  while (normalized.length < length) normalized.push('');
+  return normalized;
+}
+
+function getHeaders(rawRows, headerRow, fallbackKey) {
+  const hIdx = headerRow - 1;
+  const row = normalizeRow(rawRows[hIdx], HEADER_FALLBACKS[fallbackKey] ? HEADER_FALLBACKS[fallbackKey].length : 0);
+  const fallback = HEADER_FALLBACKS[fallbackKey] || [];
+  return row.map((cell, idx) => {
+    const value = String(cell || '').trim();
+    return value || fallback[idx] || '';
+  });
+}
+
 function fetchSheetRaw(sheetName) {
   if (sheetCache[sheetName]) return sheetCache[sheetName];
 
@@ -260,12 +296,14 @@ function fetchSheetRaw(sheetName) {
       cleanup();
       try {
         const table = response.table;
-        const rows = table.rows.map(r =>
-          r.c.map(cell => {
+        const colCount = table.cols.length;
+        const rows = table.rows.map(r => {
+          const row = (r.c || []).map(cell => {
             if (!cell) return '';
             return cell.f !== undefined && cell.f !== null ? cell.f : (cell.v === null ? '' : cell.v);
-          })
-        );
+          });
+          return normalizeRow(row, colCount);
+        });
         resolve(rows); // raw rows, 0-indexed = sheet row 1, 2, 3...
       } catch (err) {
         reject(err);
@@ -287,15 +325,14 @@ function fetchSheetRaw(sheetName) {
   return promise;
 }
 
-function sliceBlock(rawRows, headerRow, dataStartRow, colStart, colEnd) {
-  const hIdx = headerRow - 1;
+function sliceBlock(rawRows, headerRow, dataStartRow, colStart, colEnd, fallbackKey) {
   const dIdx = dataStartRow - 1;
   const cStart = colStart - 1;
   const cEnd = colEnd; // slice end is exclusive
 
-  const headers = (rawRows[hIdx] || []).slice(cStart, cEnd).map(h => String(h || '').trim());
+  const headers = getHeaders(rawRows, headerRow, fallbackKey).slice(cStart, cEnd).map(h => String(h || '').trim());
   const rows = rawRows.slice(dIdx)
-    .map(r => (r || []).slice(cStart, cEnd))
+    .map(r => normalizeRow(r, cEnd).slice(cStart, cEnd))
     .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
 
   return { headers, rows };
@@ -345,8 +382,8 @@ function setUpdatedNow() {
 
 function loadHome() {
   fetchSheetRaw(HOME_SHEET_NAME).then(rawRows => {
-    const adults = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_ADULTS_COLS.start, HOME_ADULTS_COLS.end);
-    const juniors = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_JUNIORS_COLS.start, HOME_JUNIORS_COLS.end);
+    const adults = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_ADULTS_COLS.start, HOME_ADULTS_COLS.end, 'homeAdults');
+    const juniors = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_JUNIORS_COLS.start, HOME_JUNIORS_COLS.end, 'homeJuniors');
     renderTable(document.getElementById('home-adults-wrap'), adults);
     renderTable(document.getElementById('home-juniors-wrap'), juniors);
   }).catch(err => {
@@ -358,8 +395,7 @@ function loadHome() {
 function loadPage(key) {
   const config = PAGE_CONFIGS[key];
   fetchSheetRaw(config.sheetName).then(rawRows => {
-    const hIdx = config.headerRow - 1;
-    const headers = (rawRows[hIdx] || []).map(h => String(h || '').trim());
+    const headers = getHeaders(rawRows, config.headerRow, key);
     const rows = rawRows.slice(config.dataStartRow - 1)
       .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
     renderTable(document.getElementById(key + '-wrap'), { headers, rows });
