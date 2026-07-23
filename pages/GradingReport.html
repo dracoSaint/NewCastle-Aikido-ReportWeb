@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newcastle Aikido - Grading Report</title>
+<link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+
+<header>
+  <button id="menuToggle" class="menu-toggle" aria-label="Open site menu">☰</button>
+  <img class="site-logo" src="../imgs/aikido-logo.png" alt="Newcastle Aikido logo">
+  <h1 id="pageHeading">Newcastle Aikido - Grading Report</h1>
+  <p id="updatedLine">Loading...</p>
+  <button id="openSpreadsheet" onclick="window.open('https://docs.google.com/spreadsheets/d/158_37ouxn3yC-JLNB3zqWnqvC0-zFmUyf2GM6DNpVIE/edit?gid=680756908#gid=680756908', '_blank')">Open Spreadsheet</button>
+  <nav class="site-nav">
+    <button data-tab="home" class="active">Overview</button>
+    <button data-tab="adults">Regular Adult Grading</button>
+    <button data-tab="juniors">Juniors Grading</button>
+    <button data-tab="members">Member List</button>
+  </nav>
+  <input type="search" id="filterInput" placeholder="Search by name...">
+</header>
+
+<div class="page-drawer" id="pageDrawer" aria-hidden="true">
+  <div class="drawer-header">
+    <strong>Pages</strong>
+    <button class="drawer-close" aria-label="Close menu">×</button>
+  </div>
+  <nav class="drawer-nav">
+    <a href="../index.html">Home</a>
+    <a href="GradingReport.html" class="active">Grading Report</a>
+  </nav>
+</div>
+<div class="drawer-overlay" id="pageOverlay"></div>
+
+<main>
+
+  <section class="tab-panel active" id="tab-home">
+    <div class="groups two-col">
+      <div class="card">
+        <h2>Regular Adults</h2>
+        <div class="table-wrap" id="home-adults-wrap"><div class="loading">Loading...</div></div>
+      </div>
+      <div class="card">
+        <h2>Juniors</h2>
+        <div class="table-wrap" id="home-juniors-wrap"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="tab-adults">
+    <div class="card">
+      <h2>Regular Adult Grading</h2>
+      <div class="table-wrap" id="adults-wrap"><div class="loading">Loading...</div></div>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="tab-juniors">
+    <div class="card">
+      <h2>Juniors Grading</h2>
+      <div class="table-wrap" id="juniors-wrap"><div class="loading">Loading...</div></div>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="tab-members">
+    <div class="card">
+      <h2>Member List</h2>
+      <div class="table-wrap" id="members-wrap"><div class="loading">Loading...</div></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>Newcastle Aikido - Grading Report</footer>
+
+<script src="../js/scripts.js"></script>
+</body>
+</html>
