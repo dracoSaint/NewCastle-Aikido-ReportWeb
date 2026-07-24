@@ -190,27 +190,9 @@ function loadTab(key) {
   else loadPage(key);
 }
 
-function initDrawer() {
-  const menuToggle = document.getElementById('menuToggle');
-  const drawer = document.getElementById('pageDrawer');
-  const overlay = document.getElementById('pageOverlay');
-  const closeBtn = document.querySelector('.drawer-close');
-  if (!menuToggle || !drawer || !overlay) return;
-
-  const toggleDrawer = open => {
-    drawer.classList.toggle('open', open);
-    overlay.classList.toggle('open', open);
-    drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
-  };
-
-  menuToggle.addEventListener('click', () => toggleDrawer(true));
-  overlay.addEventListener('click', () => toggleDrawer(false));
-  if (closeBtn) closeBtn.addEventListener('click', () => toggleDrawer(false));
-}
-
 function initGradingPage() {
   const navButtons = document.querySelectorAll('nav.site-nav button');
-  if (!navButtons.length) return;
+  if (!navButtons.length || !document.querySelector('.tab-panel')) return;
 
   navButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -238,5 +220,4 @@ function initGradingPage() {
   loadTab('home');
 }
 
-initDrawer();
 initGradingPage();

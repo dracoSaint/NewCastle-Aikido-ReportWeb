@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newcastle Aikido - Monday Board Report</title>
+<link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body>
+
+<header>
+  <p id="updatedLine">Loading...</p>
+  <button id="openSpreadsheet" onclick="window.open('https://docs.google.com/spreadsheets/d/1E9zvuJDxDCSpA7_zwlTZsKLeeK94K6rl8c77FKalpv8/edit?usp=sharing', '_blank')">Open Spreadsheet</button>
+  <nav class="site-nav">
+    <button data-tab="home" class="active">Overview</button>
+    <button data-tab="current_mondayReport">This Week's Report</button>
+    <button data-tab="last_mondayReport">Last Week's Report</button>
+    <button data-tab="current_memberList">Current Member List</button>
+  </nav>
+  <input type="search" id="filterInput" placeholder="Search by name...">
+</header>
+
+<main>
+  <section class="chart-grid">
+    <div class="card chart-card chart-card-wide">
+      <h2>Membership Trend</h2>
+      <div class="chart-wrap">
+        <canvas id="membersTrendChart" aria-label="Total members by week"></canvas>
+        <div class="loading">Loading dashboard...</div>
+      </div>
+    </div>
+
+    <div class="card chart-card chart-card-wide">
+      <h2>Beginner Progression</h2>
+      <div class="chart-wrap">
+        <canvas id="beginnerTrendChart" aria-label="Beginner progression by week"></canvas>
+        <div class="loading">Loading dashboard...</div>
+      </div>
+    </div>
+    
+    <div class="card chart-card">
+      <h2>OVERALL MEMBERSHIP REGISTRATION</h2>
+      <div class="chart-wrap chart-wrap-doughnut">
+        <canvas id="membershipBreakdownChart" aria-label="OVERALL MEMBERSHIP REGISTRATION"></canvas>
+        <div class="loading">Loading dashboard...</div>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <h2>OVERALL BEGINNER PACKAGES REGISTRATION</h2>
+      <div class="chart-wrap chart-wrap-doughnut">
+        <canvas id="beginnerBreakdownChart" aria-label="OVERALL BEGINNER PACKAGES REGISTRATION"></canvas>
+        <div class="loading">Loading dashboard...</div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<footer>Newcastle Aikido - Monday Board Report</footer>
+
+<script src="../../js/siteHeader.js"></script>
+<script src="../../js/siteMenu.js"></script>
+<script src="../../js/gradingScripts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="../../js/mondayBoardScripts.js"></script>
+</body>
+</html>
