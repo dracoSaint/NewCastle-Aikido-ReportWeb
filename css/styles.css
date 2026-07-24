@@ -65,6 +65,14 @@ main {
   margin: 0 auto;
   padding: 24px 16px 60px;
 }
+
+.home-main {
+  gap: 28px;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 16px 60px;
+}
+
 input[type="search"] {
   margin: 16px auto 0;
   display: block;
@@ -346,12 +354,22 @@ footer {
   padding: 40px 16px 60px;
 }
 
+.home-content {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0;
+}
+
 .hero-card {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 34px 28px;
   text-align: center;
+}
+
+.hero-card + .hero-card {
+  margin-top: 15px;
 }
 
 .hero-card h2 {

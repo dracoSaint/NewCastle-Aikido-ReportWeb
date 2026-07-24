@@ -6,11 +6,55 @@
   const menuGroups = [
     {
       id: 'reportMenu',
-      label: 'REPORT',
+      label: 'REPORTS',
       items: [
-        { label: 'Grading Report', path: 'pages/REPORTs/GradingReport.html' },
-        { label: 'Monday Board Report', path: 'pages/REPORTs/MondayBoardReport.html' }
+        { 
+            label: 'Grading Report',
+            path: 'pages/REPORTs/GradingReport.html'
+        },
+        { 
+            label: 'Monday Board Report', 
+            path: 'pages/REPORTs/MondayBoardReport.html'
+        }
       ]
+    },
+    {
+    id: 'sopMenu',
+    label: 'SOP',
+    items: [
+        {
+            label: 'Billing & Payments',
+            path: 'pages/SOPs/BillingAndPayments.html' //sopMain page but will add filter where on the main page it reroutes to billing by refreshing the page with billing SOPs
+        },
+        {
+            label: 'Membership',
+            path: 'pages/SOPs/Membership.html'
+        },
+        {
+            label: 'Contacts & CRM',
+            path: 'pages/SOPs/ContactsAndCRM.html'
+        },
+        {
+            label: 'Invoicing',
+            path: 'pages/SOPs/Invoicing.html'
+        },
+        {
+            label: 'Enquiries & Leads',
+            path: 'pages/SOPs/EnquiriesAndLeads.html'
+        },
+        {
+            label: 'Email & Inbox Admin',
+            path: 'pages/SOPs/EmailAndInboxAdmin.html'
+        },
+        {
+            label: 'Grading & Attendance',
+            path: 'pages/SOPs/GradingAndAttendance.html'
+        },
+        {
+            label: 'Phones',
+            path: 'pages/SOPs/Phones.html'
+        }
+    ]
     }
     /*
     //COPY PASTE THIS TO ADD ANOTHER DROP DOWN MENU
