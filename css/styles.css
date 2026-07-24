@@ -1,6 +1,6 @@
 :root {
-  --navy: #1c2b3a;
-  --red: #a3272c;
+  --navy: #181919;
+  --red: #7b2c2d;
   --cream: #f7f4ee;
   --line: #e2ddd2;
 }
@@ -100,6 +100,34 @@ input[type="search"] {
   color: #fff;
   font-size: 1.05rem;
   letter-spacing: 0.5px;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+}
+.chart-card {
+  margin-bottom: 0;
+}
+.chart-card-wide {
+  grid-column: 1 / -1;
+}
+.chart-wrap {
+  position: relative;
+  height: 360px;
+  padding: 18px;
+}
+.chart-wrap-doughnut {
+  height: 360px;
+}
+.chart-wrap .loading {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+@media (min-width: 900px) {
+  .chart-grid { grid-template-columns: 1fr 1fr; }
 }
 .table-wrap {
   overflow-x: auto;
@@ -250,6 +278,46 @@ footer {
   color: #fff;
 }
 
+.drawer-group-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #f8f6f1;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.drawer-group-toggle span {
+  transition: transform 0.2s ease;
+}
+
+.drawer-group.expanded .drawer-group-toggle span {
+  transform: rotate(180deg);
+}
+
+.drawer-submenu {
+  display: none;
+  padding: 8px 0 0 14px;
+  gap: 6px;
+}
+
+.drawer-group.expanded .drawer-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawer-submenu a {
+  font-size: 0.95rem;
+}
+
 .home-main {
   max-width: 900px;
   margin: 0 auto;
@@ -284,4 +352,11 @@ footer {
   border-radius: 10px;
   text-decoration: none;
   font-weight: 700;
+}
+
+.button-group{
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
 }
