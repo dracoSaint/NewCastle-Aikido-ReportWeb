@@ -100,6 +100,27 @@
         button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       });
     });
+
+    initUnfinishedFeatureNotice();
+  }
+
+  function initUnfinishedFeatureNotice() {
+    const notice = document.createElement('div');
+    notice.className = 'feature-notice';
+    notice.setAttribute('role', 'status');
+    notice.setAttribute('aria-live', 'polite');
+    document.body.appendChild(notice);
+
+    let hideTimer;
+    document.querySelectorAll('[data-feature-status="unfinished"]').forEach(button => {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        notice.textContent = "Sorry, this feature isn't finished yet. Please check back in a bit! ☹️";
+        notice.classList.add('visible');
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => notice.classList.remove('visible'), 3000);
+      });
+    });
   }
 
   initSiteMenu();
