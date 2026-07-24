@@ -1,12 +1,12 @@
 /* ============ CONFIG - edit these to match your sheet ============ */
-const SPREADSHEET_ID = '158_37ouxn3yC-JLNB3zqWnqvC0-zFmUyf2GM6DNpVIE';
+const SPREADSHEET_ID = '1EmS3-3mxova9vQSavu-bYR05sGyve-q5CE2Xq12FLis';
 
 // Home page: one sheet, two column-blocks side by side
 const HOME_SHEET_NAME = 'ELIGIBLE MEMBERS'; // <-- confirm this matches your actual tab name
 const HOME_HEADER_ROW = 2;   // 1-indexed
 const HOME_DATA_START_ROW = 3; // 1-indexed
-const HOME_ADULTS_COLS = { start: 2, end: 10 };  // B..J (1-indexed)
-const HOME_JUNIORS_COLS = { start: 12, end: 20 }; // L..T
+const HOME_ADULTS_COLS = { start: 2, end: 8 };  // B..J (1-indexed)
+const HOME_JUNIORS_COLS = { start: 10, end: 16 }; // L..T
 
 // Other pages: one sheet each, headers on row 1, data from row 2
 const PAGE_CONFIGS = {
@@ -20,11 +20,11 @@ let jsonpCounter = 0;
 const sheetCache = {};
 
 const HEADER_FALLBACKS = {
-  homeAdults: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
-  homeJuniors: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal.'],
-  adults: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
-  juniors: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
-  members: ['First Name', 'Last Name', 'Program', 'Program Status', 'Rank', 'Att. Total', 'Att. Since Test', 'Enough Att. For Rank?', 'Last Test Date']
+  homeAdults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  homeJuniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  adults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  juniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  members: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Enough Att. For Rank?', 'Last Test Date']
 };
 
 function normalizeRow(row, length) {
@@ -35,8 +35,8 @@ function normalizeRow(row, length) {
 
 function getHeaders(rawRows, headerRow, fallbackKey) {
   const hIdx = headerRow - 1;
-  const row = normalizeRow(rawRows[hIdx], HEADER_FALLBACKS[fallbackKey] ? HEADER_FALLBACKS[fallbackKey].length : 0);
   const fallback = HEADER_FALLBACKS[fallbackKey] || [];
+  const row = normalizeRow(rawRows[hIdx], fallback.length).slice(0, fallback.length || undefined);
   return row.map((cell, idx) => {
     const value = String(cell || '').trim();
     return value || fallback[idx] || '';
@@ -97,7 +97,15 @@ function sliceBlock(rawRows, headerRow, dataStartRow, colStart, colEnd, fallback
   const cStart = colStart - 1;
   const cEnd = colEnd;
 
-  const headers = getHeaders(rawRows, headerRow, fallbackKey).slice(cStart, cEnd).map(h => String(h || '').trim());
+  // Pad the complete sheet header row before slicing the block. The juniors
+  // block starts later in the sheet, so padding only to the fallback length
+  // makes its header slice empty.
+  const fallback = HEADER_FALLBACKS[fallbackKey] || [];
+  const fullHeaderRow = normalizeRow(rawRows[headerRow - 1], cEnd);
+  const headers = fullHeaderRow.slice(cStart, cEnd).map((header, index) => {
+    const value = String(header || '').trim();
+    return value || fallback[index] || '';
+  });
   const rows = rawRows.slice(dIdx)
     .map(r => normalizeRow(r, cEnd).slice(cStart, cEnd))
     .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
@@ -164,6 +172,7 @@ function loadPage(key) {
   fetchSheetRaw(config.sheetName).then(rawRows => {
     const headers = getHeaders(rawRows, config.headerRow, key);
     const rows = rawRows.slice(config.dataStartRow - 1)
+      .map(row => normalizeRow(row, headers.length).slice(0, headers.length))
       .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
     renderTable(document.getElementById(key + '-wrap'), { headers, rows });
   }).catch(err => showError(key + '-wrap', err));
