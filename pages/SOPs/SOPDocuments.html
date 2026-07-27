@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newcastle Aikido - SOP Documents</title>
+<link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body>
+
+<header>
+  <p>Choose a process or SOP from the menu to read it here.</p>
+</header>
+
+<main class="sop-main">
+  <aside class="sop-sidebar" aria-label="SOP documents">
+    <div class="sop-sidebar-header">
+      <span>SOP Library</span>
+    </div>
+    <nav id="sopMenu"></nav>
+  </aside>
+
+  <section class="sop-reader" aria-live="polite">
+    <div class="sop-reader-header">
+      <div>
+        <p class="sop-eyebrow">Process / SOP</p>
+        <h2 id="sopTitle">Billing & Payments</h2>
+      </div>
+      <a id="openSopLink" class="sop-open-link" target="_blank" rel="noopener" hidden>Open in Google Drive</a>
+    </div>
+    <div id="sopStatus" class="sop-status">
+      <strong>Google Drive file not connected yet.</strong>
+      <span>Add the Drive file ID for this SOP in <code>js/sopReader.js</code>.</span>
+    </div>
+    <iframe id="sopFrame" class="sop-frame" title="Selected SOP document" hidden></iframe>
+  </section>
+</main>
+
+<footer>Newcastle Aikido - SOP Documents</footer>
+
+<script src="../../js/siteHeader.js"></script>
+<script src="../../js/siteMenu.js"></script>
+<script src="../../js/sopReader.js"></script>
+</body>
+</html>

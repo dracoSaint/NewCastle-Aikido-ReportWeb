@@ -24,35 +24,35 @@
     items: [
         {
             label: 'Billing & Payments',
-            path: 'pages/SOPs/BillingAndPayments.html' //sopMain page but will add filter where on the main page it reroutes to billing by refreshing the page with billing SOPs
+            path: 'pages/SOPs/SOPDocuments.html?sop=billing'
         },
         {
             label: 'Membership',
-            path: 'pages/SOPs/Membership.html'
+            path: 'pages/SOPs/SOPDocuments.html?sop=membership'
         },
         {
             label: 'Contacts & CRM',
-            path: 'pages/SOPs/ContactsAndCRM.html'
+            path: 'pages/SOPs/SOPDocuments.html?sop=contacts'
         },
         {
             label: 'Invoicing',
-            path: 'pages/SOPs/Invoicing.html'
+            path: 'pages/SOPs/SOPDocuments.html?sop=invoicing'
         },
         {
             label: 'Enquiries & Leads',
-            path: 'pages/SOPs/EnquiriesAndLeads.html'
+            path: 'pages/SOPs/SOPDocuments.html?sop=enquiries'
         },
         {
             label: 'Email & Inbox Admin',
-            path: 'pages/SOPs/EmailAndInboxAdmin.html'
+            path: 'pages/SOPs/SOPDocuments.html?sop=email'
         },
         {
             label: 'Grading & Attendance',
-            path: 'pages/SOPs/GradingAndAttendance.html'
+            path: 'pages/SOPs/SOPDocuments.html?sop=grading'
         },
         {
             label: 'Phones',
-            path: 'pages/SOPs/Phones.html'
+            path: 'pages/SOPs/SOPDocuments.html?sop=phones'
         }
     ]
     }
@@ -159,6 +159,15 @@
     document.querySelectorAll('[data-feature-status="unfinished"]').forEach(button => {
       button.addEventListener('click', event => {
         event.preventDefault();
+          const buttonGroup = button.parentElement;
+          if (buttonGroup) {
+            buttonGroup.querySelectorAll('button').forEach(item => {
+              item.classList.remove('active');
+              item.removeAttribute('aria-current');
+            });
+          }
+          button.classList.add('active');
+          button.setAttribute('aria-current', 'page');
         notice.textContent = "Sorry, this feature isn't finished yet. Please check back in a bit! ☹️";
         notice.classList.add('visible');
         clearTimeout(hideTimer);
