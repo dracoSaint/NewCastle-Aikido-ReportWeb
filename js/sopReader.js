@@ -154,17 +154,17 @@ const SOP_DOCUMENTS = [
       },
       { 
         id: 'email-', 
-        label: 'Emails & Inbox - ', 
+        label: 'Emails & Inbox - 1', 
         driveFileId: '' 
       },
       { 
         id: 'email-', 
-        label: 'Emails & Inbox - ', 
+        label: 'Emails & Inbox - 2', 
         driveFileId: '' 
       },
       { 
         id: 'email-', 
-        label: 'Emails & Inbox - ', 
+        label: 'Emails & Inbox - 3', 
         driveFileId: '' 
       }
     ]
