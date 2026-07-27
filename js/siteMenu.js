@@ -24,35 +24,35 @@
     items: [
         {
             label: 'Billing & Payments',
-            path: 'pages/SOPs/SOPDocuments.html?sop=billing'
+            path: 'pages/SOPs/SOPDocuments.html?sop=billing-account-query'
         },
         {
             label: 'Membership',
-            path: 'pages/SOPs/SOPDocuments.html?sop=membership-onboarding'
+            path: 'pages/SOPs/SOPDocuments.html?sop=membership-adjust-start-date'
         },
         {
             label: 'Contacts & CRM',
-            path: 'pages/SOPs/SOPDocuments.html?sop=contacts-mgmt'
+            path: 'pages/SOPs/SOPDocuments.html?sop=contacts-merge-duplicates'
         },
         {
             label: 'Invoicing',
-            path: 'pages/SOPs/SOPDocuments.html?sop=invoicing-generate'
+            path: 'pages/SOPs/SOPDocuments.html?sop=invoicing-engage-gen'
         },
         {
             label: 'Enquiries & Leads',
-            path: 'pages/SOPs/SOPDocuments.html?sop=enquiries-leads'
+            path: 'pages/SOPs/SOPDocuments.html?sop=enquiries-emails-jr'
         },
         {
             label: 'Email & Inbox Admin',
-            path: 'pages/SOPs/SOPDocuments.html?sop=email-admin'
+            path: 'pages/SOPs/SOPDocuments.html?sop=email-action-saving'
         },
         {
             label: 'Grading & Attendance',
-            path: 'pages/SOPs/SOPDocuments.html?sop=grading-attendance'
+            path: 'pages/SOPs/SOPDocuments.html?sop=grading-member-hour-report'
         },
         {
             label: 'Phones',
-            path: 'pages/SOPs/SOPDocuments.html?sop=phones-handling'
+            path: 'pages/SOPs/SOPDocuments.html?sop=phones-diverting-calls'
         }
     ]
     }
