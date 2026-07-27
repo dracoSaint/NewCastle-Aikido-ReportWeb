@@ -3,14 +3,39 @@ const SOP_DOCUMENTS = [
     category: 'Billing & Payments',
     items: [
       { 
-        id: 'billing-account-query', 
-        label: 'Account query - Square payment not recorded', 
-        driveFileId: '1or8bn27rmAIX-mKRVISorBCYckwikBiL41s0y8faRLA' 
+        id: 'billing-account-query',
+        label: 'Billing - Account query - Square payment not recorded',
+        driveFileId: '1or8bn27rmAIX-mKRVISorBCYckwikBiL41s0y8faRLA'
       },
       { 
-        id: 'billing-paying', 
-        label: 'Billing SOP 2', 
-        driveFileId: '' 
+        id: 'billing-acknowldge-fees', 
+        label: 'Billing - Acknowledge email and save as “fees adjusted”', 
+        driveFileId: '1DqhJvTetDkyp2sVBSgcUSvAARH-BaIZw6gx1xFKRmQk' 
+      },
+      { 
+        id: 'billing-card-stolen', 
+        label: 'Billing - Ask for new card as card stolen', 
+        driveFileId: '1Tiz7D363uC-lmB55-ECfvHSMbRjhPjOi4hcMDqcC7Cg' 
+      },
+      { 
+        id: 'billing-filing-receipt', 
+        label: 'Billing - Filing a Zen Planner receipt', 
+        driveFileId: '1re1GkslTivUOXAjC9YeYCKJpXBQ-rQdBqTpH4RjPGbg' 
+      },
+      { 
+        id: 'billing-update-payment', 
+        label: 'Billing - Member updated payment details', 
+        driveFileId: '1cSBqU2HimbLutkCfSDp65OvbXGkv5G6VvQExL9qNes4' 
+      },
+      { 
+        id: 'billing-request-tech-support', 
+        label: 'Billing - Requesting Zen Planner tech support (reporting problem)', 
+        driveFileId: '1QCqV1hM25Mx4TuM4YiQUZ2UnP6PaR9RefaBEgZStfk0' 
+      },
+      { 
+        id: 'billing-zenplanner-doubled', 
+        label: 'Billing - Zen Planner billing doubled', 
+        driveFileId: '1NaILtnyI79k_hJ7xl3UbxWeqSQR6yAPx9NN4HYs-FxU' 
       }
     ]
   },
@@ -20,13 +45,38 @@ const SOP_DOCUMENTS = [
     items: [
       { 
         id: 'membership-adjust-start-date', 
-        label: 'Adjust membership start date', 
+        label: 'Membership - Adjust membership start date', 
         driveFileId: '1iJvfS0JGWEiG_h7DzBxi2ELUhJgKhGw8MaE5GYHlGuA' 
       },
       { 
-        id: 'membership-renewals', 
-        label: 'Membership SOP 2', 
-        driveFileId: '' 
+        id: 'membership-adjust-length', 
+        label: 'Membership - Adjusting membership length', 
+        driveFileId: '1BOLzYU1FImmes_pHD9M2M5G-FFdgLpefyHU9DLCrRbI' 
+      },
+      { 
+        id: 'membership-cancel-set-follow-up', 
+        label: 'Membership - Cancel membership — example, set follow-up', 
+        driveFileId: '1ZoWIzD0-Viw22_mYM4kIgw1RruTE0ixWI4F9QXkI_O4' 
+      },
+      { 
+        id: 'membership-cancelling', 
+        label: 'Membership - Cancelling a membership', 
+        driveFileId: '1EHgBm0Z96tblt7xB7Zw7yeLqidxs67q12OR_8AEMwQs' 
+      },
+      { 
+        id: 'membership-merging-duplicate', 
+        label: 'Membership - Merging duplicated memberships', 
+        driveFileId: '1_Ay3wnL5qEBAW6nkZfVX0EmWDTPrF723CqQMEDX4DkY' 
+      },
+      { 
+        id: 'membership-pausing', 
+        label: 'Membership - Pausing a membership', 
+        driveFileId: '1IYfbb-KCkorObYQXhRnAEenn6TnnA1xJ3RghZ-JgX40' 
+      },
+      { 
+        id: 'membership-rolling-week-to-week', 
+        label: 'Membership - Rolling from package to week-to-week', 
+        driveFileId: '1dZrrqna9ulnXLtTwctCafwhGxN0GhAvQirNUUIvRov8'
       }
     ]
   },
@@ -36,8 +86,18 @@ const SOP_DOCUMENTS = [
     items: [
       { 
         id: 'contacts-merge-duplicates', 
-        label: 'Merge duplicate contacts — Engage', 
+        label: 'Contacts & CRM - Merge duplicate contacts — Engage', 
         driveFileId: '1d5eSwBrtNj1vSMR4fBmiMbPbx450dTokrLGE_stEyQg' 
+      },
+      { 
+        id: 'contacts-converting', 
+        label: 'Contacts & CRM - Opportunities — converting them', 
+        driveFileId: '1YIrbEPJx57Q3lQVR5M6z09a7UY5M1oQnpFOk1R0a67o' 
+      },
+      { 
+        id: 'contacts-update-contacts', 
+        label: 'Contacts & CRM - Update contact details in ZP and Engage', 
+        driveFileId: '19ZhkC_rwzmFJf-ocxKUlZbWqW1xJtaXdOJ9jz2MZKh4'
       }
     ]
   },
@@ -47,8 +107,13 @@ const SOP_DOCUMENTS = [
     items: [
       { 
         id: 'invoicing-engage-gen', 
-        label: 'Engage invoice generation', 
+        label: 'Invoicing - Engage invoice generation', 
         driveFileId: '1NuV3LCdseTy06NJ2mKmO8abiV7X9eXnpIpmKHiV6oh0' 
+      },
+      { 
+        id: 'invoicing-school-sport', 
+        label: 'Invoicing - School Sport invoice', 
+        driveFileId: '1J-2A3JkNA-nn_3_Qj9dpV-K0heJMp1wyhFE432YW0Jo'
       }
     ]
   },
@@ -69,8 +134,38 @@ const SOP_DOCUMENTS = [
     items: [
       { 
         id: 'email-action-saving', 
-        label: 'Actioning and saving emails', 
+        label: 'Email & Inbox - Actioning and saving emails', 
         driveFileId: '13dI2_6EAawsfbZsZilvHBeuW6l9V7giGTurq3wsxF3Y' 
+      },
+      { 
+        id: 'email-filing-mushin', 
+        label: 'Emails & Inbox - Email Filing Drahc Mushin and other',
+        driveFileId: '1T1B-V8YThSqZDwdV9i6l519L-5A4rPBO3-y3sEgNzLo' 
+      },
+      { 
+        id: 'email-filing-google', 
+        label: 'Emails & Inbox - Email Filing Google Ad Snapshot', 
+        driveFileId: '1vWUoq1_TfE0UV7Iu8_mHQVHd8Ri7_x2OFfRkKfhFHlA' 
+      },
+      { 
+        id: 'email-filing-homeoffice', 
+        label: 'Emails & Inbox - Email Filing Home office Rent', 
+        driveFileId: '16e0aXDcmH1h-RVnsO0dSB6i05h68jb4mHt5CY7SHfeE' 
+      },
+      { 
+        id: 'email-', 
+        label: 'Emails & Inbox - ', 
+        driveFileId: '' 
+      },
+      { 
+        id: 'email-', 
+        label: 'Emails & Inbox - ', 
+        driveFileId: '' 
+      },
+      { 
+        id: 'email-', 
+        label: 'Emails & Inbox - ', 
+        driveFileId: '' 
       }
     ]
   },
