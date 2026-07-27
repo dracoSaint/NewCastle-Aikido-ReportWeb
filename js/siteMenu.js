@@ -28,31 +28,31 @@
         },
         {
             label: 'Membership',
-            path: 'pages/SOPs/SOPDocuments.html?sop=membership'
+            path: 'pages/SOPs/SOPDocuments.html?sop=membership-onboarding'
         },
         {
             label: 'Contacts & CRM',
-            path: 'pages/SOPs/SOPDocuments.html?sop=contacts'
+            path: 'pages/SOPs/SOPDocuments.html?sop=contacts-mgmt'
         },
         {
             label: 'Invoicing',
-            path: 'pages/SOPs/SOPDocuments.html?sop=invoicing'
+            path: 'pages/SOPs/SOPDocuments.html?sop=invoicing-generate'
         },
         {
             label: 'Enquiries & Leads',
-            path: 'pages/SOPs/SOPDocuments.html?sop=enquiries'
+            path: 'pages/SOPs/SOPDocuments.html?sop=enquiries-leads'
         },
         {
             label: 'Email & Inbox Admin',
-            path: 'pages/SOPs/SOPDocuments.html?sop=email'
+            path: 'pages/SOPs/SOPDocuments.html?sop=email-admin'
         },
         {
             label: 'Grading & Attendance',
-            path: 'pages/SOPs/SOPDocuments.html?sop=grading'
+            path: 'pages/SOPs/SOPDocuments.html?sop=grading-attendance'
         },
         {
             label: 'Phones',
-            path: 'pages/SOPs/SOPDocuments.html?sop=phones'
+            path: 'pages/SOPs/SOPDocuments.html?sop=phones-handling'
         }
     ]
     }
