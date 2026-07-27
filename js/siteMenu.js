@@ -6,11 +6,55 @@
   const menuGroups = [
     {
       id: 'reportMenu',
-      label: 'REPORT',
+      label: 'REPORTS',
       items: [
-        { label: 'Grading Report', path: 'pages/REPORTs/GradingReport.html' },
-        { label: 'Monday Board Report', path: 'pages/REPORTs/MondayBoardReport.html' }
+        { 
+            label: 'Grading Report',
+            path: 'pages/REPORTs/GradingReport.html'
+        },
+        { 
+            label: 'Monday Board Report', 
+            path: 'pages/REPORTs/MondayBoardReport.html'
+        }
       ]
+    },
+    {
+    id: 'sopMenu',
+    label: 'SOP',
+    items: [
+        {
+            label: 'Billing & Payments',
+            path: 'pages/SOPs/SOPDocuments.html?sop=billing'
+        },
+        {
+            label: 'Membership',
+            path: 'pages/SOPs/SOPDocuments.html?sop=membership-onboarding'
+        },
+        {
+            label: 'Contacts & CRM',
+            path: 'pages/SOPs/SOPDocuments.html?sop=contacts-mgmt'
+        },
+        {
+            label: 'Invoicing',
+            path: 'pages/SOPs/SOPDocuments.html?sop=invoicing-generate'
+        },
+        {
+            label: 'Enquiries & Leads',
+            path: 'pages/SOPs/SOPDocuments.html?sop=enquiries-leads'
+        },
+        {
+            label: 'Email & Inbox Admin',
+            path: 'pages/SOPs/SOPDocuments.html?sop=email-admin'
+        },
+        {
+            label: 'Grading & Attendance',
+            path: 'pages/SOPs/SOPDocuments.html?sop=grading-attendance'
+        },
+        {
+            label: 'Phones',
+            path: 'pages/SOPs/SOPDocuments.html?sop=phones-handling'
+        }
+    ]
     }
     /*
     //COPY PASTE THIS TO ADD ANOTHER DROP DOWN MENU
@@ -115,6 +159,15 @@
     document.querySelectorAll('[data-feature-status="unfinished"]').forEach(button => {
       button.addEventListener('click', event => {
         event.preventDefault();
+          const buttonGroup = button.parentElement;
+          if (buttonGroup) {
+            buttonGroup.querySelectorAll('button').forEach(item => {
+              item.classList.remove('active');
+              item.removeAttribute('aria-current');
+            });
+          }
+          button.classList.add('active');
+          button.setAttribute('aria-current', 'page');
         notice.textContent = "Sorry, this feature isn't finished yet. Please check back in a bit! ☹️";
         notice.classList.add('visible');
         clearTimeout(hideTimer);
