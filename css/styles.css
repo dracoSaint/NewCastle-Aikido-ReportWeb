@@ -294,6 +294,11 @@ input[type="search"] {
   max-height: 75vh;
   overflow-y: auto;
 }
+.sheet-iframe {
+  width: 100%;
+  height: 75vh;
+  border: none;
+}
 table {
   width: 100%;
   border-collapse: collapse;

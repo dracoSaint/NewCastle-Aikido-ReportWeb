@@ -12,15 +12,15 @@
   <p id="updatedLine">Loading...</p>
   <button id="openSpreadsheet" onclick="window.open('https://docs.google.com/spreadsheets/d/1E9zvuJDxDCSpA7_zwlTZsKLeeK94K6rl8c77FKalpv8/edit?usp=sharing', '_blank')">Open Spreadsheet</button>
   <nav class="site-nav">
-    <button data-tab="home" class="active">Overview</button>
-    <button data-tab="current_mondayReport" data-feature-status="unfinished">This Week's Report</button>
-    <button data-tab="last_mondayReport" data-feature-status="unfinished">Last Week's Report</button>
-    <button data-tab="current_memberList" data-feature-status="unfinished">Current Member List</button>
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="current_mondayReport">This Week's Report</button>
+    <button data-tab="last_mondayReport">Last Week's Report</button>
+    <button data-tab="current_memberList">Current Member List</button>
   </nav>
 </header>
 
 <main>
-  <section class="chart-grid">
+  <section class="tab-panel active" id="tab-overview">
     <div class="card chart-card chart-card-wide">
       <h2>Membership Trend</h2>
       <div class="chart-wrap">
@@ -52,7 +52,27 @@
         <div class="loading">Loading dashboard...</div>
       </div>
     </div>
+  </section>
 
+  <section class="tab-panel" id="tab-current_mondayReport">
+    <div class="card">
+      <h2>This Week's Report</h2>
+      <iframe class="sheet-iframe" id="current_mondayReport-frame" src="about:blank"></iframe>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="tab-last_mondayReport">
+    <div class="card">
+      <h2>Last Week's Report</h2>
+      <iframe class="sheet-iframe" id="last_mondayReport-frame" src="about:blank"></iframe>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="tab-current_memberList">
+    <div class="card">
+      <h2>Current Member List</h2>
+      <div class="table-wrap" id="current_memberList-wrap"><div class="loading">Loading...</div></div>
+    </div>
   </section>
 </main>
 
@@ -60,7 +80,6 @@
 
 <script src="../../js/siteHeader.js"></script>
 <script src="../../js/siteMenu.js"></script>
-<script src="../../js/gradingScripts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="../../js/mondayBoardScripts.js"></script>
 </body>
