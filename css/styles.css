@@ -1,7 +1,7 @@
 :root {
-  --navy: #181919;
-  --red: #7b2c2d;
-  --cream: #f7f4ee;
+  --black: #000000;
+  --red: #8C1723;
+  --cream: #E6DED4;
   --line: #e2ddd2;
 }
 * { box-sizing: border-box; }
@@ -9,10 +9,10 @@ body {
   margin: 0;
   font-family: 'Segoe UI', Roboto, Arial, sans-serif;
   background: var(--cream);
-  color: var(--navy);
+  color: var(--black);
 }
 header {
-  background: var(--navy);
+  background: var(--black);
   color: #fff;
   padding: 28px 24px 22px;
   text-align: center;
@@ -53,7 +53,7 @@ header {
 .sop-menu-category h2 {
   margin: 0;
   padding: 14px 18px 8px;
-  color: var(--navy);
+  color: var(--black);
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -71,7 +71,7 @@ header {
   border-radius: 6px;
   padding: 11px 12px;
   background: transparent;
-  color: var(--navy);
+  color: var(--black);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -135,7 +135,7 @@ header {
 }
 
 .sop-status strong {
-  color: var(--navy);
+  color: var(--black);
 }
 
 .sop-frame {
@@ -433,7 +433,7 @@ footer {
   padding: 12px 14px;
   border-radius: 10px;
   background: #f8f6f1;
-  color: var(--navy);
+  color: var(--black);
   text-decoration: none;
   font-weight: 600;
 }
@@ -452,7 +452,7 @@ footer {
   border: none;
   border-radius: 10px;
   background: #f8f6f1;
-  color: var(--navy);
+  color: var(--black);
   font: inherit;
   font-weight: 700;
   text-align: left;
@@ -491,7 +491,7 @@ footer {
   max-width: calc(100% - 32px);
   padding: 12px 18px;
   border-radius: 8px;
-  background: var(--navy);
+  background: var(--black);
   color: #fff;
   box-shadow: 0 4px 14px rgba(0,0,0,0.2);
   opacity: 0;
@@ -571,7 +571,7 @@ footer {
   padding: 14px 18px;
   background: transparent;
   border: none;
-  color: var(--navy);
+  color: var(--black);
   font: inherit;
   font-size: 0.88rem;
   font-weight: 700;
