@@ -7,10 +7,11 @@
     let footerText = 'Newcastle Aikido';
 
     if (pageTitle.startsWith('Newcastle Aikido - ')) {
-      footerText = pageTitle; // Use the full title if it's a specific report/page
+      footerText = pageTitle;
     }
 
     footer.textContent = footerText;
   }
   initSiteFooter();
+
 })();
