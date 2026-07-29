@@ -2,8 +2,14 @@ const MONDAY_BOARD_SPREADSHEET_ID = '1E9zvuJDxDCSpA7_zwlTZsKLeeK94K6rl8c77FKalpv
 const MONDAY_BOARD_SHEET_NAME = 'DASHBOARD';
 
 const MONDAY_PAGE_CONFIGS = {
-  current_mondayReport: { sheetName: 'MONDAY BOARD_SHEET', gid: '626263845' },
-  last_mondayReport:    { sheetName: 'LAST WEEK REPORT',   gid: '1101005694' }, // <-- IMPORTANT: Replace with GID
+  current_mondayReport: {
+    sheetName: 'MONDAY BOARD_SHEET',
+    publishedUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQo8mdLaK_NEmRatCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=626263matCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=626263845&single=true&widget=false&headers=false&chrome=false'
+  },
+  last_mondayReport:    {
+    sheetName: 'LAST WEEK REPORT',
+    publishedUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQo8mdLaK_NEmRatCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=1101005694&single=true&widget=false&headers=false&chrome=false'
+  },
   current_memberList:   { sheetName: 'MEMBERS_LIST',       headerRow: 2, dataStartRow: 3 }
 };
 
@@ -350,9 +356,8 @@ function loadMondayTab(key) {
   } else if (key === 'current_mondayReport' || key === 'last_mondayReport') {
     const config = MONDAY_PAGE_CONFIGS[key];
     const frame = document.getElementById(key + '-frame');
-    if (frame && config.gid && config.gid !== 'YOUR_GID_HERE') {
-      const url = `https://docs.google.com/spreadsheets/d/${MONDAY_BOARD_SPREADSHEET_ID}/pubhtml?gid=${config.gid}&single=true&widget=false&headers=false&chrome=false`;
-      frame.src = url;
+    if (frame && config.publishedUrl) {
+      frame.src = config.publishedUrl;
     }
   } else {
     loadMondayPage(key);
