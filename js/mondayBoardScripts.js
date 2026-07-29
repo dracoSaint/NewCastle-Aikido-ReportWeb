@@ -1,7 +1,26 @@
 const MONDAY_BOARD_SPREADSHEET_ID = '1E9zvuJDxDCSpA7_zwlTZsKLeeK94K6rl8c77FKalpv8';
 const MONDAY_BOARD_SHEET_NAME = 'DASHBOARD';
 
+const MONDAY_PAGE_CONFIGS = {
+  current_mondayReport: {
+    sheetName: 'MONDAY BOARD_SHEET',
+    publishedUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQo8mdLaK_NEmRatCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=626263845&single=true&widget=false&headers=false&chrome=false'
+  },
+  last_mondayReport:    {
+    sheetName: 'LAST WEEK REPORT',
+    publishedUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQo8mdLaK_NEmRatCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=1101005694&single=true&widget=false&headers=false&chrome=false'
+  }, // The user provided the full published URL, so we use that directly.
+  current_memberList:   { sheetName: 'MEMBERS_LIST',       headerRow: 2, dataStartRow: 3, dataStartCol: 2 }
+};
+
 let mondayJsonpCounter = 0;
+const mondaySheetCache = {};
+
+function normalizeRow(row, length) {
+  const normalized = (row || []).slice();
+  while (normalized.length < length) normalized.push('');
+  return normalized;
+}
 
 function fetchMondayBoardDashboard() {
 return new Promise((resolve, reject) => {
@@ -41,6 +60,55 @@ return new Promise((resolve, reject) => {
     };
     document.body.appendChild(script);
 });
+}
+
+function fetchMondaySheetRaw(sheetName) {
+  if (mondaySheetCache[sheetName]) return mondaySheetCache[sheetName];
+
+  const promise = new Promise((resolve, reject) => {
+    const cbName = 'gvizCb' + (mondayJsonpCounter++);
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out loading "' + sheetName + '". Check the sheet is shared as "Anyone with the link".'));
+    }, 12000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[cbName] = function (response) {
+      cleanup();
+      try {
+        const table = response.table;
+        const colCount = table.cols.length;
+        const rows = table.rows.map(r => {
+          const row = (r.c || []).map(cell => {
+            if (!cell) return '';
+            return cell.f !== undefined && cell.f !== null ? cell.f : (cell.v === null ? '' : cell.v);
+          });
+          return normalizeRow(row, colCount);
+        });
+        resolve(rows);
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    const url = 'https://docs.google.com/spreadsheets/d/' + MONDAY_BOARD_SPREADSHEET_ID +
+      '/gviz/tq?tqx=out:json;responseHandler:' + cbName +
+      '&sheet=' + encodeURIComponent(sheetName) +
+      '&headers=0';
+
+    const script = document.createElement('script');
+    script.src = url;
+    script.onerror = () => { cleanup(); reject(new Error('Failed to load sheet "' + sheetName + '".')); };
+    document.body.appendChild(script);
+  });
+
+  mondaySheetCache[sheetName] = promise;
+  return promise;
 }
 
 function dashboardCell(row, index) {
@@ -230,13 +298,55 @@ function chartOptions(title) {
     };
 }
 
-function initMondayBoardPage() {
-    if (!document.getElementById('membersTrendChart')) return;
+function escapeHtml(v) {
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
-    const updatedLine = document.getElementById('updatedLine');
-    if (updatedLine) updatedLine.textContent = 'Last updated: ' + new Date().toLocaleString();
+function renderTable(container, block) {
+  if (!block.rows.length) {
+    container.innerHTML = '<div class="empty">No data found.</div>';
+    return;
+  }
+  let html = '<table class="filterable"><thead><tr>';
+  block.headers.forEach(h => { html += '<th>' + escapeHtml(h) + '</th>'; });
+  html += '</tr></thead><tbody>';
+  block.rows.forEach(row => {
+    html += '<tr>';
+    row.forEach((cell, c) => {
+      html += '<td>' + escapeHtml(cell) + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
 
-    fetchMondayBoardDashboard()
+function showError(elId, err) {
+  document.getElementById(elId).innerHTML = '<div class="error">' + escapeHtml(err.message || err) + '</div>';
+}
+
+function loadMondayPage(key) {
+  const config = MONDAY_PAGE_CONFIGS[key];
+  fetchMondaySheetRaw(config.sheetName).then(rawRows => {
+    const colStartIdx = (config.dataStartCol || 1) - 1; // Default to 1 (column A) if not specified, convert to 0-indexed
+    const headerRowData = rawRows[config.headerRow - 1] || [];
+    const headers = headerRowData.slice(colStartIdx).filter(h => h); // Extract headers starting from dataStartCol
+    const rows = rawRows.slice(config.dataStartRow - 1)
+      .map(row => normalizeRow(row, colStartIdx + headers.length).slice(colStartIdx, colStartIdx + headers.length))
+      .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
+    renderTable(document.getElementById(key + '-wrap'), { headers, rows });
+  }).catch(err => showError(key + '-wrap', err));
+}
+
+const loadedTabs = {};
+function loadMondayTab(key) {
+  if (loadedTabs[key]) return;
+  loadedTabs[key] = true;
+  if (key === 'overview') {
+     fetchMondayBoardDashboard()
         .then(renderMondayBoardCharts)
         .catch(error => {
         document.querySelectorAll('.chart-card .loading').forEach(loading => {
@@ -244,6 +354,35 @@ function initMondayBoardPage() {
             loading.classList.add('error');
         });
         });
+  } else if (key === 'current_mondayReport' || key === 'last_mondayReport') {
+    const config = MONDAY_PAGE_CONFIGS[key];
+    const frame = document.getElementById(key + '-frame');
+    if (frame && config.publishedUrl) {
+      frame.src = config.publishedUrl;
+    }
+  } else {
+    loadMondayPage(key);
+  }
+}
+
+function initMondayBoardPage() {
+    if (!document.getElementById('membersTrendChart')) return;
+
+    const updatedLine = document.getElementById('updatedLine');
+    if (updatedLine) updatedLine.textContent = 'Last updated: ' + new Date().toLocaleString();
+
+    const navButtons = document.querySelectorAll('nav.site-nav button');
+    navButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            navButtons.forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            loadMondayTab(btn.dataset.tab);
+        });
+    });
+
+    loadMondayTab('overview');
 }
 
 initMondayBoardPage();
