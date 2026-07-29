@@ -4,13 +4,13 @@ const MONDAY_BOARD_SHEET_NAME = 'DASHBOARD';
 const MONDAY_PAGE_CONFIGS = {
   current_mondayReport: {
     sheetName: 'MONDAY BOARD_SHEET',
-    publishedUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQo8mdLaK_NEmRatCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=626263matCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=626263845&single=true&widget=false&headers=false&chrome=false'
+    publishedUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQo8mdLaK_NEmRatCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=626263845&single=true&widget=false&headers=false&chrome=false'
   },
   last_mondayReport:    {
     sheetName: 'LAST WEEK REPORT',
     publishedUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQo8mdLaK_NEmRatCrbpPSVEWeEhoJ-SH_vMb5hYj7GQN2Oaw8SOKjGr-Xc7rrtisHxRk2J0A61a8Z/pubhtml?gid=1101005694&single=true&widget=false&headers=false&chrome=false'
-  },
-  current_memberList:   { sheetName: 'MEMBERS_LIST',       headerRow: 2, dataStartRow: 3 }
+  }, // The user provided the full published URL, so we use that directly.
+  current_memberList:   { sheetName: 'MEMBERS_LIST',       headerRow: 2, dataStartRow: 3, dataStartCol: 2 }
 };
 
 let mondayJsonpCounter = 0;
@@ -331,10 +331,11 @@ function showError(elId, err) {
 function loadMondayPage(key) {
   const config = MONDAY_PAGE_CONFIGS[key];
   fetchMondaySheetRaw(config.sheetName).then(rawRows => {
-    const headerRow = rawRows[config.headerRow - 1] || [];
-    const headers = headerRow.filter(h => h); // Simple header extraction
+    const colStartIdx = (config.dataStartCol || 1) - 1; // Default to 1 (column A) if not specified, convert to 0-indexed
+    const headerRowData = rawRows[config.headerRow - 1] || [];
+    const headers = headerRowData.slice(colStartIdx).filter(h => h); // Extract headers starting from dataStartCol
     const rows = rawRows.slice(config.dataStartRow - 1)
-      .map(row => normalizeRow(row, headers.length).slice(0, headers.length))
+      .map(row => normalizeRow(row, colStartIdx + headers.length).slice(colStartIdx, colStartIdx + headers.length))
       .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
     renderTable(document.getElementById(key + '-wrap'), { headers, rows });
   }).catch(err => showError(key + '-wrap', err));
