@@ -1,2 +1,1 @@
-# Ignore configuration files containing secrets
-js/config.js
+# Supabase browser configuration uses a public URL and publishable anon key.
