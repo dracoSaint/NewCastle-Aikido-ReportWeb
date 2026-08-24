@@ -1,5 +1,4 @@
 /* ============ CONFIG - edit these to match your sheet ============ */
-const SPREADSHEET_ID = '1EmS3-3mxova9vQSavu-bYR05sGyve-q5CE2Xq12FLis';
 
 // Home page: one sheet, two column-blocks side by side
 const HOME_SHEET_NAME = 'ELIGIBLE MEMBERS'; // <-- confirm this matches your actual tab name
@@ -77,7 +76,7 @@ function fetchSheetRaw(sheetName) {
       }
     };
 
-    const url = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID +
+    const url = 'https://docs.google.com/spreadsheets/d/' + config.gradingSpreadsheetId +
       '/gviz/tq?tqx=out:json;responseHandler:' + cbName +
       '&sheet=' + encodeURIComponent(sheetName) +
       '&headers=0';
@@ -151,8 +150,8 @@ function escapeHtml(v) {
 }
 
 function setUpdatedNow() {
-  document.getElementById('updatedLine').textContent =
-    'Last updated: ' + new Date().toLocaleString();
+  const now = new Date();
+  document.getElementById('updatedLine').textContent = 'Last updated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
 }
 
 function loadHome() {
