@@ -15,6 +15,10 @@
         { 
             label: 'Monday Board Report', 
             path: 'pages/REPORTs/MondayBoardReport.html'
+        },
+        { 
+            label: 'Attendance Report',
+            path: 'pages/REPORTs/AttendanceReport.html'
         }
       ]
     },

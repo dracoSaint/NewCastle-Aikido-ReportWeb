@@ -356,7 +356,10 @@ function initMondayBoardPage() {
     if (!document.getElementById('membersTrendChart')) return;
 
     const updatedLine = document.getElementById('updatedLine');
-    if (updatedLine) updatedLine.textContent = 'Last updated: ' + new Date().toLocaleString();
+    if (updatedLine) {
+      const now = new Date();
+      updatedLine.textContent = 'Last updated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+    }
 
     const navButtons = document.querySelectorAll('nav.site-nav button');
     navButtons.forEach(btn => {

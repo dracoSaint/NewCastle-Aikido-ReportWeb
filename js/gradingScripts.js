@@ -150,8 +150,8 @@ function escapeHtml(v) {
 }
 
 function setUpdatedNow() {
-  document.getElementById('updatedLine').textContent =
-    'Last updated: ' + new Date().toLocaleString();
+  const now = new Date();
+  document.getElementById('updatedLine').textContent = 'Last updated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
 }
 
 function loadHome() {

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance Report - Newcastle Aikido</title>
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../js/auth.js"></script>
+</head>
+<body>
+
+<header>
+    <p id="updatedLine">Loading...</p>
+    <button id="openSpreadsheet" onclick="window.open('https://docs.google.com/spreadsheets/d/1ULOJ_f5-DpGZfY1raQWfTbFENAtnnvIYPSniUi06D_g/edit?usp=sharing', '_blank')">Open Spreadsheet</button>
+    <input type="search" id="filterInput" placeholder="Search by name...">
+</header>
+
+<main class="report-main">
+  <div class="report-content">
+    <div class="report-header">
+      <h1>Attendance Report</h1>
+    </div>
+    <div id="attendance-report-wrap" class="table-wrap">
+      <div class="loading">Loading report...</div>
+    </div>
+  </div>
+</main>
+
+<footer></footer>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/attendanceReportScripts.js"></script>
+<script src="../../js/siteHeader.js"></script>
+<script src="../../js/siteMenu.js"></script>
+<script src="../../js/footer.js"></script>
+</body>
+
+</html>
