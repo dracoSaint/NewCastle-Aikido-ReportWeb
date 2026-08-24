@@ -4,10 +4,14 @@
   const siteRoot = new URL('../', scriptUrl);
   const loginUrl = new URL('login.html', siteRoot).href;
   const registerUrl = new URL('register.html', siteRoot).href;
+  const registerErrorUrl = new URL('register-error.html', siteRoot).href;
   const resetUrl = new URL('reset-password.html', siteRoot).href;
   const homeUrl = new URL('index.html', siteRoot).href;
 
-  const isInviteLink = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'invite';
+  const inviteParams = new URLSearchParams(window.location.hash.slice(1));
+  const isInviteLink = inviteParams.get('type') === 'invite' &&
+                       Boolean(inviteParams.get('access_token')) &&
+                       Boolean(inviteParams.get('refresh_token'));
   const currentUrlClean = window.location.href.split('?')[0].split('#')[0].toLowerCase();
   const pathname = window.location.pathname.toLowerCase();
   
@@ -29,6 +33,11 @@
     return;
   }
 
+  if (isRegisterPage && !isInviteLink) {
+    window.location.replace(registerErrorUrl);
+    return;
+  }
+
   // Fast synchronous check using localStorage
   const projectRef = 'knnzybqudpdxhddcaxcv';
   const tokenKey = `sb-${projectRef}-auth-token`;
@@ -46,7 +55,7 @@
       const script = document.createElement('script');
       script.src = src;
       script.onload = resolve;
-      script.onerror = reject;
+      script.onerror = () => reject(new Error(`Failed to load authentication resource: ${src}`));
       document.head.appendChild(script);
     });
   }
@@ -124,7 +133,8 @@
   }
 
   // Start background validation
-  initAuth().catch(err => {
+  window.authReady = initAuth();
+  window.authReady.catch(err => {
     console.error('Auth initialization check failed:', err);
   });
 })();

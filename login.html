@@ -73,8 +73,12 @@
       spinner.hidden = false;
 
       try {
+        if (window.authReady) {
+          await window.authReady;
+        }
+
         if (!window.supabaseClient) {
-          throw new Error('Supabase client is not initialized yet. Please wait a moment and try again.');
+          throw new Error('Authentication service is unavailable. Please refresh the page and try again.');
         }
 
         const { data, error } = await window.supabaseClient.auth.signInWithPassword({
