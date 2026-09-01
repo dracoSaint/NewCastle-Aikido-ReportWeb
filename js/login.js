@@ -1,51 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Newcastle Aikido Portal</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <!-- Run authentication guard -->
-  <script src="js/auth.js"></script>
-</head>
-<body class="login-body">
-  <div class="login-wrapper">
-    <div class="login-glass-card">
-      <div class="login-header">
-        <img class="login-logo animate-fade-in" src="imgs/aikido-logo.png" alt="Newcastle Aikido Logo">
-        <h1 class="login-title">Newcastle Aikido</h1>
-        <p class="login-subtitle">Studio Operations Portal</p>
-      </div>
-
-      <form id="loginForm" class="login-form">
-        <div id="errorMessage" class="error-container" aria-live="assertive" hidden>
-          <span class="error-icon">⚠️</span>
-          <span id="errorText" class="error-text"></span>
-        </div>
-
-        <div class="input-group">
-          <input type="email" id="email" required placeholder=" " autocomplete="email">
-          <label for="email">Email Address</label>
-        </div>
-
-        <div class="input-group">
-          <input type="password" id="password" required placeholder=" " autocomplete="current-password">
-          <label for="password">Password</label>
-        </div>
-
-        <div class="form-footer">
-          <a href="reset-password.html" class="forgot-link">Forgot Password?</a>
-        </div>
-
-        <button type="submit" id="submitBtn" class="login-btn">
-          <span class="btn-text">Sign In</span>
-          <span class="spinner" hidden></span>
-        </button>
-      </form>
-    </div>
-  </div>
-
-  <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -92,8 +44,7 @@
 
         // Success! Supabase will handle storing the token in localStorage.
         // Redirect to the home page (index.html)
-        const currentUrlClean = window.location.href.split('?')[0].split('#')[0];
-        const homeUrl = currentUrlClean.substring(0, currentUrlClean.lastIndexOf('/')) + '/index.html';
+        const homeUrl = new URL('../index.html', window.location.href).href;
         window.location.replace(homeUrl);
 
       } catch (err) {
@@ -115,6 +66,3 @@
       errorContainer.classList.add('shake');
       setTimeout(() => errorContainer.classList.remove('shake'), 500);
     }
-  </script>
-</body>
-</html>

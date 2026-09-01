@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "start": "npx --yes http-server . -p 8000",
+    "dev": "npx --yes http-server . -p 8000"
+  },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.111.0"

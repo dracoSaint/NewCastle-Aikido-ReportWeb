@@ -163,6 +163,40 @@ header {
   font-weight: 700;
 }
 
+.sop-sidebar-actions {
+  padding: 12px 14px 0;
+}
+
+.sop-action-button {
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.sop-action-button:hover {
+  opacity: 0.96;
+  transform: translateY(-1px);
+}
+
+.sop-action-button.primary {
+  background: var(--red);
+  color: #fff;
+}
+
+.sop-action-button.secondary {
+  background: #f2f2f2;
+  color: var(--black);
+}
+
+.sop-action-button.danger {
+  background: #b3261e;
+  color: #fff;
+}
+
 .sop-menu-category h2 {
   margin: 0;
   padding: 14px 18px 8px;
@@ -216,6 +250,13 @@ header {
   border-bottom: 1px solid var(--line);
 }
 
+.sop-reader-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .sop-eyebrow {
   margin: 0 0 5px;
   color: #777;
@@ -256,6 +297,98 @@ header {
   width: 100%;
   height: 720px;
   border: 0;
+}
+
+.sop-modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 20;
+}
+
+.sop-modal.hidden {
+  display: none;
+}
+
+.sop-modal-dialog {
+  width: min(560px, calc(100vw - 32px));
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+.sop-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sop-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.sop-close-button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: #f4f4f4;
+  color: var(--black);
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sop-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field label {
+  font-weight: 700;
+  color: var(--black);
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+  outline: 2px solid rgba(154, 18, 29, 0.15);
+  border-color: var(--red);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.sop-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 @media (max-width: 760px) {

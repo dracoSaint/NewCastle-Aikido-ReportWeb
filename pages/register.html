@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complete Registration - Newcastle Aikido Portal</title>
+  <link rel="stylesheet" href="../css/styles.css">
+  <script src="../js/auth.js"></script>
+</head>
+<body class="login-body">
+  <div class="login-wrapper">
+    <div class="login-glass-card">
+      <div class="login-header">
+        <img class="login-logo animate-fade-in" src="../imgs/aikido-logo.png" alt="Newcastle Aikido Logo">
+        <h1 class="login-title">Complete Registration</h1>
+        <p class="login-subtitle">Set up your Studio Operations Portal account</p>
+      </div>
+
+      <form id="registerForm" class="login-form">
+        <div id="errorMessage" class="error-container" aria-live="assertive" hidden>
+          <span class="error-icon">!</span>
+          <span id="errorText" class="error-text"></span>
+        </div>
+
+        <div class="input-group">
+          <input type="text" id="fullName" required placeholder=" " autocomplete="name">
+          <label for="fullName">Full Name</label>
+        </div>
+
+        <div class="input-group">
+          <input type="password" id="password" required placeholder=" " autocomplete="new-password" minlength="8">
+          <label for="password">Password</label>
+        </div>
+
+        <div class="input-group">
+          <input type="password" id="confirmPassword" required placeholder=" " autocomplete="new-password" minlength="8">
+          <label for="confirmPassword">Confirm Password</label>
+        </div>
+
+        <button type="submit" id="submitBtn" class="login-btn">
+          <span class="btn-text">Create Account</span>
+          <span class="spinner" hidden></span>
+        </button>
+      </form>
+    </div>
+  </div>
+  <script src="../js/siteHeader.js"></script>
+  <script src="../js/register.js"></script>
+</body>
+</html>

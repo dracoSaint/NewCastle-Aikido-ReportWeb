@@ -2,7 +2,7 @@
   const scriptUrl = new URL(document.currentScript.src);
   const siteRoot  = new URL('../', scriptUrl);
   const homeUrl    = new URL('index.html',    siteRoot).href;
-  const profileUrl = new URL('profile.html',  siteRoot).href;
+  const profileUrl = new URL('pages/profile.html', siteRoot).href;
   const logoUrl    = new URL('imgs/aikido-logo.png', siteRoot).href;
 
   function initSiteIcon() {
