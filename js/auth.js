@@ -2,10 +2,10 @@
   // Determine site root dynamically from the location of this script
   const scriptUrl = new URL(document.currentScript.src);
   const siteRoot = new URL('../', scriptUrl);
-  const loginUrl = new URL('login.html', siteRoot).href;
-  const registerUrl = new URL('register.html', siteRoot).href;
-  const registerErrorUrl = new URL('register-error.html', siteRoot).href;
-  const resetUrl = new URL('reset-password.html', siteRoot).href;
+  const loginUrl = new URL('pages/login.html', siteRoot).href;
+  const registerUrl = new URL('pages/register.html', siteRoot).href;
+  const registerErrorUrl = new URL('pages/register-error.html', siteRoot).href;
+  const resetUrl = new URL('pages/reset-password.html', siteRoot).href;
   const homeUrl = new URL('index.html', siteRoot).href;
 
   const inviteParams = new URLSearchParams(window.location.hash.slice(1));

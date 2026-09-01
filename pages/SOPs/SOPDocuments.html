@@ -19,6 +19,9 @@
     <div class="sop-sidebar-header">
       <span>SOP Library</span>
     </div>
+    <div class="sop-sidebar-actions">
+      <button id="addSopBtn" class="sop-action-button primary" type="button">Add New SOP</button>
+    </div>
     <nav id="sopMenu"></nav>
   </aside>
 
@@ -28,7 +31,10 @@
         <p class="sop-eyebrow">Process / SOP</p>
         <h2 id="sopTitle">Billing & Payments</h2>
       </div>
-      <a id="openSopLink" class="sop-open-link" target="_blank" rel="noopener" hidden>Open in Google Drive</a>
+      <div class="sop-reader-actions">
+        <button id="deleteSopBtn" class="sop-action-button danger" type="button" hidden>Delete SOP</button>
+        <a id="openSopLink" class="sop-open-link" target="_blank" rel="noopener" hidden>Open in Google Drive</a>
+      </div>
     </div>
     <div id="sopStatus" class="sop-status" hidden>
       <strong>Google Drive file not connected yet.</strong>
@@ -37,6 +43,44 @@
     <iframe id="sopFrame" class="sop-frame" title="Selected SOP document" hidden></iframe>
   </section>
 </main>
+
+<div id="sopModal" class="sop-modal hidden" aria-hidden="true">
+  <div class="sop-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="sopModalTitle">
+    <div class="sop-modal-header">
+      <h3 id="sopModalTitle">Add New SOP</h3>
+      <button id="closeSopModalBtn" class="sop-close-button" type="button" aria-label="Close">×</button>
+    </div>
+
+    <form id="sopForm" class="sop-form">
+      <div class="form-field">
+        <label for="sopCategorySelect">Category</label>
+        <select id="sopCategorySelect" name="category">
+          <option value="">Select a category</option>
+        </select>
+      </div>
+
+      <div id="newCategoryField" class="form-field hidden">
+        <label for="sopNewCategoryInput">New category name</label>
+        <input id="sopNewCategoryInput" name="newCategory" type="text" placeholder="Enter a new category" maxlength="80">
+      </div>
+
+      <div class="form-field">
+        <label for="sopTitleInput">SOP title</label>
+        <input id="sopTitleInput" name="title" type="text" placeholder="Example: Membership - Update member notes" maxlength="150" required>
+      </div>
+
+      <div class="form-field">
+        <label for="sopDriveIdInput">Google Doc ID</label>
+        <input id="sopDriveIdInput" name="driveFileId" type="text" placeholder="Paste the document ID only" maxlength="200" required>
+      </div>
+
+      <div class="sop-form-actions">
+        <button id="cancelSopBtn" class="sop-action-button secondary" type="button">Cancel</button>
+        <button class="sop-action-button primary" type="submit">Save SOP</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <footer></footer>
 

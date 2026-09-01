@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile Settings - Newcastle Aikido</title>
+  <link rel="stylesheet" href="../css/styles.css">
+  <script src="../js/auth.js"></script>
+</head>
+<body>
+
+  <header>
+    <p>Manage your account settings and credentials.</p>
+  </header>
+
+  <main class="profile-main">
+
+    <!-- User identity hero banner -->
+    <div class="profile-hero-card">
+      <div class="profile-avatar" id="profileAvatar">?</div>
+      <div class="profile-identity">
+        <p class="profile-identity-name" id="heroName">Loading...</p>
+        <p class="profile-identity-email" id="heroEmail">Loading...</p>
+        <span class="profile-identity-badge">Authenticated User</span>
+      </div>
+    </div>
+
+    <div class="profile-grid">
+
+      <!-- Section 1: Profile Details -->
+      <div class="card">
+        <h2>Profile Details</h2>
+        <div class="profile-card-content">
+          <form id="profileDetailsForm" novalidate>
+
+            <div id="profileAlert" class="profile-alert" hidden>
+              <span class="alert-icon"></span>
+              <span class="alert-text"></span>
+            </div>
+
+            <div class="profile-form-group">
+              <label for="displayName">Display Name</label>
+              <input type="text" id="displayName" placeholder="Enter your display name" autocomplete="name">
+            </div>
+
+            <div class="profile-form-group">
+              <label for="profileEmail">Email Address</label>
+              <input type="email" id="profileEmail" required autocomplete="email">
+              <p class="profile-helper">⚠ Changing your email will send a confirmation link to the new address before it takes effect.</p>
+            </div>
+
+            <button type="submit" id="profileSubmitBtn" class="profile-btn">
+              <span class="btn-text">Save Changes</span>
+              <span class="spinner" hidden></span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Section 2: Change Password -->
+      <div class="card">
+        <h2>Security (Change Password)</h2>
+        <div class="profile-card-content">
+          <form id="profileSecurityForm" novalidate>
+
+            <div id="securityAlert" class="profile-alert" hidden>
+              <span class="alert-icon"></span>
+              <span class="alert-text"></span>
+            </div>
+
+            <div class="profile-form-group">
+              <label for="oldPassword">Old Password</label>
+              <div class="profile-password-wrap">
+                <input type="password" id="oldPassword" required autocomplete="current-password" placeholder="Enter your current password">
+                <button type="button" class="profile-pw-toggle" aria-label="Show/hide password" data-target="oldPassword">👁</button>
+              </div>
+              <p class="profile-helper">Enter your old password to unlock the new password fields.</p>
+            </div>
+
+            <div class="profile-form-group">
+              <label for="newPassword">New Password</label>
+              <div class="profile-password-wrap">
+                <input type="password" id="newPassword" required autocomplete="new-password" placeholder="Minimum 8 characters" disabled>
+                <button type="button" class="profile-pw-toggle" aria-label="Show/hide password" data-target="newPassword">👁</button>
+              </div>
+              <!-- Live password requirements checklist -->
+              <ul class="pw-requirements" id="pwRequirements" aria-live="polite">
+                <li id="req-length"  class="req">At least 8 characters</li>
+                <li id="req-upper"   class="req">At least 1 uppercase letter (A–Z)</li>
+                <li id="req-special" class="req">At least 1 special character (!@#$…)</li>
+              </ul>
+            </div>
+
+            <div class="profile-form-group">
+              <label for="confirmPassword">Confirm Password</label>
+              <div class="profile-password-wrap">
+                <input type="password" id="confirmPassword" required autocomplete="new-password" placeholder="Re-type new password" disabled>
+                <button type="button" class="profile-pw-toggle" aria-label="Show/hide password" data-target="confirmPassword">👁</button>
+              </div>
+              <div id="pwMatchIndicator" class="pw-match-indicator" hidden></div>
+            </div>
+
+            <button type="submit" id="securitySubmitBtn" class="profile-btn">
+              <span class="btn-text">Update Password</span>
+              <span class="spinner" hidden></span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer></footer>
+
+  <script src="../js/siteHeader.js"></script>
+  <script src="../js/siteMenu.js"></script>
+  <script src="../js/footer.js"></script>
+  <script src="../js/profile.js"></script>
+</body>
+</html>

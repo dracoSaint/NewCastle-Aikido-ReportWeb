@@ -1,0 +1,229 @@
+{
+  "communities": {
+    "0": [
+      "js_mondayboardscripts",
+      "js_mondayboardscripts_chartcolors",
+      "js_mondayboardscripts_chartoptions",
+      "js_mondayboardscripts_dashboardcell",
+      "js_mondayboardscripts_dashboarddatelabels",
+      "js_mondayboardscripts_dashboardlabel",
+      "js_mondayboardscripts_escapehtml",
+      "js_mondayboardscripts_fetchmondayboarddashboard",
+      "js_mondayboardscripts_fetchmondayboarddashboard_cleanup",
+      "js_mondayboardscripts_fetchmondaysheetraw",
+      "js_mondayboardscripts_fetchmondaysheetraw_cleanup",
+      "js_mondayboardscripts_fetchsupabasetable",
+      "js_mondayboardscripts_finddashboardrow",
+      "js_mondayboardscripts_initmondayboardpage",
+      "js_mondayboardscripts_loadedtabs",
+      "js_mondayboardscripts_loadmondaypage",
+      "js_mondayboardscripts_loadmondaytab",
+      "js_mondayboardscripts_loadsupabasememberlist",
+      "js_mondayboardscripts_monday_page_configs",
+      "js_mondayboardscripts_mondaysheetcache",
+      "js_mondayboardscripts_normalizerow",
+      "js_mondayboardscripts_rendermondayboardcharts",
+      "js_mondayboardscripts_rendertable",
+      "js_mondayboardscripts_showerror",
+      "js_mondayboardscripts_valuesforrow"
+    ],
+    "1": [
+      "js_gradingscripts",
+      "js_gradingscripts_classify",
+      "js_gradingscripts_escapehtml",
+      "js_gradingscripts_fetchsheetraw",
+      "js_gradingscripts_fetchsheetraw_cleanup",
+      "js_gradingscripts_getheaders",
+      "js_gradingscripts_header_fallbacks",
+      "js_gradingscripts_home_adults_cols",
+      "js_gradingscripts_home_juniors_cols",
+      "js_gradingscripts_initgradingpage",
+      "js_gradingscripts_loaded",
+      "js_gradingscripts_loadhome",
+      "js_gradingscripts_loadpage",
+      "js_gradingscripts_loadtab",
+      "js_gradingscripts_normalizerow",
+      "js_gradingscripts_page_configs",
+      "js_gradingscripts_rendertable",
+      "js_gradingscripts_setupdatednow",
+      "js_gradingscripts_sheetcache",
+      "js_gradingscripts_showerror",
+      "js_gradingscripts_sliceblock"
+    ],
+    "2": [
+      "js_attendancereportscripts",
+      "js_attendancereportscripts_escapehtml",
+      "js_attendancereportscripts_fetchsheetraw",
+      "js_attendancereportscripts_fetchsheetraw_cleanup",
+      "js_attendancereportscripts_getheaders",
+      "js_attendancereportscripts_header_fallbacks",
+      "js_attendancereportscripts_initattendancereportpage",
+      "js_attendancereportscripts_loadattendancereport",
+      "js_attendancereportscripts_normalizerow",
+      "js_attendancereportscripts_rendertable",
+      "js_attendancereportscripts_setupfiltering",
+      "js_attendancereportscripts_setupprintbutton",
+      "js_attendancereportscripts_sheetcache",
+      "js_attendancereportscripts_showerror"
+    ],
+    "3": [
+      "js_sopreader",
+      "js_sopreader_escapesophtml",
+      "js_sopreader_getcategorynamebyitemid",
+      "js_sopreader_getdrivepreviewurl",
+      "js_sopreader_getsopbyid",
+      "js_sopreader_initsopreader",
+      "js_sopreader_rendersopaccordion",
+      "js_sopreader_rendersopdocument",
+      "js_sopreader_showmissingfilenotice",
+      "js_sopreader_sop_documents"
+    ],
+    "4": [
+      "js_register",
+      "js_register_btntext",
+      "js_register_errorcontainer",
+      "js_register_errortext",
+      "js_register_form",
+      "js_register_showerror",
+      "js_register_spinner",
+      "js_register_submitbtn",
+      "js_register_waitforinvitesession"
+    ],
+    "5": [
+      "js_profile",
+      "js_profile_clearalert",
+      "js_profile_getpasswordrules",
+      "js_profile_loaduserdata",
+      "js_profile_setloading",
+      "js_profile_setreq",
+      "js_profile_showalert",
+      "js_profile_updatematchindicator"
+    ],
+    "6": [
+      "js_sitemenu",
+      "js_sitemenu_buildmenu",
+      "js_sitemenu_getmenuurl",
+      "js_sitemenu_grouphasactiveitem",
+      "js_sitemenu_initsitemenu",
+      "js_sitemenu_initunfinishedfeaturenotice",
+      "js_sitemenu_rendermenugroup"
+    ],
+    "7": [
+      "js_siteheader",
+      "js_siteheader_initdropdownbehaviour",
+      "js_siteheader_initsiteheader",
+      "js_siteheader_initsiteicon",
+      "js_siteheader_populateavatarasync",
+      "js_siteheader_populateavatarasync_trypopulate"
+    ],
+    "8": [
+      "package",
+      "package_dependencies",
+      "package_dependencies_supabase_ssr",
+      "package_dependencies_supabase_supabase_js",
+      "supabase_ssr",
+      "supabase_supabase_js"
+    ],
+    "9": [
+      "js_auth",
+      "js_auth_initauth",
+      "js_auth_loadscript",
+      "js_auth_setuplogoutbutton"
+    ],
+    "10": [
+      "js_reset_password",
+      "js_reset_password_initviews",
+      "js_reset_password_showerror",
+      "js_reset_password_startcooldown"
+    ],
+    "11": [
+      "js_config",
+      "js_config_config",
+      "js_config_rationale_1"
+    ],
+    "12": [
+      "js_footer",
+      "js_footer_initsitefooter"
+    ],
+    "13": [
+      "js_login",
+      "js_login_showerror"
+    ]
+  },
+  "cohesion": {
+    "0": 0.16666666666666666,
+    "1": 0.18571428571428572,
+    "2": 0.27472527472527475,
+    "3": 0.35555555555555557,
+    "4": 0.25,
+    "5": 0.25,
+    "6": 0.5714285714285714,
+    "7": 0.4666666666666667,
+    "8": 0.3333333333333333,
+    "9": 0.8333333333333334,
+    "10": 0.5,
+    "11": 0.6666666666666666,
+    "12": 1.0,
+    "13": 1.0
+  },
+  "gods": [
+    {
+      "id": "js_mondayboardscripts_rendermondayboardcharts",
+      "label": "renderMondayBoardCharts()",
+      "degree": 8
+    },
+    {
+      "id": "js_gradingscripts_loadpage",
+      "label": "loadPage()",
+      "degree": 7
+    },
+    {
+      "id": "js_attendancereportscripts_loadattendancereport",
+      "label": "loadAttendanceReport()",
+      "degree": 7
+    },
+    {
+      "id": "js_mondayboardscripts_loadmondaypage",
+      "label": "loadMondayPage()",
+      "degree": 6
+    },
+    {
+      "id": "js_mondayboardscripts_loadmondaytab",
+      "label": "loadMondayTab()",
+      "degree": 6
+    },
+    {
+      "id": "js_gradingscripts_loadhome",
+      "label": "loadHome()",
+      "degree": 6
+    },
+    {
+      "id": "js_mondayboardscripts_dashboardcell",
+      "label": "dashboardCell()",
+      "degree": 5
+    },
+    {
+      "id": "js_mondayboardscripts_loadsupabasememberlist",
+      "label": "loadSupabaseMemberList()",
+      "degree": 5
+    },
+    {
+      "id": "js_gradingscripts_fetchsheetraw",
+      "label": "fetchSheetRaw()",
+      "degree": 5
+    },
+    {
+      "id": "js_gradingscripts_normalizerow",
+      "label": "normalizeRow()",
+      "degree": 5
+    }
+  ],
+  "surprises": [],
+  "questions": [
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `loadedTabs`, `MONDAY_PAGE_CONFIGS`, `mondaySheetCache` to the rest of the system?",
+      "why": "21 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}

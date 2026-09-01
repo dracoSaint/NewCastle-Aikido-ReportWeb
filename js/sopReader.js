@@ -1,4 +1,4 @@
-const SOP_DOCUMENTS = [
+const DEFAULT_SOP_DOCUMENTS = [
   {
     category: 'Billing & Payments',
     items: [
@@ -193,6 +193,92 @@ const SOP_DOCUMENTS = [
   }
 ];
 
+const SOP_STORAGE_KEY = 'wrkpod-sop-library';
+
+function loadSopDocuments() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SOP_STORAGE_KEY) || 'null');
+    if (Array.isArray(saved) && saved.length > 0) {
+      return saved;
+    }
+  } catch (error) {
+    console.warn('Failed to load saved SOP library:', error);
+  }
+
+  localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(DEFAULT_SOP_DOCUMENTS));
+  return JSON.parse(JSON.stringify(DEFAULT_SOP_DOCUMENTS));
+}
+
+let SOP_DOCUMENTS = loadSopDocuments();
+
+function persistSopDocuments() {
+  localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(SOP_DOCUMENTS));
+}
+
+function getAllCategories() {
+  return SOP_DOCUMENTS.map(category => category.category);
+}
+
+function ensureCategory(categoryName) {
+  const trimmed = String(categoryName || '').trim();
+  if (!trimmed) return null;
+
+  let category = SOP_DOCUMENTS.find(item => item.category.toLowerCase() === trimmed.toLowerCase());
+  if (!category) {
+    category = { category: trimmed, items: [] };
+    SOP_DOCUMENTS.push(category);
+  }
+
+  return category;
+}
+
+function generateUniqueSopId(baseLabel) {
+  const cleanBase = String(baseLabel || 'new-sop')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'new-sop';
+
+  const usedIds = new Set(SOP_DOCUMENTS.flatMap(category => category.items.map(item => item.id)));
+  let candidate = cleanBase;
+  let suffix = 1;
+
+  while (usedIds.has(candidate)) {
+    candidate = `${cleanBase}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+function addSopDocument({ category, title, driveFileId }) {
+  const categoryObj = ensureCategory(category);
+  if (!categoryObj) return null;
+
+  const nextItem = {
+    id: generateUniqueSopId(title),
+    label: title.trim(),
+    driveFileId: String(driveFileId || '').trim()
+  };
+
+  categoryObj.items.push(nextItem);
+  persistSopDocuments();
+  return nextItem;
+}
+
+function deleteSopDocument(itemId) {
+  const categoryIndex = SOP_DOCUMENTS.findIndex(category => category.items.some(item => item.id === itemId));
+  if (categoryIndex === -1) return;
+
+  SOP_DOCUMENTS[categoryIndex].items = SOP_DOCUMENTS[categoryIndex].items.filter(item => item.id !== itemId);
+
+  if (SOP_DOCUMENTS[categoryIndex].items.length === 0) {
+    SOP_DOCUMENTS.splice(categoryIndex, 1);
+  }
+
+  persistSopDocuments();
+}
+
 //=====================================================================================
 
 let noticeTimer;
@@ -215,8 +301,13 @@ function showMissingFileNotice() {
 
 //=====================================================================================
 function getSopById(id) {
+  if (!SOP_DOCUMENTS || SOP_DOCUMENTS.length === 0) return null;
+
   const foundItem = SOP_DOCUMENTS.flatMap(cat => cat.items).find(item => item.id === id);
-  return foundItem || SOP_DOCUMENTS[0].items[0];
+  if (foundItem) return foundItem;
+
+  const firstCategory = SOP_DOCUMENTS.find(cat => Array.isArray(cat.items) && cat.items.length > 0);
+  return firstCategory ? firstCategory.items[0] : null;
 }
 
 function getCategoryNameByItemId(itemId) {
@@ -228,7 +319,73 @@ function getDrivePreviewUrl(fileId) {
   return 'https://docs.google.com/document/d/' + encodeURIComponent(fileId) + '/preview';
 }
 
+function getFirstAvailableSopId() {
+  const firstItem = SOP_DOCUMENTS.flatMap(category => category.items).find(item => item && item.id);
+  return firstItem ? firstItem.id : '';
+}
+
+function syncSelectedSopState(itemId) {
+  const id = itemId || getFirstAvailableSopId();
+  if (!id) {
+    history.replaceState(null, '', window.location.pathname);
+    return null;
+  }
+
+  history.replaceState(null, '', '?sop=' + encodeURIComponent(id));
+  return id;
+}
+
+function refreshSopCategoryOptions(selectedValue) {
+  const categorySelect = document.getElementById('sopCategorySelect');
+  if (!categorySelect) return;
+
+  const currentSelection = selectedValue || '';
+  const values = getAllCategories();
+  const optionValues = values.filter(Boolean);
+
+  categorySelect.innerHTML = [
+    '<option value="">Select a category</option>',
+    '<option value="__new__">+ Add new category</option>',
+    ...optionValues.map(category => `<option value="${escapeSopHtml(category)}">${escapeSopHtml(category)}</option>`)
+  ].join('');
+
+  categorySelect.value = currentSelection && optionValues.includes(currentSelection) ? currentSelection : '';
+  const newCategoryField = document.getElementById('newCategoryField');
+  const showNewCategory = categorySelect.value === '__new__';
+  newCategoryField.classList.toggle('hidden', !showNewCategory);
+  if (!showNewCategory) {
+    document.getElementById('sopNewCategoryInput').value = '';
+  }
+}
+
+function openSopModal() {
+  const modal = document.getElementById('sopModal');
+  if (!modal) return;
+
+  refreshSopCategoryOptions();
+  document.getElementById('sopForm').reset();
+  const modalTitle = document.getElementById('sopModalTitle');
+  modalTitle.textContent = 'Add New SOP';
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeSopModal() {
+  const modal = document.getElementById('sopModal');
+  if (!modal) return;
+
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  document.getElementById('sopForm').reset();
+  refreshSopCategoryOptions();
+}
+
 function renderSopAccordion(selectedId) {
+  if (!SOP_DOCUMENTS.length) {
+    return `
+      <div class="sop-empty-state">No SOPs saved yet. Click “Add New SOP” to create one.</div>
+    `;
+  }
   return SOP_DOCUMENTS.map((category, index) => {
     const isCategoryActive = category.items.some(item => item.id === selectedId);
     
@@ -258,6 +415,23 @@ function renderSopDocument(item) {
   const status = document.getElementById('sopStatus');
   const frame = document.getElementById('sopFrame');
   const openLink = document.getElementById('openSopLink');
+  const deleteBtn = document.getElementById('deleteSopBtn');
+
+  if (!item) {
+    if (title) title.textContent = 'No SOP selected';
+    if (eyebrow) eyebrow.textContent = 'Process / SOP';
+    if (openLink) openLink.hidden = true;
+    if (deleteBtn) deleteBtn.hidden = true;
+    if (frame) {
+      frame.hidden = true;
+      frame.src = 'about:blank';
+    }
+    if (status) {
+      status.hidden = false;
+      status.innerHTML = '<strong>No SOPs available.</strong><span>Use “Add New SOP” to create one.</span>';
+    }
+    return;
+  }
 
   if (eyebrow) {
     eyebrow.textContent = getCategoryNameByItemId(item.id);
@@ -266,11 +440,13 @@ function renderSopDocument(item) {
   title.textContent = item.label;
   openLink.hidden = !item.driveFileId;
   openLink.href = item.driveFileId ? 'https://drive.google.com/file/d/' + encodeURIComponent(item.driveFileId) + '/view' : '#';
+  deleteBtn.hidden = false;
 
   if (!item.driveFileId || item.driveFileId.trim() === '') {
     frame.hidden = true;
     frame.src = 'about:blank';
     status.hidden = false;
+    status.innerHTML = '<strong>Google Drive file not connected yet.</strong><span>Add the Drive file ID for this SOP in the form below.</span>';
     return;
   }
 
@@ -289,49 +465,148 @@ function escapeSopHtml(value) {
 
 function initSopReader() {
   const menu = document.getElementById('sopMenu');
+  const addSopBtn = document.getElementById('addSopBtn');
+  const deleteSopBtn = document.getElementById('deleteSopBtn');
+  const modal = document.getElementById('sopModal');
+  const categorySelect = document.getElementById('sopCategorySelect');
+  const newCategoryField = document.getElementById('newCategoryField');
+  const sopForm = document.getElementById('sopForm');
+  const cancelSopBtn = document.getElementById('cancelSopBtn');
+  const closeSopModalBtn = document.getElementById('closeSopModalBtn');
+
   if (!menu) return;
 
-  const defaultId = SOP_DOCUMENTS[0].items[0].id;
-  const selectedId = new URLSearchParams(window.location.search).get('sop') || defaultId;
-  
-  menu.innerHTML = renderSopAccordion(selectedId);
+  const requestedId = new URLSearchParams(window.location.search).get('sop');
+  const initialId = SOP_DOCUMENTS.flatMap(category => category.items).some(item => item.id === requestedId)
+    ? requestedId
+    : getFirstAvailableSopId();
 
-  // Handle Collapsible Accordion Group Click
-  menu.querySelectorAll('.sop-accordion-toggle').forEach(button => {
-    button.addEventListener('click', () => {
-      const group = button.closest('.sop-accordion-group');
-      const isOpen = group.classList.contains('open');
-      
-      // Close all other accordion groups (optional - keep only 1 open at a time)
-      menu.querySelectorAll('.sop-accordion-group').forEach(otherGroup => {
-        if (otherGroup !== group) {
-          otherGroup.classList.remove('open');
-          otherGroup.querySelector('.sop-accordion-toggle').setAttribute('aria-expanded', 'false');
-        }
+  if (initialId) {
+    syncSelectedSopState(initialId);
+  }
+
+  function rebuildMenuAndSelection(selectedId) {
+    const validSelectedId = SOP_DOCUMENTS.flatMap(category => category.items).some(item => item.id === selectedId)
+      ? selectedId
+      : getFirstAvailableSopId();
+
+    menu.innerHTML = renderSopAccordion(validSelectedId);
+    menu.querySelectorAll('.sop-accordion-toggle').forEach(button => {
+      button.addEventListener('click', () => {
+        const group = button.closest('.sop-accordion-group');
+        const isOpen = group.classList.contains('open');
+
+        menu.querySelectorAll('.sop-accordion-group').forEach(otherGroup => {
+          if (otherGroup !== group) {
+            otherGroup.classList.remove('open');
+            otherGroup.querySelector('.sop-accordion-toggle').setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        group.classList.toggle('open', !isOpen);
+        button.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
       });
-
-      group.classList.toggle('open', !isOpen);
-      button.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
     });
+
+    menu.querySelectorAll('[data-sop-id]').forEach(button => {
+      button.addEventListener('click', () => {
+        const item = getSopById(button.dataset.sopId);
+
+        if (!item || (!item.driveFileId || item.driveFileId.trim() === '')) {
+          showMissingFileNotice();
+        }
+
+        menu.querySelectorAll('.sop-menu-item').forEach(menuItem => menuItem.classList.remove('active'));
+        button.classList.add('active');
+        syncSelectedSopState(item.id);
+        renderSopDocument(item);
+      });
+    });
+
+    const selectedItem = getSopById(validSelectedId);
+    renderSopDocument(selectedItem);
+  }
+
+  addSopBtn.addEventListener('click', openSopModal);
+  deleteSopBtn.addEventListener('click', () => {
+    const selectedId = new URLSearchParams(window.location.search).get('sop') || getFirstAvailableSopId();
+    if (!selectedId) return;
+
+    const selectedItem = getSopById(selectedId);
+    if (!selectedItem) return;
+
+    const shouldDelete = window.confirm(`Delete the SOP "${selectedItem.label}"?`);
+    if (!shouldDelete) return;
+
+    deleteSopDocument(selectedId);
+
+    const nextId = getFirstAvailableSopId();
+    if (nextId) {
+      syncSelectedSopState(nextId);
+      rebuildMenuAndSelection(nextId);
+    } else {
+      menu.innerHTML = renderSopAccordion('');
+      renderSopDocument(null);
+      history.replaceState(null, '', window.location.pathname);
+    }
   });
 
-  // Handle Sub-Item Click
-  menu.querySelectorAll('[data-sop-id]').forEach(button => {
-    button.addEventListener('click', () => {
-      const item = getSopById(button.dataset.sopId);
-
-      if (!item.driveFileId || item.driveFileId.trim() === '')  {
-        showMissingFileNotice();
-      }
-
-      menu.querySelectorAll('.sop-menu-item').forEach(menuItem => menuItem.classList.remove('active'));
-      button.classList.add('active');
-      history.replaceState(null, '', '?sop=' + encodeURIComponent(item.id));
-      renderSopDocument(item);
-    });
+  categorySelect.addEventListener('change', () => {
+    const showNewCategory = categorySelect.value === '__new__';
+    newCategoryField.classList.toggle('hidden', !showNewCategory);
+    if (!showNewCategory) {
+      document.getElementById('sopNewCategoryInput').value = '';
+    }
   });
 
-  renderSopDocument(getSopById(selectedId));
+  sopForm.addEventListener('submit', event => {
+    event.preventDefault();
+
+    const selectedCategory = categorySelect.value === '__new__'
+      ? document.getElementById('sopNewCategoryInput').value.trim()
+      : categorySelect.value.trim();
+    const title = document.getElementById('sopTitleInput').value.trim();
+    const driveFileId = document.getElementById('sopDriveIdInput').value.trim();
+
+    if (!selectedCategory) {
+      window.alert('Please select or create a category.');
+      return;
+    }
+
+    if (!title) {
+      window.alert('Please add an SOP title.');
+      return;
+    }
+
+    if (!driveFileId) {
+      window.alert('Please enter the Google Doc ID.');
+      return;
+    }
+
+    const newItem = addSopDocument({
+      category: selectedCategory,
+      title,
+      driveFileId
+    });
+
+    if (!newItem) {
+      window.alert('Unable to save this SOP. Please try again.');
+      return;
+    }
+
+    closeSopModal();
+    syncSelectedSopState(newItem.id);
+    rebuildMenuAndSelection(newItem.id);
+  });
+
+  cancelSopBtn.addEventListener('click', closeSopModal);
+  closeSopModalBtn.addEventListener('click', closeSopModal);
+  modal.addEventListener('click', event => {
+    if (event.target === modal) closeSopModal();
+  });
+
+  refreshSopCategoryOptions();
+  rebuildMenuAndSelection(initialId || getFirstAvailableSopId());
 }
 
 initSopReader();
