@@ -304,33 +304,74 @@ async function loadSopDocumentsFromSupabase() {
   SOP_DOCUMENTS = loadSopDocumentsFromLocalStorage();
 }
 
-async function syncSopDocumentsToSupabase() {
+async function insertSopToSupabase(item) {
   try {
     const supabaseClient = await getSupabaseClient();
-    const rows = flattenSopDocuments(SOP_DOCUMENTS);
-
-    if (!rows.length) {
-      localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(SOP_DOCUMENTS));
-      return;
-    }
-
     const { error } = await supabaseClient
       .from(SOP_TABLE)
-      .upsert(rows.map(row => ({
-        id: row.id,
-        category: row.category,
-        label: row.label,
-        drive_file_id: row.drive_file_id
-      })), { onConflict: 'id' });
+      .insert({
+        id: item.id,
+        category: item.category,
+        label: item.label,
+        drive_file_id: item.driveFileId || ''
+      });
 
     if (error) {
       throw error;
     }
 
     localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(SOP_DOCUMENTS));
+    return true;
   } catch (error) {
-    console.warn('Unable to sync SOP data to Supabase, saving locally instead.', error);
+    console.error('Supabase insert failed for SOP:', error);
     localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(SOP_DOCUMENTS));
+    throw error;
+  }
+}
+
+async function updateSopInSupabase(itemId, updates) {
+  try {
+    const supabaseClient = await getSupabaseClient();
+    const { error } = await supabaseClient
+      .from(SOP_TABLE)
+      .update({
+        category: updates.category,
+        label: updates.label,
+        drive_file_id: updates.driveFileId || ''
+      })
+      .eq('id', itemId);
+
+    if (error) {
+      throw error;
+    }
+
+    localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(SOP_DOCUMENTS));
+    return true;
+  } catch (error) {
+    console.error('Supabase update failed for SOP:', error);
+    localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(SOP_DOCUMENTS));
+    throw error;
+  }
+}
+
+async function deleteSopFromSupabase(itemId) {
+  try {
+    const supabaseClient = await getSupabaseClient();
+    const { error } = await supabaseClient
+      .from(SOP_TABLE)
+      .delete()
+      .eq('id', itemId);
+
+    if (error) {
+      throw error;
+    }
+
+    localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(SOP_DOCUMENTS));
+    return true;
+  } catch (error) {
+    console.error('Supabase delete failed for SOP:', error);
+    localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(SOP_DOCUMENTS));
+    throw error;
   }
 }
 
@@ -379,11 +420,12 @@ async function addSopDocument({ category, title, driveFileId }) {
   const nextItem = {
     id: generateUniqueSopId(title),
     label: title.trim(),
-    driveFileId: String(driveFileId || '').trim()
+    driveFileId: String(driveFileId || '').trim(),
+    category: category.trim()
   };
 
   categoryObj.items.push(nextItem);
-  await syncSopDocumentsToSupabase();
+  await insertSopToSupabase(nextItem);
   return nextItem;
 }
 
@@ -405,7 +447,12 @@ async function updateSopDocument(itemId, updates) {
 
       if (!targetCategory) return null;
 
-      targetCategory.items.push({ ...item, label: String(updates.title || item.label).trim(), driveFileId: String(updates.driveFileId ?? item.driveFileId).trim() });
+      targetCategory.items.push({
+        ...item,
+        label: String(updates.title || item.label).trim(),
+        driveFileId: String(updates.driveFileId ?? item.driveFileId).trim(),
+        category: nextCategory
+      });
       sourceCategory.items = sourceCategory.items.filter(entry => entry.id !== itemId);
 
       if (sourceCategory.items.length === 0) {
@@ -419,8 +466,13 @@ async function updateSopDocument(itemId, updates) {
 
   if (updates.title) currentItem.label = updates.title.trim();
   if (updates.driveFileId !== undefined) currentItem.driveFileId = String(updates.driveFileId || '').trim();
+  if (updates.category) currentItem.category = updates.category.trim();
 
-  await syncSopDocumentsToSupabase();
+  await updateSopInSupabase(itemId, {
+    category: currentItem.category,
+    label: currentItem.label,
+    driveFileId: currentItem.driveFileId
+  });
   return currentItem;
 }
 
@@ -434,7 +486,7 @@ async function deleteSopDocument(itemId) {
     SOP_DOCUMENTS.splice(categoryIndex, 1);
   }
 
-  await syncSopDocumentsToSupabase();
+  await deleteSopFromSupabase(itemId);
 }
 
 let noticeTimer;
@@ -800,7 +852,11 @@ async function initSopReader() {
       rebuildMenuAndSelection(result.id);
     } catch (error) {
       console.error('SOP save failed:', error);
-      window.alert('Unable to save this SOP. Please try again.');
+      if (error?.message) {
+        window.alert('Supabase error: ' + error.message);
+      } else {
+        window.alert('Unable to save this SOP. Please try again.');
+      }
     }
   });
 
