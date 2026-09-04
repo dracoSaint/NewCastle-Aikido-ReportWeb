@@ -18,6 +18,7 @@
     <button data-tab="current_mondayReport">This Week's Report</button>
     <button data-tab="last_mondayReport">Last Week's Report</button>
     <button data-tab="current_memberList">Current Member List</button>
+    <button data-tab="memberHistoryLog">Member History Log</button>
   </nav>
 </header>
 
@@ -59,24 +60,126 @@
   <section class="tab-panel" id="tab-current_mondayReport">
     <div class="card">
       <h2>This Week's Report</h2>
-      <iframe class="sheet-iframe" id="current_mondayReport-frame" src="about:blank"></iframe>
+      <div id="current_mondayReport-content" class="report-summary-container"></div>
     </div>
   </section>
 
   <section class="tab-panel" id="tab-last_mondayReport">
     <div class="card">
       <h2>Last Week's Report</h2>
-      <iframe class="sheet-iframe" id="last_mondayReport-frame" src="about:blank"></iframe>
+      <div id="last_mondayReport-content" class="report-summary-container"></div>
     </div>
   </section>
 
   <section class="tab-panel" id="tab-current_memberList">
+    <div class="member-list-layout">
+      <aside class="member-filter-panel card">
+        <h2>Member Filters</h2>
+
+        <div class="member-filter-body">
+          <div id="currentMemberCountLabel" class="member-count-label">0 members shown</div>
+
+          <label class="member-filter-field">
+            <span>Filter by</span>
+            <select id="memberFilterField">
+              <option value="all">All columns</option>
+            </select>
+          </label>
+
+          <label class="member-filter-field">
+            <span>Column search</span>
+            <div class="member-filter-with-button">
+              <input id="memberFilterValue" type="text" list="memberFilterValueList" placeholder="Choose a value" aria-label="Filter member list" />
+              <button type="button" class="member-clear-btn" data-clear-target="memberFilterValue" aria-label="Clear column search">Clear</button>
+            </div>
+            <datalist id="memberFilterValueList"></datalist>
+          </label>
+
+          <label class="member-filter-field">
+            <span>Find name</span>
+            <div class="member-filter-with-button">
+              <input id="memberNameFilter" type="text" placeholder="Type a name" aria-label="Find member by name" />
+              <button type="button" class="member-clear-btn" data-clear-target="memberNameFilter" aria-label="Clear name filter">Clear</button>
+            </div>
+          </label>
+
+          <div class="csv-upload-controls">
+            <input id="memberCsvInput" type="file" accept=".csv,text/csv" hidden />
+            <button id="importMemberCsvBtn" type="button" class="sop-action-button primary">Upload CSV</button>
+            <span id="csvUploadStatus" class="csv-upload-status">No file selected</span>
+          </div>
+        </div>
+      </aside>
+
+      <div id="csvUploadModal" class="csv-upload-modal hidden" aria-hidden="true">
+        <div class="csv-upload-modal-card">
+          <div class="csv-upload-modal-header">
+            <h3>Upload member CSV</h3>
+            <button type="button" id="closeCsvUploadModal" class="csv-upload-close" aria-label="Close upload dialog">×</button>
+          </div>
+
+          <div class="csv-upload-modal-body">
+            <div class="csv-upload-selected-file" id="csvUploadSelectedFile">No file selected</div>
+
+            <label class="member-filter-field">
+              <span>Report date <small>(required)</small></span>
+              <input id="csvReportDateInput" type="date" required aria-describedby="csvReportDateHelp" />
+              <small id="csvReportDateHelp">Choose the date represented by this member report. This is useful when importing an older CSV.</small>
+            </label>
+
+            <div class="csv-progress-wrapper">
+              <div class="csv-progress-labels">
+                <span>Upload progress</span>
+                <strong id="csvProgressText">0%</strong>
+              </div>
+              <div class="csv-progress-track">
+                <div id="csvProgressBar" class="csv-progress-bar"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="csv-upload-modal-actions">
+            <button type="button" id="cancelCsvUploadBtn" class="sop-action-button secondary">Cancel</button>
+            <button type="button" id="confirmCsvUploadBtn" class="sop-action-button primary">Confirm upload</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="member-table-panel card">
+        <h2>Current Member List</h2>
+        <div class="table-wrap" id="current_memberList-wrap"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h2>Member List (Last Week)</h2>
+      <div class="table-wrap" id="memberListLastWeek-wrap"><div class="loading">Loading...</div></div>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="tab-memberHistoryLog">
     <div class="card">
-      <h2>Current Member List</h2>
-      <div class="table-wrap" id="current_memberList-wrap"><div class="loading">Loading...</div></div>
+      <div class="card-heading-row">
+        <h2>Member History Log</h2>
+        <button type="button" class="monday-report-button primary" id="addWeeklyLogBtn">Add Log</button>
+      </div>
+      <div class="table-wrap" id="memberHistoryLog-wrap"><div class="loading">Loading...</div></div>
     </div>
   </section>
 </main>
+
+<div id="manualWeeklyLogModal" class="manual-weekly-log-modal hidden" aria-hidden="true">
+  <div class="manual-weekly-log-dialog" role="dialog" aria-modal="true" aria-labelledby="manualWeeklyLogTitle">
+    <div class="manual-weekly-log-header">
+      <div>
+        <span class="manual-weekly-log-eyebrow">Member History Log</span>
+        <h3 id="manualWeeklyLogTitle">Add weekly log</h3>
+      </div>
+      <button type="button" id="closeManualWeeklyLogBtn" class="csv-upload-close" aria-label="Close add weekly log dialog">×</button>
+    </div>
+    <div id="manualWeeklyLogForm-wrap"></div>
+  </div>
+</div>
 
 <footer></footer>
 

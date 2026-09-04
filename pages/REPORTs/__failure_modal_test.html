@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Failure Reason Modal Test</title>
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body class="past-due-page">
+  <header>
+    <p id="updatedLine">Loading...</p>
+    <nav class="site-nav">
+      <button data-tab="dashboard" class="active">Dashboard</button>
+      <button data-tab="pastDue">Past Due Members</button>
+      <button data-tab="cleared">Cleared Members</button>
+      <button data-tab="cancelled">Cancelled Members</button>
+      <button data-tab="log">Log Tab</button>
+      <button data-tab="exempted">Excempted Members</button>
+      <button data-tab="export">Export</button>
+    </nav>
+  </header>
+
+  <main class="past-due-main">
+    <section class="tab-panel" id="tab-dashboard">
+      <div class="report-header">
+        <p class="report-eyebrow">Accounts Receivable</p>
+        <h1>Past Due Members</h1>
+      </div>
+      <div class="past-due-metrics" id="pastDueMetrics"></div>
+      <div class="card"><h2>Longest overdue members</h2><div class="table-wrap" id="dashboardTable"><div class="loading">Loading...</div></div></div>
+    </section>
+
+    <section class="tab-panel" id="tab-pastDue">
+      <div class="past-due-tab-metrics" id="pastDueTabMetrics"></div>
+      <div class="card"><h2>Past Due Members</h2><div class="table-wrap" id="pastDueTable"><div class="loading">Loading...</div></div></div>
+    </section>
+    <section class="tab-panel" id="tab-cleared">
+      <div class="past-due-tab-metrics" id="clearedTabMetrics"></div>
+      <div class="card"><h2>Cleared Members</h2><div class="table-wrap" id="clearedTable"><div class="loading">Loading...</div></div></div>
+    </section>
+    <section class="tab-panel" id="tab-cancelled">
+      <div class="past-due-tab-metrics" id="cancelledTabMetrics"></div>
+      <div class="card"><h2>Cancelled Members</h2><div class="table-wrap" id="cancelledTable"><div class="loading">Loading...</div></div></div>
+    </section>
+    <section class="tab-panel" id="tab-log">
+      <div class="card log-card">
+        <div class="log-card-header">
+          <h2>All Member Log Entries</h2>
+          <label class="log-date-filter">
+            <span>Filter by import date</span>
+            <input id="logDateFilter" type="date" aria-label="Filter member log by import date">
+          </label>
+        </div>
+        <div class="table-wrap" id="logTable"><div class="loading">Loading...</div></div>
+      </div>
+    </section>
+    <section class="tab-panel" id="tab-exempted">
+      <div class="card export-panel">
+        <p class="report-eyebrow">Report exclusions</p>
+        <h2>Excempted Members</h2>
+        <div class="exempted-manual-form">
+          <input id="exemptedMemberNameInput" type="text" placeholder="Member name">
+          <input id="exemptedMemberNumberInput" type="text" placeholder="Number (optional)">
+          <button type="button" class="sop-action-button primary" id="addExemptedMemberBtn">Add Member</button>
+        </div>
+        <div class="export-actions">
+          <label class="import-date-field">
+            <span>Import date <small>(required)</small></span>
+            <input id="exemptedImportDate" type="date" required>
+          </label>
+          <label class="csv-picker-button">
+            <span>Import Excempted Members CSV</span>
+            <input id="exemptedCsvInput" type="file" accept=".csv,text/csv" hidden>
+          </label>
+          <button type="button" class="sop-action-button primary" id="confirmExemptedUploadBtn" disabled>Confirm Upload</button>
+          <button type="button" class="sop-action-button secondary" id="cancelExemptedUploadBtn" disabled>Cancel</button>
+          <button type="button" class="sop-action-button secondary" id="removeExemptedFileBtn" disabled>Remove File</button>
+          <button type="button" class="sop-action-button secondary" id="downloadExemptedCsvBtn">Export Excempted Members CSV</button>
+        </div>
+        <p id="exemptedStatus" class="csv-upload-status" role="status">No members added</p>
+        <div class="table-wrap" id="exemptedTable"><div class="loading">Loading...</div></div>
+      </div>
+    </section>
+    <section class="tab-panel active" id="tab-export">
+      <div class="card export-panel">
+        <p class="report-eyebrow">Import and export</p>
+        <h2>CSV Data Tools</h2>
+        <p class="export-description">Upload the latest accounts-receivable CSV.</p>
+        <div class="export-actions">
+          <label class="import-date-field">
+            <span>Import date <small>(required)</small></span>
+            <input id="pastDueImportDate" type="date" required>
+          </label>
+          <label class="csv-picker-button">
+            <span>Choose CSV</span>
+            <input id="pastDueCsvInput" type="file" accept=".csv,text/csv" hidden>
+          </label>
+          <button type="button" class="sop-action-button primary" id="confirmPastDueUploadBtn" disabled>Confirm Upload</button>
+          <button type="button" class="sop-action-button secondary" id="cancelPastDueUploadBtn" disabled>Cancel</button>
+          <button type="button" class="sop-action-button secondary" id="removePastDueFileBtn" disabled>Remove File</button>
+          <button type="button" class="sop-action-button primary" id="downloadPastDueCsvBtn">Export Log CSV</button>
+          <button type="button" class="sop-action-button secondary" id="addFailureReasonBtn">Add Failure Reason</button>
+        </div>
+        <p id="pastDueImportStatus" class="csv-upload-status" role="status">No file selected</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="past-due-modal hidden" id="failureReasonModal" role="dialog" aria-modal="true" aria-labelledby="failureReasonModalTitle">
+    <div class="past-due-modal-dialog">
+      <div class="past-due-modal-header">
+        <div>
+          <p class="report-eyebrow">Failure reason</p>
+          <h3 id="failureReasonModalTitle">Add Failure Reason</h3>
+        </div>
+        <button type="button" class="past-due-modal-close" id="failureReasonModalClose" aria-label="Close dialog">×</button>
+      </div>
+      <div class="past-due-modal-body">
+        <label class="past-due-modal-field" for="failureReasonInput">
+          <span>New failure reason</span>
+          <input type="text" id="failureReasonInput" placeholder="e.g. Card expired" maxlength="120" autocomplete="off">
+        </label>
+        <p class="past-due-modal-hint" id="failureReasonHint">This reason will be added to the failure reason dropdown options across all past due member tables.</p>
+      </div>
+      <div class="past-due-modal-actions">
+        <button type="button" class="sop-action-button secondary" id="failureReasonCancelBtn">Cancel</button>
+        <button type="button" class="sop-action-button primary" id="failureReasonApproveBtn">Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Bypass auth for this test harness: authReady resolves, supabaseClient absent
+    // so pastDueLoad rejects gracefully and the .catch renders the error text.
+    window.authReady = Promise.resolve();
+  </script>
+  <script src="../../js/pastDueMembers.js"></script>
+</body>
+</html>
