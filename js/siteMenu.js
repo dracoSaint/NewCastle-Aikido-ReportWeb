@@ -19,6 +19,10 @@
         { 
             label: 'Attendance Report',
             path: 'pages/REPORTs/AttendanceReport.html'
+        },
+        {
+          label: 'Past Due Members',
+          path: 'pages/REPORTs/PastDueMembers.html'
         }
       ]
     },

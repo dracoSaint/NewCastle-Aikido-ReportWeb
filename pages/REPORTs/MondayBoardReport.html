@@ -122,8 +122,9 @@
             <div class="csv-upload-selected-file" id="csvUploadSelectedFile">No file selected</div>
 
             <label class="member-filter-field">
-              <span>Report date</span>
-              <input id="csvReportDateInput" type="date" />
+              <span>Report date <small>(required)</small></span>
+              <input id="csvReportDateInput" type="date" required aria-describedby="csvReportDateHelp" />
+              <small id="csvReportDateHelp">Choose the date represented by this member report. This is useful when importing an older CSV.</small>
             </label>
 
             <div class="csv-progress-wrapper">

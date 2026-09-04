@@ -979,6 +979,10 @@ function closeCsvUploadModal() {
 async function processConfirmedCsvUpload(file, reportDateValue) {
   const statusEl = document.getElementById('csvUploadStatus');
   if (!file) return;
+  if (!reportDateValue) {
+    if (statusEl) statusEl.textContent = 'Choose a report date before uploading.';
+    return;
+  }
 
   if (statusEl) statusEl.textContent = 'Processing CSV...';
   setUploadProgress(8, '8%');
@@ -1070,6 +1074,11 @@ function initCsvUploadControls() {
     confirmUploadBtn.addEventListener('click', async () => {
       if (!pendingCsvFile) return;
       const reportDateValue = dateInput ? dateInput.value : '';
+      if (!reportDateValue) {
+        if (statusEl) statusEl.textContent = 'Choose a report date before confirming the upload.';
+        if (dateInput) dateInput.focus();
+        return;
+      }
       await processConfirmedCsvUpload(pendingCsvFile, reportDateValue);
     });
   }
