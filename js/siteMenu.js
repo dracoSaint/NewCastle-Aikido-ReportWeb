@@ -102,7 +102,8 @@
     return `
       <div class="drawer-group${expanded ? ' expanded' : ''}">
         <button class="drawer-group-toggle" type="button" aria-expanded="${expanded}" aria-controls="${group.id}">
-          ${group.label} <span aria-hidden="true">▾</span>
+          <span>${group.label}</span>
+          <span class="drawer-chevron" aria-hidden="true">▾</span>
         </button>
         <div class="drawer-submenu" id="${group.id}">${items}</div>
       </div>`;

@@ -3,12 +3,13 @@ const MEMBER_LIST_TABLE = 'membership_data';
 const MEMBER_LIST_PREVIOUS_TABLE = 'membership_data_previous';
 const MEMBER_LIST_LOG_TABLE = 'membership_data_log';
 const MEMBER_WEEKLY_LOG_TABLE = 'membership_weekly_log';
-const PREFERRED_BEGINNER_PACKAGE_LABELS = [
+const TARGET_BEGINNER_PACKAGES = [
   'become - 6 week transformation journey',
   'blue zone- new beginnings 6 week life change introduction only',
   'chiisai kai beginners package',
   'junior beginner package'
 ];
+const PREFERRED_BEGINNER_PACKAGE_LABELS = TARGET_BEGINNER_PACKAGES;
 
 const MONDAY_PAGE_CONFIGS = {
   current_mondayReport: {
@@ -181,63 +182,95 @@ function normalizeMembershipCsvRow(row) {
   };
 }
 
-function canonicalMembershipLabel(label) {
-  return String(label || '').trim().toLowerCase();
+function normalizeMemberCleanString(str) {
+  return str ? String(str).toLowerCase().trim() : '';
 }
 
-function choosePreferredDuplicateRow(rows) {
-  const preferredOrder = PREFERRED_BEGINNER_PACKAGE_LABELS.map(value => value.toLowerCase());
+function isTargetBeginnerPackage(label) {
+  const clean = normalizeMemberCleanString(label);
+  if (!clean) return false;
 
-  return rows.reduce((best, current) => {
-    const bestKey = canonicalMembershipLabel(best.membership_label || '');
-    const currentKey = canonicalMembershipLabel(current.membership_label || '');
-    const bestRank = preferredOrder.indexOf(bestKey);
-    const currentRank = preferredOrder.indexOf(currentKey);
-
-    if (bestRank === -1 && currentRank === -1) {
-      return new Date(current.imported_at || 0) > new Date(best.imported_at || 0) ? current : best;
+  for (let i = 0; i < TARGET_BEGINNER_PACKAGES.length; i++) {
+    const pkg = TARGET_BEGINNER_PACKAGES[i];
+    if (clean === pkg || clean.indexOf(pkg) === 0) {
+      return true;
     }
-
-    if (bestRank === -1) return current;
-    if (currentRank === -1) return best;
-    if (currentRank < bestRank) return current;
-    if (currentRank === bestRank && new Date(current.imported_at || 0) > new Date(best.imported_at || 0)) return current;
-    return best;
-  }, rows[0]);
+  }
+  return false;
 }
 
 function dedupeImportedMemberRows(rows) {
-  const byNumber = new Map();
-  rows.forEach(row => {
-    const number = String(row.number || '').trim();
-    if (number) {
-      byNumber.set(number, row);
-    }
-  });
+  if (!Array.isArray(rows) || !rows.length) return [];
 
-  const uniqueByName = new Map();
-  Array.from(byNumber.values()).forEach(row => {
-    const firstName = String(row.first_name || '').trim().toLowerCase();
-    const lastName = String(row.last_name || '').trim().toLowerCase();
-    const key = `${firstName}|${lastName}`;
-    if (!key || key === '|') return;
-    if (!uniqueByName.has(key)) {
-      uniqueByName.set(key, []);
-    }
-    uniqueByName.get(key).push(row);
-  });
+  // 1. Group rows by Member Name (First Name + Last Name)
+  const membersGrouped = {};
 
-  const finalRows = [];
-  uniqueByName.forEach(group => {
-    if (group.length === 1) {
-      finalRows.push(group[0]);
+  rows.forEach((row, index) => {
+    const firstName = row.first_name || row['first_name'] || '';
+    const lastName = row.last_name || row['last_name'] || '';
+
+    if (!firstName && !lastName) {
       return;
     }
 
-    finalRows.push(choosePreferredDuplicateRow(group));
+    const firstNameClean = normalizeMemberCleanString(firstName).replace(/\s+/g, '');
+    const lastNameClean = normalizeMemberCleanString(lastName).replace(/\s+/g, '');
+    const personKey = `${firstNameClean}_${lastNameClean}`;
+
+    if (!membersGrouped[personKey]) {
+      membersGrouped[personKey] = [];
+    }
+    membersGrouped[personKey].push({ index, data: row });
   });
 
-  return finalRows;
+  // 2. Process Deduplication Rules
+  const rowsToDiscard = new Set();
+
+  for (const personKey in membersGrouped) {
+    const memberRecords = membersGrouped[personKey];
+    if (memberRecords.length <= 1) continue;
+
+    const beginnerRecords = [];
+    const otherRecords = [];
+
+    memberRecords.forEach(rec => {
+      const label = rec.data.membership_label || rec.data['membership_label'] || '';
+      if (isTargetBeginnerPackage(label)) {
+        beginnerRecords.push(rec);
+      } else {
+        otherRecords.push(rec);
+      }
+    });
+
+    // Rule: If beginner package(s) exist alongside other records, discard all other records
+    if (beginnerRecords.length > 0 && otherRecords.length > 0) {
+      otherRecords.forEach(oRec => {
+        rowsToDiscard.add(oRec.index);
+      });
+    }
+
+    // Secondary Check: Deduplicate remaining records with identical labels for the same person
+    const seenLabels = {};
+    memberRecords.forEach(rec => {
+      if (rowsToDiscard.has(rec.index)) return;
+      const cleanLabel = normalizeMemberCleanString(rec.data.membership_label || rec.data['membership_label'] || '');
+      if (seenLabels[cleanLabel]) {
+        rowsToDiscard.add(rec.index);
+      } else {
+        seenLabels[cleanLabel] = true;
+      }
+    });
+  }
+
+  // 3. Construct Cleaned Rows
+  const cleanedRows = [];
+  rows.forEach((row, index) => {
+    if (!rowsToDiscard.has(index)) {
+      cleanedRows.push(row);
+    }
+  });
+
+  return cleanedRows;
 }
 
 async function ensureSupabaseDataClient() {
@@ -1009,11 +1042,11 @@ async function processConfirmedCsvUpload(file, reportDateValue) {
     setUploadProgress(46, '46%');
     await archiveCurrentMemberList(reportDateValue);
     setUploadProgress(72, '72%');
-    await replaceCurrentMemberList(finalRows);
-    await saveWeeklyMemberSummaryLog(reportDateValue, finalRows);
+    const cleanRows = await replaceCurrentMemberList(finalRows);
+    await saveWeeklyMemberSummaryLog(reportDateValue, cleanRows);
     setUploadProgress(100, '100%');
 
-    if (statusEl) statusEl.textContent = `${finalRows.length} rows imported successfully.`;
+    if (statusEl) statusEl.textContent = `${cleanRows.length} rows imported successfully.`;
     closeCsvUploadModal();
     delete loadedTabs['current_mondayReport'];
     delete loadedTabs['last_mondayReport'];
@@ -1302,7 +1335,9 @@ const BEGINNER_PACKAGE_LABELS = [
   'Combat Pilates Become'
 ];
 
-const REPORT_CATEGORY_GOALS = {
+// NOTE: These are `let` so Supabase pricing_settings can override them at runtime.
+// Default values are preserved in DEFAULT_* copies for the reset feature.
+let REPORT_CATEGORY_GOALS = {
   'Regular Adult': 100,
   'Beginner Adult': 15,
   'Concession Adult': 15,
@@ -1313,7 +1348,7 @@ const REPORT_CATEGORY_GOALS = {
   'Combat Pilates': 15
 };
 
-const REPORT_CATEGORY_WEEKLY_FEE = {
+let REPORT_CATEGORY_WEEKLY_FEE = {
   'Regular Adult': 55,
   'Beginner Adult': 45,
   'Concession Adult': 45,
@@ -1343,7 +1378,7 @@ const BEGINNER_PACKAGE_DISPLAY = {
   'Combat Pilates Become': 'Become C-Pilates'
 };
 
-const BEGINNER_PACKAGE_GOALS = {
+let BEGINNER_PACKAGE_GOALS = {
   'BECOME - 6 Week transformation journey': 10,
   'Chiisai Kai Beginners Package': 10,
   'Junior Beginner Package': 10,
@@ -1351,7 +1386,7 @@ const BEGINNER_PACKAGE_GOALS = {
   'Combat Pilates Become': 15
 };
 
-const BEGINNER_PACKAGE_FEE = {
+let BEGINNER_PACKAGE_FEE = {
   'BECOME - 6 Week transformation journey': 300,
   'Chiisai Kai Beginners Package': 300,
   'Junior Beginner Package': 300,
@@ -1359,13 +1394,20 @@ const BEGINNER_PACKAGE_FEE = {
   'Combat Pilates Become': 300
 };
 
-const BEGINNER_PACKAGE_ROLLOVER_FEE = {
+let BEGINNER_PACKAGE_ROLLOVER_FEE = {
   'BECOME - 6 Week transformation journey': 45,
   'Chiisai Kai Beginners Package': 45,
   'Junior Beginner Package': 45,
   'Blue Zone- New beginnings 6 week life change Introduction only': 45,
   'Combat Pilates Become': 45
 };
+
+// Frozen default copies — used by the "Reset to default" button
+const DEFAULT_REPORT_CATEGORY_GOALS       = Object.freeze({ ...REPORT_CATEGORY_GOALS });
+const DEFAULT_REPORT_CATEGORY_WEEKLY_FEE  = Object.freeze({ ...REPORT_CATEGORY_WEEKLY_FEE });
+const DEFAULT_BEGINNER_PACKAGE_GOALS      = Object.freeze({ ...BEGINNER_PACKAGE_GOALS });
+const DEFAULT_BEGINNER_PACKAGE_FEE        = Object.freeze({ ...BEGINNER_PACKAGE_FEE });
+const DEFAULT_BEGINNER_PACKAGE_ROLLOVER_FEE = Object.freeze({ ...BEGINNER_PACKAGE_ROLLOVER_FEE });
 
 function normalizeReportCategory(value) {
   const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -2241,6 +2283,270 @@ function loadMondayPage(key) {
   }).catch(err => showError(key + '-wrap', err));
 }
 
+// ─── Pricing Settings ────────────────────────────────────────────────────────
+
+const PRICING_TABLE = 'pricing_settings';
+
+/**
+ * Fetch all rows from pricing_settings and override the live constants.
+ * Silently falls back to hardcoded defaults if the table doesn't exist.
+ */
+async function loadPricingSettings() {
+  try {
+    const client = await ensureSupabaseDataClient();
+    const { data, error } = await client.from(PRICING_TABLE).select('key, value');
+    if (error) {
+      console.warn('[PricingSettings] Could not load from Supabase (table may not exist yet):', error.message);
+      return;
+    }
+    applyPricingSettings(data || []);
+  } catch (err) {
+    console.warn('[PricingSettings] Load skipped:', err.message);
+  }
+}
+
+/**
+ * Apply an array of { key, value } rows to the live pricing constants.
+ */
+function applyPricingSettings(rows) {
+  (rows || []).forEach(({ key, value }) => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return;
+    if (key.startsWith('weekly_fee__')) {
+      const label = key.slice('weekly_fee__'.length);
+      if (label in REPORT_CATEGORY_WEEKLY_FEE) REPORT_CATEGORY_WEEKLY_FEE[label] = num;
+    } else if (key.startsWith('goal__')) {
+      const label = key.slice('goal__'.length);
+      if (label in REPORT_CATEGORY_GOALS) REPORT_CATEGORY_GOALS[label] = num;
+    } else if (key.startsWith('beginner_fee__')) {
+      const label = key.slice('beginner_fee__'.length);
+      if (label in BEGINNER_PACKAGE_FEE) BEGINNER_PACKAGE_FEE[label] = num;
+    } else if (key.startsWith('beginner_rollover__')) {
+      const label = key.slice('beginner_rollover__'.length);
+      if (label in BEGINNER_PACKAGE_ROLLOVER_FEE) BEGINNER_PACKAGE_ROLLOVER_FEE[label] = num;
+    } else if (key.startsWith('beginner_goal__')) {
+      const label = key.slice('beginner_goal__'.length);
+      if (label in BEGINNER_PACKAGE_GOALS) BEGINNER_PACKAGE_GOALS[label] = num;
+    }
+  });
+}
+
+/**
+ * Upsert a single pricing key/value to Supabase.
+ */
+async function savePricingSetting(key, value) {
+  const client = await ensureSupabaseDataClient();
+  const { error } = await client
+    .from(PRICING_TABLE)
+    .upsert({ key, value: Number(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) throw error;
+}
+
+/**
+ * Delete a pricing key from Supabase (restore to hardcoded default).
+ */
+async function deletePricingSetting(key) {
+  const client = await ensureSupabaseDataClient();
+  const { error } = await client.from(PRICING_TABLE).delete().eq('key', key);
+  if (error) throw error;
+}
+
+/**
+ * Build and inject the full Pricing Settings tab UI.
+ */
+function renderPricingSettingsTab() {
+  const container = document.getElementById('pricingSettings-content');
+  if (!container) return;
+
+  // ── Helper: build one pricing card ────────────────────────────────────────
+  function buildCard(cardTitle, fields) {
+    // fields: [{ label, prefix, keyPrefix, currentObj, defaultObj, defaultKey }]
+    const fieldsHtml = fields.map(f => {
+      const currentVal = f.currentObj[f.defaultKey];
+      const showPrefix = f.prefix ? `<span class="pricing-field-prefix">${escapeHtml(f.prefix)}</span>` : '';
+      return `
+        <div class="pricing-field">
+          <span class="pricing-field-label">${escapeHtml(f.label)}</span>
+          <div class="pricing-field-row">
+            ${showPrefix}
+            <input
+              type="number"
+              class="pricing-input"
+              value="${escapeHtml(String(currentVal))}"
+              min="0"
+              step="any"
+              data-pricing-key="${escapeHtml(f.keyPrefix + f.defaultKey)}"
+              data-default-value="${escapeHtml(String(f.defaultObj[f.defaultKey]))}"
+              aria-label="${escapeHtml(f.label)} for ${escapeHtml(cardTitle)}"
+            />
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="pricing-card">
+        <div class="pricing-card-header">
+          <p class="pricing-card-title">${escapeHtml(cardTitle)}</p>
+        </div>
+        <div class="pricing-card-body">${fieldsHtml}</div>
+        <div class="pricing-card-footer">
+          <button type="button" class="pricing-reset-btn" aria-label="Reset ${escapeHtml(cardTitle)} to defaults">↺ Reset to default</button>
+          <button type="button" class="pricing-save-btn" aria-label="Save ${escapeHtml(cardTitle)} pricing">Save</button>
+        </div>
+      </div>`;
+  }
+
+  // ── Membership Categories section ─────────────────────────────────────────
+  const memberCards = CURRENT_REPORT_ROW_LABELS.map(label => buildCard(
+    REPORT_DISPLAY_LABELS[label] || label,
+    [
+      { label: 'Weekly Fee', prefix: '$', keyPrefix: 'weekly_fee__', currentObj: REPORT_CATEGORY_WEEKLY_FEE, defaultObj: DEFAULT_REPORT_CATEGORY_WEEKLY_FEE, defaultKey: label },
+      { label: 'Headcount Goal', prefix: '#', keyPrefix: 'goal__', currentObj: REPORT_CATEGORY_GOALS, defaultObj: DEFAULT_REPORT_CATEGORY_GOALS, defaultKey: label }
+    ]
+  )).join('');
+
+  // ── Beginner Packages section ──────────────────────────────────────────────
+  const beginnerCards = BEGINNER_PACKAGE_LABELS.map(label => buildCard(
+    BEGINNER_PACKAGE_DISPLAY[label] || label,
+    [
+      { label: 'Package Fee', prefix: '$', keyPrefix: 'beginner_fee__', currentObj: BEGINNER_PACKAGE_FEE, defaultObj: DEFAULT_BEGINNER_PACKAGE_FEE, defaultKey: label },
+      { label: 'Rollover Fee', prefix: '$', keyPrefix: 'beginner_rollover__', currentObj: BEGINNER_PACKAGE_ROLLOVER_FEE, defaultObj: DEFAULT_BEGINNER_PACKAGE_ROLLOVER_FEE, defaultKey: label },
+      { label: 'Goal', prefix: '#', keyPrefix: 'beginner_goal__', currentObj: BEGINNER_PACKAGE_GOALS, defaultObj: DEFAULT_BEGINNER_PACKAGE_GOALS, defaultKey: label }
+    ]
+  )).join('');
+
+  container.innerHTML = `
+    <div class="pricing-settings-page">
+      <div class="pricing-info-note">
+        <span>ℹ️</span>
+        <span>Changes saved here will immediately update all report calculations. <strong>Reload the page to refresh report tabs</strong> after saving pricing changes.</span>
+      </div>
+
+      <div id="pricingStatusBar" class="pricing-status-bar" role="status" aria-live="polite"></div>
+
+      <div>
+        <p class="pricing-section-eyebrow">Membership Categories</p>
+        <div class="pricing-section-header">
+          <h2 class="pricing-section-title">Weekly Fees & Headcount Goals</h2>
+          <p class="pricing-section-hint">Per-member weekly fee and target headcount.</p>
+        </div>
+        <div class="pricing-settings-grid" id="memberCategoryCards">${memberCards}</div>
+      </div>
+
+      <div>
+        <p class="pricing-section-eyebrow">Beginner Packages</p>
+        <div class="pricing-section-header">
+          <h2 class="pricing-section-title">Package Fees & Goals</h2>
+          <p class="pricing-section-hint">One-time package price, rollover fee, and enrolment goal.</p>
+        </div>
+        <div class="pricing-settings-grid" id="beginnerPackageCards">${beginnerCards}</div>
+      </div>
+    </div>`;
+
+  initPricingSettingsTab();
+}
+
+function showPricingStatusBar(message, isError = false) {
+  const bar = document.getElementById('pricingStatusBar');
+  if (!bar) return;
+  bar.textContent = message;
+  bar.classList.toggle('error', isError);
+  bar.classList.add('visible');
+  clearTimeout(bar._hideTimer);
+  bar._hideTimer = setTimeout(() => bar.classList.remove('visible'), 3500);
+}
+
+function initPricingSettingsTab() {
+  const container = document.getElementById('pricingSettings-content');
+  if (!container) return;
+
+  container.querySelectorAll('.pricing-card').forEach(card => {
+    const inputs = card.querySelectorAll('.pricing-input');
+    const saveBtn = card.querySelector('.pricing-save-btn');
+    const resetBtn = card.querySelector('.pricing-reset-btn');
+
+    // ── Save button ──────────────────────────────────────────────────────────
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        saveBtn.classList.remove('saved', 'error');
+
+        try {
+          for (const input of inputs) {
+            const key = input.getAttribute('data-pricing-key');
+            const rawValue = input.value;
+            if (!key || rawValue === '') continue;
+            const num = Number(rawValue);
+            if (!Number.isFinite(num) || num < 0) {
+              throw new Error(`Invalid value "${rawValue}" for field "${key}"`);
+            }
+            await savePricingSetting(key, num);
+            // Update the live constant immediately
+            applyPricingSettings([{ key, value: num }]);
+          }
+
+          saveBtn.textContent = '✓ Saved';
+          saveBtn.classList.add('saved');
+          showPricingStatusBar('✓ Pricing updated successfully. Reload report tabs to see the new numbers.');
+
+          // Reset report tabs so they re-render with new pricing
+          delete loadedTabs['current_mondayReport'];
+          delete loadedTabs['last_mondayReport'];
+
+          setTimeout(() => {
+            saveBtn.textContent = 'Save';
+            saveBtn.classList.remove('saved');
+            saveBtn.disabled = false;
+          }, 2200);
+        } catch (err) {
+          saveBtn.textContent = '✗ Failed';
+          saveBtn.classList.add('error');
+          showPricingStatusBar('Error: ' + (err.message || 'Could not save pricing.'), true);
+          setTimeout(() => {
+            saveBtn.textContent = 'Save';
+            saveBtn.classList.remove('error');
+            saveBtn.disabled = false;
+          }, 2200);
+        }
+      });
+    }
+
+    // ── Reset button ─────────────────────────────────────────────────────────
+    if (resetBtn) {
+      resetBtn.addEventListener('click', async () => {
+        if (!window.confirm('Reset these values back to the original defaults?')) return;
+
+        resetBtn.disabled = true;
+        resetBtn.textContent = 'Resetting…';
+
+        try {
+          for (const input of inputs) {
+            const key = input.getAttribute('data-pricing-key');
+            const defaultVal = input.getAttribute('data-default-value');
+            if (!key) continue;
+            await deletePricingSetting(key);
+            // Restore live constant
+            applyPricingSettings([{ key, value: Number(defaultVal) }]);
+            input.value = defaultVal;
+          }
+
+          showPricingStatusBar('↺ Pricing reset to original defaults.');
+          delete loadedTabs['current_mondayReport'];
+          delete loadedTabs['last_mondayReport'];
+        } catch (err) {
+          showPricingStatusBar('Error resetting: ' + (err.message || 'Unknown error.'), true);
+        } finally {
+          resetBtn.disabled = false;
+          resetBtn.textContent = '↺ Reset to default';
+        }
+      });
+    }
+  });
+}
+
+// ─── Tab dispatcher ───────────────────────────────────────────────────────────
+
 const loadedTabs = {};
 function loadMondayTab(key) {
   if (loadedTabs[key]) return;
@@ -2263,6 +2569,8 @@ function loadMondayTab(key) {
     loadSupabaseMemberList(key);
   } else if (key === 'memberHistoryLog') {
     loadMemberHistoryLog();
+  } else if (key === 'pricingSettings') {
+    renderPricingSettingsTab();
   } else {
     loadMondayPage(key);
   }
@@ -2290,9 +2598,12 @@ function initMondayBoardPage() {
         });
     });
 
-    loadMondayTab('overview');
-    loadSupabaseMemberListHistory();
-    loadMemberHistoryLog();
+    // Load pricing from Supabase early so report tabs use correct values
+    loadPricingSettings().then(() => {
+      loadMondayTab('overview');
+      loadSupabaseMemberListHistory();
+      loadMemberHistoryLog();
+    });
 }
 
 initMondayBoardPage();

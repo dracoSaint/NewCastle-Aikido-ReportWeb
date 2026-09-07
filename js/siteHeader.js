@@ -1,16 +1,16 @@
 (function () {
   const scriptUrl = new URL(document.currentScript.src);
-  const siteRoot  = new URL('../', scriptUrl);
-  const homeUrl    = new URL('index.html',    siteRoot).href;
+  const siteRoot = new URL('../', scriptUrl);
+  const homeUrl = new URL('index.html', siteRoot).href;
   const profileUrl = new URL('pages/profile.html', siteRoot).href;
-  const logoUrl    = new URL('imgs/aikido-logo.png', siteRoot).href;
+  const logoUrl = new URL('imgs/aikido-logo.png', siteRoot).href;
 
   function initSiteIcon() {
     if (document.querySelector('link[rel="icon"]')) return;
     const icon = document.createElement('link');
-    icon.rel   = 'icon';
-    icon.type  = 'image/png';
-    icon.href  = logoUrl;
+    icon.rel = 'icon';
+    icon.type = 'image/png';
+    icon.href = logoUrl;
     document.head.appendChild(icon);
   }
 
@@ -18,9 +18,9 @@
     const header = document.querySelector('header');
     if (!header || document.getElementById('siteBrand')) return;
 
-    const projectRef   = 'knnzybqudpdxhddcaxcv';
-    const tokenKey     = `sb-${projectRef}-auth-token`;
-    const isLoggedIn   = localStorage.getItem(tokenKey);
+    const projectRef = 'knnzybqudpdxhddcaxcv';
+    const tokenKey = `sb-${projectRef}-auth-token`;
+    const isLoggedIn = localStorage.getItem(tokenKey);
 
     // Profile dropdown — only render when authenticated
     const profileDropdownHtml = isLoggedIn ? `
@@ -35,17 +35,21 @@
           </div>
           <hr class="profile-dropdown-divider">
           <a href="${profileUrl}" class="profile-dropdown-item" role="menuitem">
-            <span class="dropdown-item-icon">👤</span> Update profile
+            <svg class="dropdown-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Update profile
           </a>
           <button id="logoutBtn" class="profile-dropdown-item profile-dropdown-logout" role="menuitem">
-            <span class="dropdown-item-icon">↩</span> Logout
+            <svg class="dropdown-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Logout
           </button>
         </div>
       </div>` : '';
 
     header.insertAdjacentHTML('afterbegin', `
       <div class="site-brand" id="siteBrand">
-        <button id="menuToggle" class="menu-toggle" aria-label="Open site menu">☰</button>
+        <button id="menuToggle" class="menu-toggle" aria-label="Open site menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <a href="${homeUrl}" aria-label="Newcastle Aikido home">
           <img class="site-logo" src="${logoUrl}" alt="Newcastle Aikido logo">
         </a>
@@ -62,7 +66,7 @@
 
   // ── Toggle open / close ───────────────────────────────────────────────────
   function initDropdownBehaviour() {
-    const btn  = document.getElementById('profileAvatarBtn');
+    const btn = document.getElementById('profileAvatarBtn');
     const menu = document.getElementById('profileDropdownMenu');
     if (!btn || !menu) return;
 
@@ -93,18 +97,18 @@
       window.supabaseClient.auth.getSession().then(({ data: { session } }) => {
         if (!session?.user) return;
 
-        const user      = session.user;
-        const fullName  = user.user_metadata?.full_name || '';
-        const email     = user.email || '';
-        const initial   = (fullName || email).charAt(0).toUpperCase();
+        const user = session.user;
+        const fullName = user.user_metadata?.full_name || '';
+        const email = user.email || '';
+        const initial = (fullName || email).charAt(0).toUpperCase();
 
         const avatarEl = document.getElementById('profileAvatarInitial');
-        const nameEl   = document.getElementById('dropdownName');
-        const emailEl  = document.getElementById('dropdownEmail');
+        const nameEl = document.getElementById('dropdownName');
+        const emailEl = document.getElementById('dropdownEmail');
 
         if (avatarEl) avatarEl.textContent = initial;
-        if (nameEl)   nameEl.textContent   = fullName || 'No name set';
-        if (emailEl)  emailEl.textContent  = email;
+        if (nameEl) nameEl.textContent = fullName || 'No name set';
+        if (emailEl) emailEl.textContent = email;
       }).catch(console.error);
     }
     tryPopulate();
