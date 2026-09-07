@@ -1,10 +1,13 @@
 {
   "scripts": {
-    "start": "npx --yes http-server . -p 8000",
-    "dev": "npx --yes http-server . -p 8000"
+    "start": "npx live-server --port=8000 --no-browser",
+    "dev": "npx live-server --port=8000 --no-browser"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.111.0"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
   }
 }
