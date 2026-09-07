@@ -10,22 +10,22 @@
 
   const inviteParams = new URLSearchParams(window.location.hash.slice(1));
   const isInviteLink = inviteParams.get('type') === 'invite' &&
-                       Boolean(inviteParams.get('access_token')) &&
-                       Boolean(inviteParams.get('refresh_token'));
+    Boolean(inviteParams.get('access_token')) &&
+    Boolean(inviteParams.get('refresh_token'));
   const currentUrlClean = window.location.href.split('?')[0].split('#')[0].toLowerCase();
   const pathname = window.location.pathname.toLowerCase();
-  
-  const isLoginPage = currentUrlClean === loginUrl.toLowerCase() || 
-                      pathname.endsWith('/login') || 
-                      pathname === 'login';
-                      
-  const isResetPage = currentUrlClean === resetUrl.toLowerCase() || 
-                      pathname.endsWith('/reset-password') || 
-                      pathname === 'reset-password';
+
+  const isLoginPage = currentUrlClean === loginUrl.toLowerCase() ||
+    pathname.endsWith('/login') ||
+    pathname === 'login';
+
+  const isResetPage = currentUrlClean === resetUrl.toLowerCase() ||
+    pathname.endsWith('/reset-password') ||
+    pathname === 'reset-password';
   const isRegisterPage = currentUrlClean === registerUrl.toLowerCase() ||
-                         pathname.endsWith('/register') ||
-                         pathname === 'register';
-                      
+    pathname.endsWith('/register') ||
+    pathname === 'register';
+
   const isBypassPage = isLoginPage || isResetPage || isRegisterPage;
 
   if (isInviteLink && !isRegisterPage) {
@@ -49,9 +49,19 @@
     return;
   }
 
-  // Function to load a script dynamically
+  // Function to load a script dynamically with duplicate checking
   function loadScript(src) {
     return new Promise((resolve, reject) => {
+      // Check if script is already loaded (handles absolute and relative URL matches)
+      const existing = Array.from(document.querySelectorAll('script')).find(s => {
+        return s.src === src || (s.getAttribute('src') && src.endsWith(s.getAttribute('src')));
+      });
+
+      if (existing) {
+        resolve();
+        return;
+      }
+
       const script = document.createElement('script');
       script.src = src;
       script.onload = resolve;
@@ -73,9 +83,11 @@
       await loadScript(configUrl);
     }
 
-    // Initialize Supabase client
-    const supabaseClient = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-    window.supabaseClient = supabaseClient;
+    // Initialize or reuse existing Supabase client instance
+    if (!window.supabaseClient) {
+      window.supabaseClient = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+    }
+    const supabaseClient = window.supabaseClient;
 
     // Retrieve active session
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -106,7 +118,7 @@
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        
+
         // Show loading state on button
         const originalText = logoutBtn.textContent;
         logoutBtn.textContent = 'Logging out...';
