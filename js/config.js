@@ -1,6 +1,7 @@
 // IMPORTANT: This file should be in your .gitignore file to keep secrets out of version control.
 
-const config = {
+// `var`, not `const`: auth.js may inject this file before the page's own <script> tag runs it again.
+var config = {
   // Supabase (for future use)
   supabaseUrl: 'https://knnzybqudpdxhddcaxcv.supabase.co',
   supabaseAnonKey: 'sb_publishable_fPh3JNTjI5Loc32jDzhJkw_i5YHeS9l',

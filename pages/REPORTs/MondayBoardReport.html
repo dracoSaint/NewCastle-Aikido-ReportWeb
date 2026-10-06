@@ -28,6 +28,7 @@
 
   <main>
     <section class="tab-panel active" id="tab-overview">
+      <div class="past-due-metrics key-strip chart-card-wide" id="mondayKeyFigure" aria-live="polite"></div>
       <div class="card chart-card chart-card-wide">
         <h2>Membership Trend</h2>
         <div class="chart-wrap">
@@ -45,17 +46,17 @@
       </div>
 
       <div class="card chart-card">
-        <h2>OVERALL MEMBERSHIP REGISTRATION</h2>
+        <h2>Overall Membership Registration</h2>
         <div class="chart-wrap chart-wrap-doughnut">
-          <canvas id="membershipBreakdownChart" aria-label="OVERALL MEMBERSHIP REGISTRATION"></canvas>
+          <canvas id="membershipBreakdownChart" aria-label="Overall membership registration"></canvas>
           <div class="loading">Loading dashboard...</div>
         </div>
       </div>
 
       <div class="card chart-card">
-        <h2>OVERALL BEGINNER PACKAGES REGISTRATION</h2>
+        <h2>Overall Beginner Packages Registration</h2>
         <div class="chart-wrap chart-wrap-doughnut">
-          <canvas id="beginnerBreakdownChart" aria-label="OVERALL BEGINNER PACKAGES REGISTRATION"></canvas>
+          <canvas id="beginnerBreakdownChart" aria-label="Overall beginner packages registration"></canvas>
           <div class="loading">Loading dashboard...</div>
         </div>
       </div>
@@ -76,47 +77,39 @@
     </section>
 
     <section class="tab-panel" id="tab-current_memberList">
-      <div class="member-list-layout">
-        <aside class="member-filter-panel card">
-          <h2>Member Filters</h2>
+      <div class="past-due-metrics key-strip member-summary" id="memberSummary" aria-label="Member list views"></div>
 
-          <div class="member-filter-body">
-            <div id="currentMemberCountLabel" class="member-count-label">0 members shown</div>
+      <div class="card member-list-card">
+        <div class="card-heading-row">
+          <h2 id="memberListTitle">Current members</h2>
+          <span class="member-count" id="memberCount" role="status" aria-live="polite"></span>
+        </div>
 
-            <label class="member-filter-field">
-              <span>Filter by</span>
-              <select id="memberFilterField">
-                <option value="all">All columns</option>
-              </select>
-            </label>
-
-            <label class="member-filter-field">
-              <span>Column search</span>
-              <div class="member-filter-with-button">
-                <input id="memberFilterValue" type="text" list="memberFilterValueList" placeholder="Choose a value"
-                  aria-label="Filter member list" />
-                <button type="button" class="member-clear-btn" data-clear-target="memberFilterValue"
-                  aria-label="Clear column search">Clear</button>
-              </div>
-              <datalist id="memberFilterValueList"></datalist>
-            </label>
-
-            <label class="member-filter-field">
-              <span>Find name</span>
-              <div class="member-filter-with-button">
-                <input id="memberNameFilter" type="text" placeholder="Type a name" aria-label="Find member by name" />
-                <button type="button" class="member-clear-btn" data-clear-target="memberNameFilter"
-                  aria-label="Clear name filter">Clear</button>
-              </div>
-            </label>
-
-            <div class="csv-upload-controls">
-              <input id="memberCsvInput" type="file" accept=".csv,text/csv" hidden />
-              <button id="importMemberCsvBtn" type="button" class="sop-action-button primary">Upload CSV</button>
-              <span id="csvUploadStatus" class="csv-upload-status">No file selected</span>
-            </div>
+        <div class="member-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search members by name or number</span>
+            <input id="memberSearch" type="search" placeholder="Search name or number" autocomplete="off">
+          </label>
+          <label>
+            <span class="sr-only">Filter by status</span>
+            <select id="memberStatusFilter"><option value="all">All statuses</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Filter by membership</span>
+            <select id="memberTypeFilter"><option value="all">All memberships</option></select>
+          </label>
+          <div class="member-toolbar-actions">
+            <button type="button" class="sop-action-button secondary" id="exportMemberCsvBtn">Export CSV</button>
+            <input id="memberCsvInput" type="file" accept=".csv,text/csv" hidden>
+            <button id="importMemberCsvBtn" type="button" class="sop-action-button primary">Upload CSV</button>
           </div>
-        </aside>
+          <span id="csvUploadStatus" class="csv-upload-status" role="status"></span>
+        </div>
+
+        <div class="table-wrap" id="current_memberList-wrap">
+          <div class="loading">Loading members…</div>
+        </div>
+      </div>
 
         <div id="csvUploadModal" class="csv-upload-modal hidden" aria-hidden="true">
           <div class="csv-upload-modal-card">
@@ -153,21 +146,6 @@
             </div>
           </div>
         </div>
-
-        <div class="member-table-panel card">
-          <h2>Current Member List</h2>
-          <div class="table-wrap" id="current_memberList-wrap">
-            <div class="loading">Loading...</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:20px;">
-        <h2>Member List (Last Week)</h2>
-        <div class="table-wrap" id="memberListLastWeek-wrap">
-          <div class="loading">Loading...</div>
-        </div>
-      </div>
     </section>
 
     <section class="tab-panel" id="tab-memberHistoryLog">
@@ -190,10 +168,7 @@
   <div id="manualWeeklyLogModal" class="manual-weekly-log-modal hidden" aria-hidden="true">
     <div class="manual-weekly-log-dialog" role="dialog" aria-modal="true" aria-labelledby="manualWeeklyLogTitle">
       <div class="manual-weekly-log-header">
-        <div>
-          <span class="manual-weekly-log-eyebrow">Member History Log</span>
-          <h3 id="manualWeeklyLogTitle">Add weekly log</h3>
-        </div>
+        <h3 id="manualWeeklyLogTitle">Add weekly log</h3>
         <button type="button" id="closeManualWeeklyLogBtn" class="csv-upload-close"
           aria-label="Close add weekly log dialog">×</button>
       </div>

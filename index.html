@@ -7,56 +7,57 @@
 <link rel="stylesheet" href="css/styles.css">
 <script src="js/auth.js"></script>
 </head>
-<body>
+<body class="home-page">
 
-<header>
-  <p>Welcome to the Studio's Operations site.</p>
+<header data-title="Studio Operations">
+  <p>Reports and procedures for running the dojo.</p>
 </header>
 
 <main class="home-main">
-  <div class="home-content">
-    <section class="hero-card">
-      <h2>Access our Reports!</h2>
-      <p>Jump straight to the reports! Select which one you're looking for.</p>
-      <div class="index-grid">
-        <a class="report-card-button" href="pages/REPORTs/GradingReport.html">Go to Grading Report</a>
-        <a class="report-card-button" href="pages/REPORTs/MondayBoardReport.html">Go to Monday Board Report</a>
-        <a class="report-card-button" href="pages/REPORTs/AttendanceReport.html">Go to Attendance Report</a>
-        <a class="report-card-button" href="pages/REPORTs/PastDueMembers.html">Go to Past Due Members</a>
-      </div>
+  <section class="home-start" aria-labelledby="startTitle">
+    <h2 id="startTitle">Start here</h2>
+    <div class="start-grid">
+      <a class="start-tile start-tile-lead" href="pages/REPORTs/MondayBoardReport.html">
+        <span class="start-tile-name">Monday Board Report</span>
+        <span class="start-tile-desc">This week's membership numbers, trends by membership type and the current member list.</span>
+        <span class="start-tile-go" aria-hidden="true">Open report</span>
+      </a>
+      <a class="start-tile" href="pages/REPORTs/PastDueMembers.html">
+        <span class="start-tile-name">Past Due Members</span>
+        <span class="start-tile-desc">Overdue balances to chase, plus cleared and cancelled accounts.</span>
+        <span class="start-tile-go" aria-hidden="true">Open report</span>
+      </a>
+      <a class="start-tile" href="pages/SOPs/SOPDocuments.html?sop=billing-account-query">
+        <span class="start-tile-name">SOP Library</span>
+        <span class="start-tile-desc">Step-by-step procedures for front-desk and admin tasks.</span>
+        <span class="start-tile-go" aria-hidden="true">Open library</span>
+      </a>
+    </div>
+  </section>
+
+  <div class="home-index">
+    <section class="home-section" aria-labelledby="reportsTitle">
+      <h2 id="reportsTitle">Reports</h2>
+      <ul class="index-list">
+        <li><a href="pages/REPORTs/MondayBoardReport.html"><strong>Monday Board Report</strong><span>Weekly membership snapshot for the board meeting</span></a></li>
+        <li><a href="pages/REPORTs/PastDueMembers.html"><strong>Past Due Members</strong><span>Accounts receivable from each CSV import</span></a></li>
+        <li><a href="pages/REPORTs/GradingReport.html"><strong>Grading Report</strong><span>Attendance since last test against hours needed</span></a></li>
+        <li><a href="pages/REPORTs/AttendanceReport.html"><strong>Attendance Report</strong><span>Class attendance by member, program and date</span></a></li>
+      </ul>
     </section>
 
-    <section class="hero-card">
-      <h2>Access our SOPs!</h2>
-      <p>Select a category below to jump straight to its standard operating procedures.</p>
-      
-      <!-- Updated button container with grid layout -->
-      <div class="index-grid">
-        <a class="sop-card-button" href="pages/SOPs/SOPDocuments.html?sop=billing-account-query">
-          <span>Billing & Payments</span>
-        </a>
-        <a class="sop-card-button" href="pages/SOPs/SOPDocuments.html?sop=membership-adjust-start-date">
-          <span>Membership</span>
-        </a>
-        <a class="sop-card-button" href="pages/SOPs/SOPDocuments.html?sop=contacts-merge-duplicates">
-          <span>Contacts & CRM</span>
-        </a>
-        <a class="sop-card-button" href="pages/SOPs/SOPDocuments.html?sop=invoicing-engage-gen">
-          <span>Invoicing</span>
-        </a>
-        <a class="sop-card-button" href="pages/SOPs/SOPDocuments.html?sop=enquiries-emails-jr">
-          <span>Enquiries & Leads</span>
-        </a>
-        <a class="sop-card-button" href="pages/SOPs/SOPDocuments.html?sop=email-action-saving">
-          <span>Email & Inbox Admin</span>
-        </a>
-        <a class="sop-card-button" href="pages/SOPs/SOPDocuments.html?sop=grading-member-hour-report">
-          <span>Grading & Attendance</span>
-        </a>
-        <a class="sop-card-button" href="pages/SOPs/SOPDocuments.html?sop=phones-diverting-calls">
-          <span>Phones</span>
-        </a>
-      </div>
+    <section class="home-section" aria-labelledby="sopTitle">
+      <h2 id="sopTitle">SOP Library</h2>
+      <ul class="index-list index-list-compact">
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=billing-account-query"><strong>Billing &amp; Payments</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=membership-adjust-start-date"><strong>Membership</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=contacts-merge-duplicates"><strong>Contacts &amp; CRM</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=invoicing-engage-gen"><strong>Invoicing</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=enquiries-emails-jr"><strong>Enquiries &amp; Leads</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=email-action-saving"><strong>Email &amp; Inbox Admin</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=grading-member-hour-report"><strong>Grading &amp; Attendance</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=phones-diverting-calls"><strong>Phones</strong></a></li>
+      </ul>
     </section>
   </div>
 </main>
@@ -65,7 +66,6 @@
 
   <script src="js/siteHeader.js"></script>
   <script src="js/siteMenu.js"></script>
-</body>
-
   <script src="js/footer.js"></script>
+</body>
 </html>

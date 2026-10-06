@@ -1,7 +1,7 @@
 const PAST_DUE_LOG_TABLE = 'past_due_member_log';
 const PAST_DUE_EXEMPT_TABLE = 'past_due_exempted_members';
 const PAST_DUE_FAILURE_REASON_TABLE = 'past_due_failure_reason';
-const PAST_DUE_TABS = ['dashboard', 'pastDue', 'cleared', 'cancelled', 'log', 'export'];
+const PAST_DUE_NOTES_TABLE = 'past_due_member_notes';
 const PAST_DUE_STAGES = [
   'Pending Retry',
   'Stage 1 (5-7 days)',
@@ -13,19 +13,27 @@ const PAST_DUE_STAGES = [
   'Cleared',
   'Inform Member'
 ];
+const PAST_DUE_STATUS_STAGE = { CLEARED: 'Cleared', CANCELLED: 'Cancelled Membership' };
 
 let pastDueRows = [];
 let pastDueExemptedRows = [];
 let pastDueFailureReasonsList = [];
+let pastDueNotes = [];            // member-level notes, newest first
+let pastDueNotesReady = true;     // false until supabase/past_due_member_notes.sql has been run
+let pastDueUserEmail = '';
 let pendingPastDueFile = null;
 let pendingExemptedFile = null;
-let pendingCancelBillId = null;
+let pendingCancelMember = null;
+const pastDueExpanded = new Set(); // "containerId|memberKey" of open member rows, kept across re-renders
+const pastDueViews = new Map();    // containerId -> members currently rendered there
+const pastDueExemptSelected = new Set(); // ids ticked on the Exempted tab
+
+const pastDueMoneyFormat = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' });
 
 function pastDueFailureReasons() {
   return pastDueFailureReasonsList;
 }
 
-// Fetch failure reasons from Supabase
 async function loadPastDueFailureReasons() {
   try {
     const client = await pastDueClient();
@@ -33,12 +41,8 @@ async function loadPastDueFailureReasons() {
       .from(PAST_DUE_FAILURE_REASON_TABLE)
       .select('reason')
       .order('reason', { ascending: true });
-
     if (error) throw error;
-
-    if (data) {
-      pastDueFailureReasonsList = data.map(item => item.reason).filter(Boolean);
-    }
+    pastDueFailureReasonsList = (data || []).map(item => item.reason).filter(Boolean);
   } catch (err) {
     console.error('Failed to load failure reasons from Supabase:', err);
   }
@@ -139,17 +143,55 @@ function pastDueDateValue(value) {
 }
 
 function pastDueDaysOverdue(dueDate) {
-  if (!dueDate) return null;
   const dateStr = pastDueDateValue(dueDate);
   if (!dateStr) return null;
 
-  const due = new Date(`${dateStr.slice(0, 10)}T00:00:00`);
+  const due = new Date(`${dateStr}T00:00:00`);
   if (Number.isNaN(due.getTime())) return null;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return Math.max(0, Math.floor((today - due) / 86400000));
 }
+
+// ── Formatting ───────────────────────────────────────────────────────────────
+
+function pastDueMoney(value) {
+  return pastDueMoneyFormat.format(Number(value) || 0);
+}
+
+function pastDueShortDate(value) {
+  const iso = pastDueDateValue(value);
+  if (!iso) return '—';
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function pastDueWhen(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  if (date.toDateString() === new Date().toDateString()) {
+    return `Today ${date.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })}`;
+  }
+  const days = Math.max(1, Math.floor((Date.now() - date) / 86400000));
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function pastDuePlural(count, word) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
+function pastDueToast(message, isError = false) {
+  const toast = document.getElementById('pastDueToast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.toggle('is-error', isError);
+  toast.hidden = false;
+  clearTimeout(pastDueToast.timer);
+  pastDueToast.timer = setTimeout(() => { toast.hidden = true; }, isError ? 6000 : 2500);
+}
+
+// ── Failure reason modal ─────────────────────────────────────────────────────
 
 function pastDueOpenFailureReasonModal() {
   const modal = document.getElementById('failureReasonModal');
@@ -162,16 +204,14 @@ function pastDueOpenFailureReasonModal() {
 }
 
 function pastDueCloseFailureReasonModal() {
-  const modal = document.getElementById('failureReasonModal');
-  if (modal) modal.classList.add('hidden');
+  document.getElementById('failureReasonModal')?.classList.add('hidden');
 }
 
 async function pastDueApproveFailureReason() {
   const input = document.getElementById('failureReasonInput');
-  const status = document.getElementById('pastDueImportStatus');
+  const hint = document.getElementById('failureReasonHint');
   if (!input) return;
   const reason = input.value.trim();
-  const hint = document.getElementById('failureReasonHint');
 
   if (!reason) {
     input.setAttribute('aria-invalid', 'true');
@@ -182,27 +222,20 @@ async function pastDueApproveFailureReason() {
 
   try {
     const client = await pastDueClient();
-
-    const { error } = await client
-      .from(PAST_DUE_FAILURE_REASON_TABLE)
-      .insert([{ reason }]);
-
+    const { error } = await client.from(PAST_DUE_FAILURE_REASON_TABLE).insert([{ reason }]);
     if (error) throw error;
 
     await loadPastDueFailureReasons();
-
     pastDueCloseFailureReasonModal();
     pastDueRender();
-
-    if (status) {
-      status.textContent = `Failure reason "${reason}" added.`;
-      status.classList.remove('upload-status-error');
-    }
+    pastDueToast(`Failure reason "${reason}" added.`);
   } catch (err) {
     console.error('Error adding failure reason:', err);
     if (hint) hint.textContent = err.message || 'Unable to save failure reason.';
   }
 }
+
+// ── Import normalisation ─────────────────────────────────────────────────────
 
 function pastDueMemberKey(row) {
   return pastDueFirstValue(row, ['bill', 'bill_number', 'bill_no', 'member_number', 'number', 'membership_number', 'email', 'member_email', 'member_name', 'name'])
@@ -249,47 +282,57 @@ function pastDueNormalizeRow(row) {
   };
 }
 
+// ── Members: one per person, holding all of their bills ─────────────────────
+
+function pastDueIdentity(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// Bills stay the same objects as in pastDueRows, so a saved edit updates both.
 function pastDueMergeRows(rows) {
-  const mergedRows = new Map();
-
-  for (const row of rows) {
-    const nameKey = pastDueIdentity(row.member_name) || row.member_key;
-    const existing = mergedRows.get(nameKey);
-    const itemsToMerge = row.bills && Array.isArray(row.bills) ? row.bills : [row];
-
-    if (!existing) {
-      mergedRows.set(nameKey, {
-        ...row,
-        bills: [...itemsToMerge],
-        raw_data: Array.isArray(row.raw_data) ? [...row.raw_data] : [row.raw_data]
-      });
-      continue;
-    }
-
-    itemsToMerge.forEach(item => {
-      existing.bills.push({ ...item });
-      if (item.raw_data) existing.raw_data.push(item.raw_data);
-    });
-
-    if (row.member_number && !String(existing.member_number || '').split(', ').includes(row.member_number)) {
-      existing.member_number = [existing.member_number, row.member_number].filter(Boolean).join(', ');
-    }
-  }
-
-  return Array.from(mergedRows.values()).map(member => {
-    const activeBills = member.bills.filter(b => b.status === 'PAST DUE');
-    const hasPastDue = member.bills.some(b => b.status === 'PAST DUE');
-    const hasCancelled = member.bills.some(b => b.status === 'CANCELLED');
-
-    member.status = hasPastDue ? 'PAST DUE' : (hasCancelled ? 'CANCELLED' : 'CLEARED');
-    member.amount = activeBills.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
-    member.days_overdue = member.bills.reduce((max, b) => {
-      const days = pastDueDaysOverdue(b.due_date) ?? b.days_overdue ?? 0;
-      return days > max ? days : max;
-    }, 0);
-
-    return member;
+  const members = new Map();
+  rows.forEach(bill => {
+    const key = pastDueIdentity(bill.member_name) || bill.member_key;
+    if (!members.has(key)) members.set(key, { key, member_name: bill.member_name, bills: [] });
+    members.get(key).bills.push(bill);
   });
+  return [...members.values()];
+}
+
+function pastDueWithStatus(members, status) {
+  return members
+    .map(member => ({ ...member, bills: member.bills.filter(bill => bill.status === status) }))
+    .filter(member => member.bills.length);
+}
+
+function pastDueBillDays(bill) {
+  return pastDueDaysOverdue(bill.due_date) ?? bill.days_overdue ?? 0;
+}
+
+function pastDueTotal(bills) {
+  return bills.reduce((sum, bill) => sum + (parseFloat(bill.amount) || 0), 0);
+}
+
+function pastDueOldest(bills) {
+  return Math.max(0, ...bills.map(pastDueBillDays));
+}
+
+function pastDueMemberStatus(bills) {
+  if (bills.some(bill => bill.status === 'PAST DUE')) return 'PAST DUE';
+  return bills.some(bill => bill.status === 'CANCELLED') ? 'CANCELLED' : 'CLEARED';
+}
+
+function pastDueNotesFor(member) {
+  if (pastDueNotesReady) return pastDueNotes.filter(note => note.member_identity === member.key);
+  // Before the notes table exists, show the old per-bill notes read-only.
+  return member.bills
+    .filter(bill => bill.notes || bill.outcome_notes)
+    .map(bill => ({ note: bill.notes || bill.outcome_notes, author: `Bill #${bill.member_number || '?'}`, created_at: bill.imported_at }));
+}
+
+function pastDueLastNoteTime(member) {
+  const latest = pastDueNotesFor(member)[0];
+  return latest ? Date.parse(latest.created_at) || 0 : 0;
 }
 
 async function pastDueClient() {
@@ -298,576 +341,535 @@ async function pastDueClient() {
   return window.supabaseClient;
 }
 
-function pastDueDisplayValue(value) {
-  if (value === null || value === undefined || value === '') return '';
-  return typeof value === 'number' ? value.toLocaleString('en-US') : value;
-}
-
 function pastDueOptionList(options, selected) {
   return options.map(option => `<option value="${escapeHtml(option)}"${option === selected ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('');
 }
 
-async function pastDueUpdateRow(rowId, rowElement) {
+// ── Writes ───────────────────────────────────────────────────────────────────
+
+async function pastDueUpdateBills(bills, patch) {
   const client = await pastDueClient();
-  const payload = {};
-
-  rowElement.querySelectorAll('[data-past-due-field]').forEach(input => {
-    const field = input.dataset.pastDueField;
-    if (field === 'bills') return;
-
-    if (input.type === 'checkbox') {
-      payload[field] = input.checked;
-    } else if (['amount_due', 'amount', 'days_overdue'].includes(field)) {
-      payload[field] = input.value === '' ? null : Number(input.value);
-    } else {
-      payload[field] = input.value || null;
-    }
-  });
-
-  delete payload.bills;
-
-  const { error } = await client.from(PAST_DUE_LOG_TABLE).update(payload).eq('id', rowId);
+  const { error } = await client.from(PAST_DUE_LOG_TABLE).update(patch).in('id', bills.map(bill => bill.id));
   if (error) throw error;
+  bills.forEach(bill => Object.assign(bill, patch));
 }
 
-async function pastDueClearAllBills(billIds) {
+async function pastDueAddNote(member, text) {
+  if (!pastDueNotesReady) return;
   const client = await pastDueClient();
-  const { error } = await client
-    .from(PAST_DUE_LOG_TABLE)
-    .update({
-      status: 'CLEARED',
-      stage: 'Cleared'
-    })
-    .in('id', billIds);
-
+  const { data, error } = await client
+    .from(PAST_DUE_NOTES_TABLE)
+    .insert({ member_identity: member.key, member_name: member.member_name, note: text })
+    .select()
+    .single();
   if (error) throw error;
+  pastDueNotes.unshift(data);
 }
 
-function pastDueRecalculateParentRow(parentRow, childRow) {
-  if (!parentRow || !childRow) return;
-
-  const subRows = childRow.querySelectorAll('tbody tr');
-  let activeTotal = 0;
-  let activeBillCount = 0;
-
-  subRows.forEach(row => {
-    const statusSelect = row.querySelector('[data-past-due-field="status"]');
-    const amountInput = row.querySelector('[data-past-due-field="amount"]');
-    const status = statusSelect ? statusSelect.value : 'PAST DUE';
-    const amount = amountInput ? parseFloat(amountInput.value) || 0 : 0;
-
-    if (status === 'PAST DUE') {
-      activeTotal += amount;
-      activeBillCount += 1;
-    }
-  });
-
-  const totalCell = parentRow.querySelector('.parent-total-amount');
-  const countCell = parentRow.querySelector('.parent-bills-count');
-  const badgeCell = parentRow.querySelector('.status-badge');
-
-  if (totalCell) totalCell.textContent = `$${activeTotal.toFixed(2)}`;
-  if (countCell) countCell.textContent = `${activeBillCount} bill(s)`;
-
-  if (badgeCell) {
-    if (activeBillCount === 0) {
-      badgeCell.textContent = 'CLEARED';
-    } else {
-      badgeCell.textContent = 'PAST DUE';
-    }
-  }
+async function pastDueEditNote(noteId, text) {
+  const client = await pastDueClient();
+  const { data, error } = await client.from(PAST_DUE_NOTES_TABLE).update({ note: text }).eq('id', noteId).select().single();
+  if (error) throw error;
+  pastDueNotes = pastDueNotes.map(note => (String(note.id) === String(noteId) ? data : note));
 }
 
-// Modal Trigger Functions
-function pastDueOpenCancelModal(billId) {
-  pendingCancelBillId = billId;
-  const modal = document.getElementById('cancelMembershipModal');
-  const input = document.getElementById('cancellationReasonInput');
-  const hint = document.getElementById('cancellationReasonHint');
+async function pastDueDeleteNote(noteId) {
+  const client = await pastDueClient();
+  const { error } = await client.from(PAST_DUE_NOTES_TABLE).delete().eq('id', noteId);
+  if (error) throw error;
+  pastDueNotes = pastDueNotes.filter(note => String(note.id) !== String(noteId));
+}
 
-  if (!modal || !input) {
-    console.error('Modal or input element not found in DOM.');
+// ── Member table ─────────────────────────────────────────────────────────────
+
+function pastDueBillsHtml(member, mode, focusId) {
+  const editable = mode !== 'log';
+  const rows = member.bills.map(bill => {
+    const days = pastDueBillDays(bill);
+    const label = `bill ${bill.member_number || ''}`;
+    const cell = (labelText, editor, text) => `<td data-label="${labelText}">${editable ? editor : escapeHtml(text || '—')}</td>`;
+    return `
+      <tr data-bill-id="${escapeHtml(bill.id)}">
+        <td data-label="Bill"><strong>#${escapeHtml(bill.member_number || '—')}</strong>${bill.bill_type && bill.bill_type !== bill.member_number && bill.bill_type.toLowerCase() !== 'bill' ?`<small class="pd-sub">${escapeHtml(bill.bill_type)}</small>` : ''}</td>
+        ${cell('Due', `<input type="date" data-field="due_date" aria-label="Due date, ${escapeHtml(label)}" data-focus="${focusId(`due-${bill.id}`)}" value="${pastDueDateValue(bill.due_date) || ''}">`, pastDueShortDate(bill.due_date))}
+        <td class="num" data-label="Days">${days}</td>
+        ${cell('Amount', `<input type="number" step="0.01" min="0" inputmode="decimal" class="pd-amount" data-field="amount" aria-label="Amount, ${escapeHtml(label)}" data-focus="${focusId(`amount-${bill.id}`)}" value="${bill.amount ?? ''}">`, pastDueMoney(bill.amount))}
+        ${cell('Stage', `<select data-field="stage" aria-label="Stage, ${escapeHtml(label)}" data-focus="${focusId(`stage-${bill.id}`)}"><option value="">Not set</option>${pastDueOptionList(PAST_DUE_STAGES, bill.stage)}</select>`, bill.stage)}
+        ${cell('Failure reason', `<select data-field="failure_reason" aria-label="Failure reason, ${escapeHtml(label)}" data-focus="${focusId(`reason-${bill.id}`)}"><option value="">Not set</option>${pastDueOptionList([...new Set([...pastDueFailureReasons(), bill.failure_reason].filter(Boolean))], bill.failure_reason)}</select>`, bill.failure_reason)}
+        ${cell('Status', `<select data-field="status" aria-label="Status, ${escapeHtml(label)}" data-focus="${focusId(`status-${bill.id}`)}">${pastDueOptionList(['PAST DUE', 'CLEARED', 'CANCELLED'], bill.status)}</select>`, bill.status)}
+        ${mode === 'open' ? `<td data-label=""><button type="button" class="sop-action-button secondary pd-small" data-action="clear-bill" data-focus="${focusId(`clear-${bill.id}`)}">Mark paid</button></td>` : ''}
+      </tr>`;
+  }).join('');
+
+  return `
+    <section class="pd-bills" aria-label="Bills for ${escapeHtml(member.member_name)}">
+      <table class="stack pd-bill-table">
+        <thead><tr><th>Bill</th><th>Due</th><th class="num">Days</th><th>Amount</th><th>Stage</th><th>Failure reason</th><th>Status</th>${mode === 'open' ? '<th><span class="sr-only">Action</span></th>' : ''}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>`;
+}
+
+function pastDueNotesHtml(member, notes, focusId) {
+  const form = pastDueNotesReady
+    ? `<form class="pd-note-form" data-action="add-note">
+        <label class="sr-only" for="${focusId('note')}">Add a note for ${escapeHtml(member.member_name)}</label>
+        <textarea id="${focusId('note')}" rows="2" maxlength="2000" required data-focus="${focusId('note')}" placeholder="Call made, promise to pay, payment plan…"></textarea>
+        <div class="pd-note-form-row"><small>Ctrl + Enter to save</small><button type="submit" class="sop-action-button primary pd-small">Add note</button></div>
+      </form>`
+    : '<p class="pd-notice">Member notes need a one-time database update: run <code>supabase/past_due_member_notes.sql</code>. Older bill notes are shown below.</p>';
+
+  const list = notes.length
+    ? notes.map(note => `
+        <li${note.id ? ` data-note-id="${escapeHtml(note.id)}"` : ''}>
+          <p>${escapeHtml(note.note)}</p>
+          <span class="pd-note-meta">${escapeHtml(note.author || 'Staff')} · <time datetime="${escapeHtml(note.created_at)}">${escapeHtml(pastDueWhen(note.created_at))}</time>${note.edited_at ? ` · <span class="pd-edited">Edited by ${escapeHtml(note.edited_by || 'Staff')} ${escapeHtml(pastDueWhen(note.edited_at))}</span>` : ''}${pastDueNotesReady && note.id ? ` <button type="button" class="pd-link" data-action="edit-note">Edit</button>` : ''}${pastDueNotesReady && note.id && note.author === pastDueUserEmail ? ` <button type="button" class="pd-link" data-action="delete-note">Delete</button>` : ''}</span>
+        </li>`).join('')
+    : '<li class="pd-muted">No notes yet.</li>';
+
+  return `
+    <section class="pd-notes">
+      <h4>Notes <small>Shared across all of this member's bills</small></h4>
+      ${form}
+      <ol class="pd-note-list">${list}</ol>
+    </section>`;
+}
+
+function pastDueActionsHtml(member, escalated, blocked, focusId) {
+  return `
+    <section class="pd-actions">
+      <h4>Account</h4>
+      <label class="pd-check"><input type="checkbox" data-action="escalate" data-focus="${focusId('escalate')}"${escalated ? ' checked' : ''}> Escalated to accounts</label>
+      <label class="pd-check"><input type="checkbox" data-action="block" data-focus="${focusId('block')}"${blocked ? ' checked' : ''}> Class booking blocked</label>
+      <div class="pd-action-buttons">
+        <button type="button" class="sop-action-button primary" data-action="clear-all" data-focus="${focusId('clear-all')}">${member.bills.length > 1 ? `Mark all ${member.bills.length} bills paid` : 'Mark paid'}</button>
+        <button type="button" class="sop-action-button danger" data-action="cancel" data-focus="${focusId('cancel')}">Cancel membership</button>
+      </div>
+    </section>`;
+}
+
+function pastDueMemberRowsHtml(containerId, member, index, mode) {
+  const detailId = `${containerId}-member-${index}`;
+  const open = pastDueExpanded.has(`${containerId}|${member.key}`);
+  const focusId = what => escapeHtml(`${containerId}|${member.key}|${what}`);
+  const days = pastDueOldest(member.bills);
+  const oldestBill = member.bills.reduce((oldest, bill) => (pastDueBillDays(bill) > pastDueBillDays(oldest) ? bill : oldest));
+  const notes = pastDueNotesFor(member);
+  const escalated = member.bills.some(bill => bill.escalated_to_darius);
+  const blocked = member.bills.some(bill => bill.class_blocked);
+  const status = pastDueMemberStatus(member.bills);
+  const statusClass = { CLEARED: ' is-cleared', CANCELLED: ' is-cancelled' }[status] || '';
+
+  return `
+    <tr class="parent-row${open ? ' is-open' : ''}" data-index="${index}">
+      <td class="pd-toggle-cell">
+        <button type="button" class="toggle-btn" aria-expanded="${open}" aria-controls="${detailId}" data-focus="${focusId('toggle')}" aria-label="Details for ${escapeHtml(member.member_name)}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
+      </td>
+      <td data-label="Member">
+        <strong class="pd-name">${escapeHtml(member.member_name)}</strong>
+        ${escalated || blocked ? `<span class="pd-flags">${escalated ? '<span class="pd-flag">Escalated</span>' : ''}${blocked ? '<span class="pd-flag">Class blocked</span>' : ''}</span>` : ''}
+      </td>
+      <td class="num" data-label="Bills">${member.bills.length}</td>
+      <td class="num pd-balance" data-label="Balance">${pastDueMoney(pastDueTotal(member.bills))}</td>
+      <td class="num measure" data-label="Oldest">${pastDuePlural(days, 'day')}<span class="stitch-meter${days > 30 ? ' late' : ''}" style="--p:${Math.min(days / 60, 1).toFixed(2)}" aria-hidden="true"></span></td>
+      <td data-label="${mode === 'open' ? 'Stage' : 'Status'}">${mode === 'open' ? escapeHtml(oldestBill.stage || 'Not set') : `<span class="status-badge${statusClass}">${escapeHtml(status)}</span>`}</td>
+      <td data-label="Last note" class="pd-last-note">${notes.length ? `${escapeHtml(pastDueWhen(notes[0].created_at))}<small>${pastDuePlural(notes.length, 'note')}</small>` : '<span class="pd-muted">None</span>'}</td>
+    </tr>
+    <tr class="child-row" id="${detailId}" data-index="${index}"${open ? '' : ' hidden'}>
+      <td colspan="7">
+        <div class="pd-detail">
+          ${pastDueBillsHtml(member, mode, focusId)}
+          <div class="pd-lower${mode === 'open' ? '' : ' is-single'}">
+            ${pastDueNotesHtml(member, notes, focusId)}
+            ${mode === 'open' ? pastDueActionsHtml(member, escalated, blocked, focusId) : ''}
+          </div>
+        </div>
+      </td>
+    </tr>`;
+}
+
+// mode: 'open' (past due, actionable), 'closed' (cleared / cancelled, editable), 'log' (read-only history)
+function pastDueRenderTable(containerId, members, mode = 'open', emptyText = 'No members match.') {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  pastDueViews.set(containerId, members);
+
+  if (!members.length) {
+    container.innerHTML = `<div class="empty">${escapeHtml(emptyText)}</div>`;
     return;
   }
 
+  container.innerHTML = `
+    <table class="stack past-due-expandable-table pd-table">
+      <thead>
+        <tr>
+          <th class="pd-toggle-cell"><span class="sr-only">Details</span></th>
+          <th>Member</th>
+          <th class="num">Bills</th>
+          <th class="num">Balance</th>
+          <th class="num">Oldest</th>
+          <th>${mode === 'open' ? 'Stage' : 'Status'}</th>
+          <th>Last note</th>
+        </tr>
+      </thead>
+      <tbody>${members.map((member, index) => pastDueMemberRowsHtml(containerId, member, index, mode)).join('')}</tbody>
+    </table>`;
+}
+
+function pastDueMemberFor(element) {
+  const container = element.closest('.table-wrap');
+  const row = element.closest('[data-index]');
+  if (!container || !row) return null;
+  return pastDueViews.get(container.id)?.[Number(row.dataset.index)] || null;
+}
+
+function pastDueToggle(parentRow) {
+  const container = parentRow.closest('.table-wrap');
+  const member = pastDueMemberFor(parentRow);
+  const detail = parentRow.nextElementSibling;
+  if (!member || !detail) return;
+  const open = detail.hidden;
+  const key = `${container.id}|${member.key}`;
+  detail.hidden = !open;
+  parentRow.classList.toggle('is-open', open);
+  parentRow.querySelector('.toggle-btn')?.setAttribute('aria-expanded', String(open));
+  if (open) pastDueExpanded.add(key);
+  else pastDueExpanded.delete(key);
+}
+
+// ── Member actions (event delegation on the page) ───────────────────────────
+
+async function pastDueRun(action, successMessage) {
+  try {
+    await action();
+    pastDueRender();
+    if (successMessage) pastDueToast(successMessage);
+  } catch (error) {
+    console.error(error);
+    pastDueToast(error.message || 'Something went wrong. Nothing was saved.', true);
+  }
+}
+
+function pastDueOnChange(event) {
+  const input = event.target;
+  if (input.matches('[data-action^="exempt-"]')) {
+    pastDueOnExemptSelect(input);
+    return;
+  }
+  const member = pastDueMemberFor(input);
+  if (!member) return;
+
+  if (input.dataset.field) {
+    const bill = member.bills.find(item => String(item.id) === input.closest('[data-bill-id]')?.dataset.billId);
+    if (!bill) return;
+    const field = input.dataset.field;
+    if (field === 'amount' && input.value !== '' && !(Number(input.value) >= 0)) {
+      pastDueToast('Amount must be a number, 0 or more.', true);
+      input.value = bill.amount ?? '';
+      return;
+    }
+    const value = field === 'amount' ? (input.value === '' ? null : Number(input.value)) : (input.value || null);
+    const patch = { [field]: value };
+    if (field === 'status' && PAST_DUE_STATUS_STAGE[value]) patch.stage = PAST_DUE_STATUS_STAGE[value];
+
+    const billName = `bill #${bill.member_number || '?'}`;
+    let note = '';
+    if (field === 'status') note = `Set ${billName} to ${value}.`;
+    if (field === 'amount') note = `Changed ${billName} amount from ${pastDueMoney(bill.amount)} to ${pastDueMoney(value)}.`;
+
+    pastDueRun(async () => {
+      await pastDueUpdateBills([bill], patch);
+      if (note) await pastDueAddNote(member, note);
+    }, `Saved ${billName}.`);
+    return;
+  }
+
+  const flag = { escalate: 'escalated_to_darius', block: 'class_blocked' }[input.dataset.action];
+  if (flag) {
+    const on = input.checked;
+    const note = input.dataset.action === 'escalate'
+      ? (on ? 'Escalated to accounts.' : 'Escalation removed.')
+      : (on ? 'Class booking blocked.' : 'Class booking unblocked.');
+    pastDueRun(async () => {
+      await pastDueUpdateBills(member.bills, { [flag]: on });
+      await pastDueAddNote(member, note);
+    }, note);
+  }
+}
+
+function pastDueOnClick(event) {
+  const target = event.target;
+  const action = target.closest('[data-action]')?.dataset.action;
+
+  const parentRow = target.closest('.parent-row');
+  if (parentRow && (target.closest('.toggle-btn') || !target.closest('button, a, input, select, textarea, label'))) {
+    pastDueToggle(parentRow);
+    return;
+  }
+
+  const member = pastDueMemberFor(target);
+  if (!member || !action) return;
+
+  if (action === 'clear-bill') {
+    const bill = member.bills.find(item => String(item.id) === target.closest('[data-bill-id]')?.dataset.billId);
+    if (!bill) return;
+    pastDueRun(async () => {
+      await pastDueUpdateBills([bill], { status: 'CLEARED', stage: 'Cleared' });
+      await pastDueAddNote(member, `Marked bill #${bill.member_number || '?'} paid (${pastDueMoney(bill.amount)}).`);
+    }, `Bill #${bill.member_number || '?'} marked paid.`);
+  }
+
+  if (action === 'clear-all') {
+    const total = pastDueMoney(pastDueTotal(member.bills));
+    if (!window.confirm(`Mark ${pastDuePlural(member.bills.length, 'bill')} for ${member.member_name} as paid (${total})?`)) return;
+    pastDueRun(async () => {
+      await pastDueUpdateBills(member.bills, { status: 'CLEARED', stage: 'Cleared' });
+      await pastDueAddNote(member, `Marked ${pastDuePlural(member.bills.length, 'bill')} paid (${total}).`);
+    }, `${member.member_name}: all bills marked paid.`);
+  }
+
+  if (action === 'cancel') pastDueOpenCancelModal(member);
+
+  if (action === 'edit-note') {
+    const item = target.closest('[data-note-id]');
+    const note = pastDueNotes.find(entry => String(entry.id) === item.dataset.noteId);
+    if (!note) return;
+    const fieldId = `pdEditNote-${note.id}`;
+    item.innerHTML = `
+      <form class="pd-note-edit" data-action="save-note">
+        <label class="sr-only" for="${fieldId}">Edit note</label>
+        <textarea id="${fieldId}" rows="3" maxlength="2000" required>${escapeHtml(note.note)}</textarea>
+        <div class="pd-note-form-row">
+          <button type="button" class="pd-link" data-action="cancel-edit">Cancel</button>
+          <button type="submit" class="sop-action-button primary pd-small">Save edit</button>
+        </div>
+      </form>`;
+    item.querySelector('textarea').focus();
+  }
+
+  if (action === 'cancel-edit') pastDueRender();
+
+  if (action === 'delete-note') {
+    if (!window.confirm('Delete this note? This cannot be undone.')) return;
+    pastDueRun(() => pastDueDeleteNote(target.closest('[data-note-id]').dataset.noteId), 'Note deleted.');
+  }
+}
+
+function pastDueOnSubmit(event) {
+  const editForm = event.target.closest('form[data-action="save-note"]');
+  if (editForm) {
+    event.preventDefault();
+    const noteId = editForm.closest('[data-note-id]').dataset.noteId;
+    const text = editForm.querySelector('textarea').value.trim();
+    const original = pastDueNotes.find(note => String(note.id) === noteId)?.note;
+    if (!text) return;
+    if (text === original) { pastDueRender(); return; }
+    editForm.querySelector('button[type="submit"]').disabled = true;
+    pastDueRun(() => pastDueEditNote(noteId, text), 'Note updated.');
+    return;
+  }
+
+  const form = event.target.closest('form[data-action="add-note"]');
+  if (!form) return;
+  event.preventDefault();
+  const member = pastDueMemberFor(form);
+  const textarea = form.querySelector('textarea');
+  const text = textarea.value.trim();
+  if (!member || !text) return;
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  pastDueRun(async () => {
+    await pastDueAddNote(member, text);
+    textarea.value = '';
+  }, 'Note added.').finally(() => { button.disabled = false; });
+}
+
+// ── Cancel membership modal ──────────────────────────────────────────────────
+
+function pastDueOpenCancelModal(member) {
+  const modal = document.getElementById('cancelMembershipModal');
+  const input = document.getElementById('cancellationReasonInput');
+  if (!modal || !input) return;
+  pendingCancelMember = member;
   input.value = '';
-  if (hint) hint.textContent = '';
-
-  // Remove hidden class AND explicitly set flex display
+  document.getElementById('cancellationReasonHint').textContent = '';
+  document.getElementById('cancelMembershipSummary').textContent =
+    `${member.member_name}: ${pastDuePlural(member.bills.length, 'open bill')} (${pastDueMoney(pastDueTotal(member.bills))}) will move to Cancelled. The reason is added to the member's notes.`;
   modal.classList.remove('hidden');
-  modal.style.display = 'flex';
-
   input.focus();
 }
 
 function pastDueCloseCancelModal() {
-  pendingCancelBillId = null;
-  const modal = document.getElementById('cancelMembershipModal');
-  if (modal) {
-    modal.classList.add('hidden');
-    modal.style.display = 'none';
-  }
-}
-
-function pastDueCloseCancelModal() {
-  pendingCancelBillId = null;
-  const modal = document.getElementById('cancelMembershipModal');
-  if (modal) modal.classList.add('hidden');
+  pendingCancelMember = null;
+  document.getElementById('cancelMembershipModal')?.classList.add('hidden');
 }
 
 async function pastDueApproveCancellation() {
   const input = document.getElementById('cancellationReasonInput');
   const hint = document.getElementById('cancellationReasonHint');
   const approveBtn = document.getElementById('approveCancellationBtn');
-
-  if (!input || !pendingCancelBillId) return;
+  const member = pendingCancelMember;
+  if (!input || !member) return;
 
   const reason = input.value.trim();
   if (!reason) {
-    if (hint) hint.textContent = 'Please enter a cancellation reason before approving.';
+    hint.textContent = 'Enter a cancellation reason before approving.';
     input.focus();
     return;
   }
 
   approveBtn.disabled = true;
-  approveBtn.textContent = 'Cancelling...';
-
+  approveBtn.textContent = 'Cancelling…';
   try {
-    const client = await pastDueClient();
-
-    // Safely query existing bill
-    const { data: bills, error: fetchError } = await client
-      .from(PAST_DUE_LOG_TABLE)
-      .select('notes, outcome_notes')
-      .eq('id', pendingCancelBillId);
-
-    if (fetchError) throw fetchError;
-
-    const currentBill = bills && bills.length ? bills[0] : null;
-    const existingNote = currentBill?.notes || currentBill?.outcome_notes || '';
-    const updatedNote = existingNote
-      ? `${existingNote} | Cancellation Reason: ${reason}`
-      : `Cancellation Reason: ${reason}`;
-
-    // Update database status to CANCELLED & stage to Cancelled Membership
-    const { error: updateError } = await client
-      .from(PAST_DUE_LOG_TABLE)
-      .update({
-        status: 'CANCELLED',
-        stage: 'Cancelled Membership',
-        notes: updatedNote,
-        outcome_notes: updatedNote
-      })
-      .eq('id', pendingCancelBillId);
-
-    if (updateError) throw updateError;
-
+    const patch = { status: 'CANCELLED', stage: 'Cancelled Membership' };
+    // Without the notes table, keep the reason on the bills so it isn't lost.
+    if (!pastDueNotesReady) patch.notes = [member.bills[0].notes, `Cancellation reason: ${reason}`].filter(Boolean).join(' | ');
+    await pastDueUpdateBills(member.bills, patch);
+    await pastDueAddNote(member, `Membership cancelled. Reason: ${reason}`);
     pastDueCloseCancelModal();
-
-    // Reload state and render views
-    await pastDueLoad();
+    pastDueRender();
+    pastDueToast(`${member.member_name}: membership cancelled.`);
   } catch (error) {
     console.error('Cancellation failed:', error);
-    if (hint) hint.textContent = error.message || 'Unable to cancel membership.';
+    hint.textContent = error.message || 'Unable to cancel membership.';
   } finally {
     approveBtn.disabled = false;
-    approveBtn.textContent = 'Approve Cancellation';
+    approveBtn.textContent = 'Cancel membership';
   }
 }
 
-function pastDueRenderTable(elementId, rows) {
+// ── Page render ──────────────────────────────────────────────────────────────
+
+function pastDueRenderMetrics(elementId, members, amountLabel) {
   const container = document.getElementById(elementId);
   if (!container) return;
-
-  if (!rows.length) {
-    container.innerHTML = '<div class="empty">No members found.</div>';
-    return;
-  }
-
-  function getVisibleBills(row) {
-    const allBills = row.bills && row.bills.length ? row.bills : [row];
-
-    if (elementId === 'pastDueTable') {
-      return allBills.filter(bill => bill.status === 'PAST DUE');
-    }
-    if (elementId === 'clearedTable') {
-      return allBills.filter(bill => bill.status === 'CLEARED');
-    }
-    if (elementId === 'cancelledTable') {
-      return allBills.filter(bill => bill.status === 'CANCELLED');
-    }
-
-    return allBills;
-  }
-
-  const displayRows = rows
-    .map(row => ({
-      ...row,
-      visibleBills: getVisibleBills(row)
-    }))
-    .filter(row => row.visibleBills.length > 0);
-
-  if (!displayRows.length) {
-    container.innerHTML = '<div class="empty">No members found.</div>';
-    return;
-  }
-
-  const html = `
-    <table class="filterable past-due-expandable-table">
-      <thead>
-        <tr>
-          <th style="width: 30px;"></th>
-          <th>Member Name</th>
-          <th>Bill Count</th>
-          <th>Total Overdue</th>
-          <th>Max Days Overdue</th>
-          <th>Status</th>
-          <th>Bulk Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${displayRows
-      .map((row, idx) => {
-        const bills = row.visibleBills;
-        const rowGroupId = `${elementId}-group-${idx}`;
-        const billIds = bills.map(bill => bill.id).filter(Boolean);
-
-        const totalAmount = bills.reduce(
-          (sum, bill) => sum + (parseFloat(bill.amount) || 0),
-          0
-        );
-
-        const maxDaysOverdue = bills.reduce((max, bill) => {
-          const days = pastDueDaysOverdue(bill.due_date) ?? bill.days_overdue ?? 0;
-          return days > max ? days : max;
-        }, 0);
-
-        let displayStatus = row.status;
-        if (elementId === 'pastDueTable') {
-          displayStatus = 'PAST DUE';
-        } else if (elementId === 'clearedTable') {
-          displayStatus = 'CLEARED';
-        } else if (elementId === 'cancelledTable') {
-          displayStatus = 'CANCELLED';
-        }
-
-        const showClearAll = elementId === 'pastDueTable' && billIds.length > 0;
-
-        return `
-              <tr class="parent-row" data-target="${rowGroupId}" style="cursor: pointer; background-color: #f8f9fa;">
-                <td>
-                  <button type="button" class="toggle-btn" style="border:none; background:none; font-weight:bold; cursor:pointer;">
-                    ▶
-                  </button>
-                </td>
-                <td>
-                  <strong>${escapeHtml(row.member_name)}</strong>
-                </td>
-                <td class="parent-bills-count">
-                  ${bills.length} bill(s)
-                </td>
-                <td class="parent-total-amount">
-                  $${totalAmount.toFixed(2)}
-                </td>
-                <td>
-                  ${maxDaysOverdue} days
-                </td>
-                <td>
-                  <span class="status-badge">
-                    ${escapeHtml(displayStatus)}
-                  </span>
-                </td>
-                <td>
-                  ${showClearAll
-            ? `
-                        <button 
-                          type="button" 
-                          class="sop-action-button primary past-due-clear-all" 
-                          data-bill-ids="${escapeHtml(JSON.stringify(billIds))}"
-                        >
-                          Clear All Bills
-                        </button>
-                      `
-            : ''
-          }
-                </td>
-              </tr>
-              <tr id="${rowGroupId}" class="child-row" style="display: none;">
-                <td colspan="7" style="padding: 12px 20px; background: #ffffff; border-bottom: 2px solid #e9ecef;">
-                  <table class="sub-table" style="width: 100%; margin: 5px 0;">
-                    <thead>
-                      <tr>
-                        <th>Bill #</th>
-                        <th>Amount</th>
-                        <th>Due Date</th>
-                        <th>Days Overdue</th>
-                        <th>Stage</th>
-                        <th>Failure Reason</th>
-                        <th>Status</th>
-                        <th>Notes / Updates</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${bills
-            .map(
-              bill => `
-                            <tr data-past-due-row-id="${escapeHtml(bill.id || row.id)}">
-                              <td>
-                                <strong>
-                                  ${escapeHtml(bill.member_number || 'N/A')}
-                                </strong>
-                              </td>
-                              <td>
-                                <input 
-                                  type="number" 
-                                  step="any" 
-                                  data-past-due-field="amount" 
-                                  value="${bill.amount ?? ''}" 
-                                  style="width: 80px;"
-                                >
-                              </td>
-                              <td>
-                                <input 
-                                  type="date" 
-                                  data-past-due-field="due_date" 
-                                  value="${(pastDueDateValue(bill.due_date) || '').slice(0, 10)}"
-                                >
-                              </td>
-                              <td>
-                                ${pastDueDaysOverdue(bill.due_date) ?? bill.days_overdue ?? 0}
-                              </td>
-                              <td>
-                                <select data-past-due-field="stage">
-                                  ${pastDueOptionList(PAST_DUE_STAGES, bill.stage)}
-                                </select>
-                              </td>
-                              <td>
-                                <select data-past-due-field="failure_reason">
-                                  <option value="">Select reason</option>
-                                  ${pastDueOptionList(pastDueFailureReasons(), bill.failure_reason)}
-                                </select>
-                              </td>
-                              <td>
-                                <select data-past-due-field="status">
-                                  <option value="PAST DUE" ${bill.status === 'PAST DUE' ? 'selected' : ''}>
-                                    PAST DUE
-                                  </option>
-                                  <option value="CLEARED" ${bill.status === 'CLEARED' ? 'selected' : ''}>
-                                    CLEARED
-                                  </option>
-                                  <option value="CANCELLED" ${bill.status === 'CANCELLED' ? 'selected' : ''}>
-                                    CANCELLED
-                                  </option>
-                                </select>
-                              </td>
-                              <td>
-                                <input 
-                                  type="text" 
-                                  data-past-due-field="notes" 
-                                  value="${escapeHtml(bill.notes || bill.outcome_notes || '')}" 
-                                  placeholder="Add note/update..." 
-                                  style="width: 160px;"
-                                >
-                              </td>
-                              <td style="display: flex; gap: 6px;">
-                                <button type="button" class="sop-action-button primary past-due-save">
-                                  Save
-                                </button>
-                                ${elementId === 'pastDueTable'
-                  ? `
-                                      <button 
-                                        type="button" 
-                                        class="sop-action-button past-due-quick-clear" 
-                                        style="background-color: #28a745; color: white; border: none;"
-                                      >
-                                        Clear Bill
-                                      </button>
-                                      <button 
-                                        type="button" 
-                                        class="sop-action-button past-due-cancel-btn" 
-                                        style="background-color: #dc3545; color: white; border: none;"
-                                      >
-                                        Cancel Membership
-                                      </button>
-                                    `
-                  : ''
-                }
-                              </td>
-                            </tr>
-                          `
-            )
-            .join('')}
-                    </tbody>
-                  </table>
-                </td>
-              </tr>
-            `;
-      })
-      .join('')}
-      </tbody>
-    </table>
-  `;
-
-  container.innerHTML = html;
-
-  // Accordion Expand / Collapse (ignore button clicks)
-  container.querySelectorAll('.parent-row').forEach(parent => {
-    parent.addEventListener('click', e => {
-      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-        return; // Prevents parent toggle when clicking action buttons
-      }
-      const targetId = parent.dataset.target;
-      const childRow = document.getElementById(targetId);
-      const btn = parent.querySelector('.toggle-btn');
-
-      if (!childRow || !btn) return;
-
-      const isHidden = childRow.style.display === 'none';
-      childRow.style.display = isHidden ? 'table-row' : 'none';
-      btn.textContent = isHidden ? '▼' : '▶';
-    });
-  });
-
-  // Cancel Membership Button Listener
-  container.querySelectorAll('.past-due-cancel-btn').forEach(button => {
-    button.addEventListener('click', e => {
-      e.stopPropagation(); // Stop parent row toggle
-      e.preventDefault();
-      const row = button.closest('tr');
-      const billId = row.dataset.pastDueRowId;
-      pastDueOpenCancelModal(billId);
-    });
-  });
-
-  // Dynamic calculations
-  container.querySelectorAll('.child-row').forEach(childRow => {
-    const parentRow = childRow.previousElementSibling;
-
-    childRow.addEventListener('input', e => {
-      if (e.target.matches('[data-past-due-field="amount"], [data-past-due-field="status"]')) {
-        pastDueRecalculateParentRow(parentRow, childRow);
-      }
-    });
-
-    childRow.addEventListener('change', e => {
-      if (e.target.matches('[data-past-due-field="amount"], [data-past-due-field="status"]')) {
-        pastDueRecalculateParentRow(parentRow, childRow);
-      }
-    });
-  });
-
-  // Individual save
-  container.querySelectorAll('.past-due-save').forEach(button => {
-    button.addEventListener('click', async () => {
-      const row = button.closest('tr');
-      const rowId = row.dataset.pastDueRowId;
-      button.disabled = true;
-      button.textContent = 'Saving...';
-
-      try {
-        await pastDueUpdateRow(rowId, row);
-
-        const targetBill = pastDueRows.find(b => String(b.id) === String(rowId));
-        if (targetBill) {
-          row.querySelectorAll('[data-past-due-field]').forEach(input => {
-            const field = input.dataset.pastDueField;
-            if (field === 'bills') return;
-            if (input.type === 'checkbox') {
-              targetBill[field] = input.checked;
-            } else if (['amount_due', 'amount', 'days_overdue'].includes(field)) {
-              targetBill[field] = input.value === '' ? null : Number(input.value);
-            } else {
-              targetBill[field] = input.value || null;
-            }
-          });
-        }
-
-        button.textContent = 'Saved';
-        setTimeout(() => {
-          button.disabled = false;
-          button.textContent = 'Save';
-        }, 1500);
-      } catch (error) {
-        button.disabled = false;
-        button.textContent = 'Save failed';
-        window.alert(error.message || 'Unable to update bill record.');
-      }
-    });
-  });
-
-  // Cancel Membership button listener
-  container.querySelectorAll('.past-due-cancel-btn').forEach(button => {
-    button.addEventListener('click', () => {
-      const row = button.closest('tr');
-      const billId = row.dataset.pastDueRowId;
-      pastDueOpenCancelModal(billId);
-    });
-  });
-
-  // Quick clear single bill
-  container.querySelectorAll('.past-due-quick-clear').forEach(button => {
-    button.addEventListener('click', async () => {
-      const row = button.closest('tr');
-      const childRow = row.closest('.child-row');
-      const parentRow = childRow ? childRow.previousElementSibling : null;
-      const statusSelect = row.querySelector('[data-past-due-field="status"]');
-
-      if (statusSelect) {
-        statusSelect.value = 'CLEARED';
-      }
-
-      if (parentRow && childRow) {
-        pastDueRecalculateParentRow(parentRow, childRow);
-      }
-
-      button.disabled = true;
-      button.textContent = 'Clearing...';
-
-      try {
-        await pastDueUpdateRow(row.dataset.pastDueRowId, row);
-        await pastDueLoad();
-      } catch (error) {
-        button.disabled = false;
-        button.textContent = 'Clear failed';
-        window.alert(error.message || 'Unable to clear bill.');
-      }
-    });
-  });
-
-  // Clear all bills under member
-  container.querySelectorAll('.past-due-clear-all').forEach(button => {
-    button.addEventListener('click', async () => {
-      const billIds = JSON.parse(button.dataset.billIds || '[]');
-      if (!billIds.length) return;
-
-      if (!window.confirm(`Are you sure you want to mark all ${billIds.length} bill(s) as CLEARED?`)) {
-        return;
-      }
-
-      button.disabled = true;
-      button.textContent = 'Clearing All...';
-
-      try {
-        await pastDueClearAllBills(billIds);
-        await pastDueLoad();
-      } catch (error) {
-        button.disabled = false;
-        button.textContent = 'Action failed';
-        window.alert(error.message || 'Unable to clear all bills.');
-      }
-    });
-  });
+  const bills = members.flatMap(member => member.bills);
+  const escalated = members.filter(member => member.bills.some(bill => bill.escalated_to_darius)).length;
+  const blocked = members.filter(member => member.bills.some(bill => bill.class_blocked)).length;
+  container.innerHTML = `
+    <div class="past-due-metric key"><span>${escapeHtml(amountLabel)}</span><strong>${pastDueMoney(pastDueTotal(bills))}</strong></div>
+    <div class="past-due-metric"><span>Members</span><strong>${members.length}<small>${pastDuePlural(bills.length, 'bill')}</small></strong></div>
+    <div class="past-due-metric"><span>Escalated</span><strong>${escalated}</strong></div>
+    <div class="past-due-metric"><span>Class blocked</span><strong>${blocked}</strong></div>`;
 }
 
-function pastDueImportDate(row) {
-  const importedAt = row.imported_at ? new Date(row.imported_at) : null;
-  if (!importedAt || Number.isNaN(importedAt.getTime())) return 'Unknown import date';
-  return importedAt.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+function pastDueRenderAgeing(members) {
+  const container = document.getElementById('pastDueAgeing');
+  if (!container) return;
+  const buckets = [['0–7 days', 0, 7], ['8–14 days', 8, 14], ['15–30 days', 15, 30], ['31+ days', 31, Infinity]];
+  const total = pastDueTotal(members.flatMap(member => member.bills)) || 1;
+  container.innerHTML = buckets.map(([label, min, max]) => {
+    const inBucket = members.filter(member => {
+      const days = pastDueOldest(member.bills);
+      return days >= min && days <= max;
+    });
+    const amount = pastDueTotal(inBucket.flatMap(member => member.bills));
+    return `
+      <div class="pd-age${min > 30 && inBucket.length ? ' is-late' : ''}">
+        <span>${label}</span>
+        <strong>${pastDueMoney(amount)}</strong>
+        <small>${pastDuePlural(inBucket.length, 'member')}</small>
+        <span class="stitch-meter${min > 30 ? ' late' : ''}" style="--p:${(amount / total).toFixed(2)}" aria-hidden="true"></span>
+      </div>`;
+  }).join('');
+}
+
+function pastDueMatches(member, query) {
+  if (!query) return true;
+  return pastDueIdentity(member.member_name).includes(query)
+    || member.bills.some(bill => String(bill.member_number || '').toLowerCase().includes(query));
+}
+
+const PAST_DUE_SORTS = {
+  days: (a, b) => pastDueOldest(b.bills) - pastDueOldest(a.bills),
+  amount: (a, b) => pastDueTotal(b.bills) - pastDueTotal(a.bills),
+  name: (a, b) => a.member_name.localeCompare(b.member_name),
+  note: (a, b) => pastDueLastNoteTime(a) - pastDueLastNoteTime(b) || pastDueOldest(b.bills) - pastDueOldest(a.bills)
+};
+
+function pastDueQuery(id) {
+  return pastDueIdentity(document.getElementById(id)?.value);
+}
+
+function pastDueSetCount(id, members) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = `${pastDuePlural(members.length, 'member')} · ${pastDueMoney(pastDueTotal(members.flatMap(member => member.bills)))}`;
+}
+
+function pastDueRender() {
+  // Re-rendering replaces the rows, so carry focus and unsent note drafts across.
+  const focusId = document.activeElement?.dataset?.focus;
+  const drafts = [...document.querySelectorAll('.pd-note-form textarea')].filter(textarea => textarea.value).map(textarea => [textarea.dataset.focus, textarea.value]);
+
+  const exemptKeys = pastDueExemptKeys();
+  const members = pastDueMergeRows(pastDueRows.filter(row => !pastDueIsExempt(row, exemptKeys)));
+  const openMembers = pastDueWithStatus(members, 'PAST DUE');
+  const clearedMembers = pastDueWithStatus(members, 'CLEARED');
+  const cancelledMembers = pastDueWithStatus(members, 'CANCELLED');
+  const openBills = openMembers.flatMap(member => member.bills);
+
+  const metrics = document.getElementById('pastDueMetrics');
+  if (metrics) {
+    metrics.innerHTML = `
+      <div class="past-due-metric key"><span>Total overdue</span><strong>${pastDueMoney(pastDueTotal(openBills))}</strong></div>
+      <div class="past-due-metric"><span>Members past due</span><strong>${openMembers.length}<small>${pastDuePlural(openBills.length, 'bill')}</small></strong></div>
+      <div class="past-due-metric"><span>Escalated</span><strong>${openMembers.filter(member => member.bills.some(bill => bill.escalated_to_darius)).length}</strong></div>
+      <div class="past-due-metric"><span>Cleared / cancelled</span><strong>${clearedMembers.length} / ${cancelledMembers.length}</strong></div>`;
+  }
+  pastDueRenderAgeing(openMembers);
+
+  const byDays = [...openMembers].sort(PAST_DUE_SORTS.days);
+  pastDueRenderTable('dashboardTable', byDays.slice(0, 5), 'open', 'Nobody is past due.');
+
+  const stage = document.getElementById('pastDueStageFilter')?.value || '';
+  const sort = PAST_DUE_SORTS[document.getElementById('pastDueSort')?.value] || PAST_DUE_SORTS.days;
+  const pastDueList = openMembers
+    .filter(member => pastDueMatches(member, pastDueQuery('nameSearchPastDue')))
+    .filter(member => !stage || member.bills.some(bill => (bill.stage || '') === stage))
+    .sort(sort);
+  pastDueSetCount('pastDueCount', pastDueList);
+  pastDueRenderTable('pastDueTable', pastDueList, 'open', openMembers.length ? 'No past due members match these filters.' : 'Nobody is past due.');
+
+  const clearedList = clearedMembers.filter(member => pastDueMatches(member, pastDueQuery('nameSearchCleared')));
+  pastDueSetCount('clearedCount', clearedList);
+  pastDueRenderTable('clearedTable', clearedList, 'closed');
+
+  const cancelledList = cancelledMembers.filter(member => pastDueMatches(member, pastDueQuery('nameSearchCancelled')));
+  pastDueSetCount('cancelledCount', cancelledList);
+  pastDueRenderTable('cancelledTable', cancelledList, 'closed');
+
+  pastDueRenderMetrics('pastDueTabMetrics', openMembers, 'Total overdue');
+  pastDueRenderMetrics('clearedTabMetrics', clearedMembers, 'Total cleared');
+  pastDueRenderMetrics('cancelledTabMetrics', cancelledMembers, 'Balance on cancelled');
+
+  pastDueRenderExemptions();
+  pastDueRenderLogGroups();
+  pastDueRenderFailureReasons();
+
+  drafts.forEach(([id, value]) => {
+    const textarea = pastDueFocusTarget(id);
+    if (textarea) textarea.value = value;
   });
+  if (focusId) pastDueFocusTarget(focusId)?.focus();
+}
+
+function pastDueFocusTarget(id) {
+  return id ? document.querySelector(`[data-focus="${CSS.escape(id)}"]`) : null;
+}
+
+function pastDueRenderFailureReasons() {
+  const list = document.getElementById('failureReasonList');
+  if (!list) return;
+  list.innerHTML = pastDueFailureReasons().length
+    ? pastDueFailureReasons().map(reason => `<li>${escapeHtml(reason)}</li>`).join('')
+    : '<li class="pd-muted">No reasons yet.</li>';
+}
+
+function pastDueImportDateKey(row) {
+  const date = row.imported_at ? new Date(row.imported_at) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : 'unknown';
 }
 
 function pastDueRenderLogGroups() {
@@ -875,255 +877,193 @@ function pastDueRenderLogGroups() {
   if (!container) return;
 
   const selectedDate = document.getElementById('logDateFilter')?.value || '';
-  const searchQuery = document.getElementById('nameSearchLog')?.value.toLowerCase().trim() || '';
+  const query = pastDueQuery('nameSearchLog');
 
-  const filteredRows = pastDueRows.filter(row => {
-    const matchDate = selectedDate ? (row.imported_at && new Date(row.imported_at).toISOString().slice(0, 10) === selectedDate) : true;
-    const matchName = searchQuery ? String(row.member_name || '').toLowerCase().includes(searchQuery) : true;
-    const matchNumber = searchQuery ? String(row.member_number || '').toLowerCase().includes(searchQuery) : true;
-    return matchDate && (matchName || matchNumber);
-  });
+  const groups = new Map();
+  [...pastDueRows]
+    .filter(row => !selectedDate || pastDueImportDateKey(row) === selectedDate)
+    .filter(row => !query || pastDueIdentity(row.member_name).includes(query) || String(row.member_number || '').toLowerCase().includes(query))
+    .sort((a, b) => new Date(b.imported_at || 0) - new Date(a.imported_at || 0))
+    .forEach(row => {
+      const key = pastDueImportDateKey(row);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    });
 
-  if (!filteredRows.length) {
-    container.innerHTML = '<div class="empty">No members found.</div>';
+  if (!groups.size) {
+    container.innerHTML = '<div class="empty">No log entries match.</div>';
     return;
   }
 
-  const groups = new Map();
-  [...filteredRows]
-    .sort((a, b) => new Date(b.imported_at || 0) - new Date(a.imported_at || 0))
-    .forEach(row => {
-      const dateKey = row.imported_at && !Number.isNaN(new Date(row.imported_at).getTime())
-        ? new Date(row.imported_at).toISOString().slice(0, 10)
-        : 'unknown';
-      if (!groups.has(dateKey)) groups.set(dateKey, []);
-      groups.get(dateKey).push(row);
-    });
-
-  container.innerHTML = Array.from(groups.entries()).map(([dateKey, rows], index) => {
-    const totalAmount = rows.reduce((total, row) => total + Number(row.amount || 0), 0);
-    const groupId = `pastDueLogGroup-${index}`;
-    return `<details class="past-due-log-group" open><summary class="past-due-log-group-header"><div><span class="report-eyebrow">Import group</span><h3>${escapeHtml(dateKey === 'unknown' ? 'Unknown import date' : pastDueImportDate(rows[0]))}</h3></div><div class="past-due-log-group-summary"><strong>${rows.length}</strong><span>members</span><strong>$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong><span>amount overdue</span><span class="past-due-log-toggle">View log</span></div></summary><div class="table-wrap" id="${groupId}"></div></details>`;
+  const wasOpen = new Set([...container.querySelectorAll('details[open]')].map(details => details.dataset.date));
+  const firstRender = !container.querySelector('details');
+  container.innerHTML = [...groups.entries()].map(([dateKey, rows], index) => {
+    const members = pastDueMergeRows(rows);
+    const open = firstRender ? index === 0 : wasOpen.has(dateKey);
+    return `
+      <details class="past-due-log-group" data-date="${escapeHtml(dateKey)}"${open ? ' open' : ''}>
+        <summary class="past-due-log-group-header">
+          <h3>${dateKey === 'unknown' ? 'Unknown import date' : escapeHtml(pastDueShortDate(dateKey))}</h3>
+          <span class="past-due-log-group-summary"><strong>${pastDuePlural(members.length, 'member')}</strong><span>·</span><strong>${pastDuePlural(rows.length, 'bill')}</strong><span>·</span><strong>${pastDueMoney(pastDueTotal(rows))}</strong></span>
+        </summary>
+        <div class="table-wrap" id="pastDueLogGroup-${index}"></div>
+      </details>`;
   }).join('');
 
-  Array.from(groups.entries()).forEach(([dateKey, rows], index) => {
-    pastDueRenderTable(`pastDueLogGroup-${index}`, rows);
-  });
-}
-
-function pastDueRenderMetrics(elementId, rows) {
-  const container = document.getElementById(elementId);
-  if (!container) return;
-  const amount = rows.reduce((total, row) => total + Number(row.amount || 0), 0);
-  const escalated = rows.filter(row => row.escalated_to_darius).length;
-  const blocked = rows.filter(row => row.class_blocked).length;
-  container.innerHTML = `<div class="past-due-metric"><span>Total Amount Overdue</span><strong>$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></div><div class="past-due-metric"><span>People</span><strong>${rows.length}</strong></div><div class="past-due-metric"><span>Escalated</span><strong>${escalated}</strong></div><div class="past-due-metric"><span>Class Blocked</span><strong>${blocked}</strong></div>`;
-}
-
-function pastDueRender() {
-  const reportRows = pastDueRows.filter(row => !pastDueIsExempt(row));
-  const mergedReportRows = pastDueMergeRows(reportRows);
-
-  const activeRows = [];
-  const clearedRows = [];
-  const cancelledRows = [];
-
-  mergedReportRows.forEach(member => {
-    const allBills = member.bills && member.bills.length ? member.bills : [member];
-    const activeBills = allBills.filter(bill => bill.status === 'PAST DUE');
-    const clearedBills = allBills.filter(bill => bill.status === 'CLEARED');
-    const cancelledBills = allBills.filter(bill => bill.status === 'CANCELLED');
-
-    if (activeBills.length) {
-      activeRows.push({
-        ...member,
-        bills: activeBills,
-        status: 'PAST DUE',
-        amount: activeBills.reduce((sum, bill) => sum + (parseFloat(bill.amount) || 0), 0),
-        days_overdue: activeBills.reduce((max, bill) => {
-          const days = pastDueDaysOverdue(bill.due_date) ?? bill.days_overdue ?? 0;
-          return days > max ? days : max;
-        }, 0)
-      });
-    }
-
-    if (clearedBills.length) {
-      clearedRows.push({
-        ...member,
-        bills: clearedBills,
-        status: 'CLEARED',
-        amount: clearedBills.reduce((sum, bill) => sum + (parseFloat(bill.amount) || 0), 0),
-        days_overdue: clearedBills.reduce((max, bill) => {
-          const days = pastDueDaysOverdue(bill.due_date) ?? bill.days_overdue ?? 0;
-          return days > max ? days : max;
-        }, 0)
-      });
-    }
-
-    if (cancelledBills.length) {
-      cancelledRows.push({
-        ...member,
-        bills: cancelledBills,
-        status: 'CANCELLED',
-        amount: cancelledBills.reduce((sum, bill) => sum + (parseFloat(bill.amount) || 0), 0),
-        days_overdue: cancelledBills.reduce((max, bill) => {
-          const days = pastDueDaysOverdue(bill.due_date) ?? bill.days_overdue ?? 0;
-          return days > max ? days : max;
-        }, 0)
-      });
-    }
-  });
-
-  const sortedRows = [...activeRows].sort(
-    (a, b) => Number(b.days_overdue || 0) - Number(a.days_overdue || 0)
-  );
-
-  const amount = activeRows.reduce((total, row) => total + Number(row.amount || 0), 0);
-  const escalated = activeRows.filter(row => row.escalated_to_darius).length;
-  const metricsContainer = document.getElementById('pastDueMetrics');
-
-  if (metricsContainer) {
-    metricsContainer.innerHTML = `
-      <div class="past-due-metric">
-        <span>Total Overdue</span>
-        <strong>
-          $${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-        </strong>
-      </div>
-
-      <div class="past-due-metric">
-        <span>Accounts Escalated</span>
-        <strong>${escalated}</strong>
-      </div>
-
-      <div class="past-due-metric">
-        <span>Active Past Due</span>
-        <strong>${activeRows.length}</strong>
-      </div>
-
-      <div class="past-due-metric">
-        <span>Cleared / Cancelled</span>
-        <strong>
-          ${clearedRows.length} / ${cancelledRows.length}
-        </strong>
-      </div>
-    `;
-  }
-
-  const pastDueQuery = document.getElementById('nameSearchPastDue')?.value.toLowerCase().trim() || '';
-  const clearedQuery = document.getElementById('nameSearchCleared')?.value.toLowerCase().trim() || '';
-  const cancelledQuery = document.getElementById('nameSearchCancelled')?.value.toLowerCase().trim() || '';
-
-  const matchesSearch = (row, query) => {
-    if (!query) return true;
-    return (
-      String(row.member_name || '').toLowerCase().includes(query) ||
-      String(row.member_number || '').toLowerCase().includes(query)
-    );
-  };
-
-  pastDueRenderTable('dashboardTable', sortedRows.slice(0, 5));
-  pastDueRenderTable('pastDueTable', activeRows.filter(row => matchesSearch(row, pastDueQuery)));
-  pastDueRenderTable('clearedTable', clearedRows.filter(row => matchesSearch(row, clearedQuery)));
-  pastDueRenderTable('cancelledTable', cancelledRows.filter(row => matchesSearch(row, cancelledQuery)));
-
-  pastDueRenderMetrics('pastDueTabMetrics', activeRows);
-  pastDueRenderMetrics('clearedTabMetrics', clearedRows);
-  pastDueRenderMetrics('cancelledTabMetrics', cancelledRows);
-
-  pastDueRenderExemptions();
-  pastDueRenderLogGroups();
+  [...groups.values()].forEach((rows, index) => pastDueRenderTable(`pastDueLogGroup-${index}`, pastDueMergeRows(rows), 'log'));
 }
 
 async function pastDueLoad() {
   const client = await pastDueClient();
 
-  await loadPastDueFailureReasons();
+  const [, log, exemptions, notes, session] = await Promise.all([
+    loadPastDueFailureReasons(),
+    client.from(PAST_DUE_LOG_TABLE).select('*').order('imported_at', { ascending: false }),
+    client.from(PAST_DUE_EXEMPT_TABLE).select('*').order('created_at', { ascending: false }),
+    client.from(PAST_DUE_NOTES_TABLE).select('*').order('created_at', { ascending: false }),
+    client.auth.getSession()
+  ]);
+  if (log.error) throw log.error;
+  if (exemptions.error) throw exemptions.error;
+  if (notes.error) console.warn('Member notes unavailable:', notes.error.message);
 
-  const { data, error } = await client.from(PAST_DUE_LOG_TABLE).select('*').order('imported_at', { ascending: false });
-  if (error) throw error;
-
-  const { data: exemptions, error: exemptionError } = await client.from(PAST_DUE_EXEMPT_TABLE).select('*').order('created_at', { ascending: false });
-  if (exemptionError) throw exemptionError;
-
-  pastDueRows = Array.isArray(data) ? data : [];
-  pastDueExemptedRows = Array.isArray(exemptions) ? exemptions : [];
+  pastDueRows = Array.isArray(log.data) ? log.data : [];
+  pastDueExemptedRows = Array.isArray(exemptions.data) ? exemptions.data : [];
+  pastDueNotesReady = !notes.error;
+  pastDueNotes = notes.data || [];
+  pastDueUserEmail = session?.data?.session?.user?.email || '';
   pastDueRender();
 
-  // Update the "Last updated" line in the header
   const updatedLine = document.getElementById('updatedLine');
   if (updatedLine) {
-    const now = new Date();
-    updatedLine.textContent = `Last updated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    const latest = pastDueRows[0]?.imported_at;
+    updatedLine.textContent = latest ? `Latest import ${pastDueShortDate(latest)}` : 'No imports yet';
   }
 }
 
-function pastDueIdentity(value) {
-  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+// ── Exemptions ───────────────────────────────────────────────────────────────
+
+function pastDueExemptKeys() {
+  return new Set(pastDueExemptedRows.flatMap(item => [item.member_key, item.member_number, item.member_name].map(pastDueIdentity).filter(Boolean)));
 }
 
-function pastDueIsExempt(row) {
-  const keys = new Set(pastDueExemptedRows.flatMap(item => [item.member_key, item.member_number, item.member_name].map(pastDueIdentity).filter(Boolean)));
+function pastDueIsExempt(row, keys = pastDueExemptKeys()) {
   return [row.member_key, row.member_number, row.member_name].map(pastDueIdentity).some(key => key && keys.has(key));
+}
+
+const PAST_DUE_EXEMPT_FILTERS = { exemptMembershipFilter: 'membership_label', exemptStatusFilter: 'mbr_status', exemptAutopayFilter: 'autopay' };
+
+// Dropdown options come from the list itself; a choice that no longer exists falls back to "All".
+function pastDueFillExemptFilters() {
+  Object.entries(PAST_DUE_EXEMPT_FILTERS).forEach(([id, field]) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const current = select.value;
+    const values = [...new Set(pastDueExemptedRows.map(row => row[field]).filter(Boolean))].sort();
+    select.length = 1;
+    select.insertAdjacentHTML('beforeend', pastDueOptionList(values, current));
+    select.value = values.includes(current) ? current : '';
+  });
+}
+
+function pastDueVisibleExemptions() {
+  const query = pastDueQuery('exemptSearch');
+  return pastDueExemptedRows.filter(row =>
+    (!query || pastDueIdentity(row.member_name).includes(query) || String(row.member_number || '').toLowerCase().includes(query))
+    && Object.entries(PAST_DUE_EXEMPT_FILTERS).every(([id, field]) => {
+      const value = document.getElementById(id)?.value;
+      return !value || row[field] === value;
+    }));
 }
 
 function pastDueRenderExemptions() {
   const container = document.getElementById('exemptedTable');
   if (!container) return;
-  if (!pastDueExemptedRows.length) {
-    container.innerHTML = '<div class="empty">No exempted members found.</div>';
+  pastDueFillExemptFilters();
+  const rows = pastDueVisibleExemptions();
+  const total = pastDueExemptedRows.length;
+  const count = document.getElementById('exemptCount');
+  if (count) count.textContent = rows.length === total ? pastDuePlural(total, 'member') : `${rows.length} of ${total} members`;
+
+  // Only rows on screen can stay ticked, so "Remove" never touches hidden members.
+  const ids = new Set(rows.map(row => String(row.id)));
+  [...pastDueExemptSelected].forEach(id => { if (!ids.has(id)) pastDueExemptSelected.delete(id); });
+  pastDueUpdateExemptBar();
+
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty">${total ? 'No exempted members match these filters.' : 'No exempted members.'}</div>`;
     return;
   }
-  container.innerHTML = `<table class="filterable"><thead><tr><th>Member Name</th><th>Number</th><th>Membership Label</th><th>Mbr. Status</th><th>Begin Date</th><th>End Date</th><th>Autopay</th><th>Note</th><th>Added</th></tr></thead><tbody>${pastDueExemptedRows.map(row => `<tr><td>${escapeHtml(row.member_name || '')}</td><td>${escapeHtml(row.member_number || '')}</td><td>${escapeHtml(row.membership_label || '')}</td><td>${escapeHtml(row.mbr_status || '')}</td><td>${escapeHtml(row.mbr_begin_date || '')}</td><td>${escapeHtml(row.mbr_end_date || '')}</td><td>${escapeHtml(row.autopay || '')}</td><td>${escapeHtml(row.note || '')}</td><td>${escapeHtml(row.created_at || '')}</td></tr>`).join('')}</tbody></table>`;
+  const allChecked = pastDueExemptSelected.size === ids.size;
+  container.innerHTML = `
+    <table class="stack pd-exempt-table">
+      <thead><tr><th class="pd-check-cell"><input type="checkbox" data-action="exempt-all" aria-label="Select all members shown"${allChecked ? ' checked' : ''}></th><th>Member</th><th>Number</th><th>Membership</th><th>Status</th><th>Begins</th><th>Ends</th><th>Autopay</th><th>Note</th><th>Added</th></tr></thead>
+      <tbody>${rows.map(row => `
+        <tr${pastDueExemptSelected.has(String(row.id)) ? ' class="is-selected"' : ''}>
+          <td class="pd-check-cell" data-label=""><input type="checkbox" data-action="exempt-select" data-id="${escapeHtml(row.id)}" aria-label="Select ${escapeHtml(row.member_name || row.member_number)}"${pastDueExemptSelected.has(String(row.id)) ? ' checked' : ''}></td>
+          <td data-label="Member"><strong>${escapeHtml(row.member_name || '—')}</strong></td>
+          <td data-label="Number">${escapeHtml(row.member_number || '—')}</td>
+          <td data-label="Membership">${escapeHtml(row.membership_label || '—')}</td>
+          <td data-label="Status">${escapeHtml(row.mbr_status || '—')}</td>
+          <td data-label="Begins">${escapeHtml(pastDueShortDate(row.mbr_begin_date))}</td>
+          <td data-label="Ends">${escapeHtml(pastDueShortDate(row.mbr_end_date))}</td>
+          <td data-label="Autopay">${escapeHtml(row.autopay || '—')}</td>
+          <td data-label="Note">${escapeHtml(row.note || '—')}</td>
+          <td data-label="Added">${escapeHtml(pastDueShortDate(row.created_at))}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 
-async function pastDueReconcileImportRows(client, csvRows) {
-  const { data: existingRows, error } = await client
-    .from(PAST_DUE_LOG_TABLE)
-    .select('member_key, member_number, member_name');
-  if (error) throw error;
-
-  const keyByName = new Map();
-  const existingBillKeys = new Set();
-
-  (existingRows || []).forEach(existing => {
-    const nameKey = pastDueIdentity(existing.member_name);
-    const billNum = String(existing.member_number || '').trim().toLowerCase();
-
-    if (nameKey) {
-      keyByName.set(nameKey, existing.member_key);
-      if (billNum) {
-        existingBillKeys.add(`${nameKey}::${billNum}`);
-      }
-    }
-  });
-
-  const uniqueImportRows = [];
-  const processedInCurrentBatch = new Set();
-
-  for (const row of csvRows) {
-    const nameKey = pastDueIdentity(row.member_name);
-    const billNum = String(row.member_number || '').trim().toLowerCase();
-    const comboKey = `${nameKey}::${billNum}`;
-
-    if (billNum && (existingBillKeys.has(comboKey) || processedInCurrentBatch.has(comboKey))) {
-      continue;
-    }
-
-    const assignedMemberKey = keyByName.get(nameKey) || row.member_key;
-    keyByName.set(nameKey, assignedMemberKey);
-
-    if (billNum) {
-      processedInCurrentBatch.add(comboKey);
-    }
-
-    uniqueImportRows.push({
-      ...row,
-      member_key: assignedMemberKey
-    });
+function pastDueUpdateExemptBar() {
+  const count = pastDueExemptSelected.size;
+  const button = document.getElementById('removeExemptedBtn');
+  const label = document.getElementById('exemptSelectedCount');
+  if (button) {
+    button.disabled = !count;
+    button.textContent = count ? `Remove ${pastDuePlural(count, 'member')}` : 'Remove selected';
   }
+  if (label) label.textContent = count ? `${count} selected` : 'Tick members to remove them from the list.';
+}
 
-  return uniqueImportRows;
+function pastDueOnExemptSelect(input) {
+  const table = input.closest('table');
+  const boxes = [...table.querySelectorAll('[data-action="exempt-select"]')];
+  if (input.dataset.action === 'exempt-all') {
+    boxes.forEach(box => (input.checked ? pastDueExemptSelected.add(box.dataset.id) : pastDueExemptSelected.delete(box.dataset.id)));
+  } else if (input.checked) {
+    pastDueExemptSelected.add(input.dataset.id);
+  } else {
+    pastDueExemptSelected.delete(input.dataset.id);
+  }
+  // Update in place so keyboard focus stays on the ticked box.
+  boxes.forEach(box => {
+    box.checked = pastDueExemptSelected.has(box.dataset.id);
+    box.closest('tr').classList.toggle('is-selected', box.checked);
+  });
+  table.querySelector('[data-action="exempt-all"]').checked = boxes.every(box => box.checked);
+  pastDueUpdateExemptBar();
+}
+
+async function pastDueRemoveSelectedExemptions() {
+  const rows = pastDueExemptedRows.filter(row => pastDueExemptSelected.has(String(row.id)));
+  if (!rows.length) return;
+  const names = rows.slice(0, 5).map(row => row.member_name || row.member_number).join(', ') + (rows.length > 5 ? `, and ${rows.length - 5} more` : '');
+  if (!window.confirm(`Remove ${pastDuePlural(rows.length, 'member')} from the exemption list?\n\n${names}\n\nTheir bills will show in the reports again.`)) return;
+  const button = document.getElementById('removeExemptedBtn');
+  if (button) button.disabled = true;
+  try {
+    const client = await pastDueClient();
+    const { error } = await client.from(PAST_DUE_EXEMPT_TABLE).delete().in('id', rows.map(row => row.id));
+    if (error) throw error;
+    pastDueExemptedRows = pastDueExemptedRows.filter(row => !rows.includes(row));
+    pastDueExemptSelected.clear();
+    pastDueRender();
+    pastDueToast(`${pastDuePlural(rows.length, 'member')} removed from the exemption list.`);
+  } catch (error) {
+    pastDueUpdateExemptBar();
+    pastDueToast(error.message || 'Unable to remove exemptions.', true);
+  }
 }
 
 function pastDueNormalizeExemption(row) {
@@ -1157,7 +1097,30 @@ async function pastDueSaveExemptions(rows) {
   const { error } = await client.from(PAST_DUE_EXEMPT_TABLE).upsert(uniqueRows, { onConflict: 'member_key' });
   if (error) throw error;
   await pastDueLoad();
+  return uniqueRows.length;
 }
+
+async function pastDueAddManualExemption(event) {
+  event?.preventDefault();
+  const nameInput = document.getElementById('exemptedMemberNameInput');
+  const numberInput = document.getElementById('exemptedMemberNumberInput');
+  const row = pastDueNormalizeExemption({ member_name: nameInput.value, member_number: numberInput.value });
+  if (!row.member_key) {
+    pastDueSetUploadStatus('exemptedStatus', 'Enter a member name or number first.', true);
+    nameInput.focus();
+    return;
+  }
+  try {
+    await pastDueSaveExemptions([row]);
+    nameInput.value = '';
+    numberInput.value = '';
+    pastDueSetUploadStatus('exemptedStatus', `${row.member_name} was added to the exemption list.`);
+  } catch (error) {
+    pastDueSetUploadStatus('exemptedStatus', error.message || 'Unable to add member.', true);
+  }
+}
+
+// ── Import / export ──────────────────────────────────────────────────────────
 
 function pastDueImportTimestamp(dateValue) {
   if (!dateValue) return new Date().toISOString();
@@ -1165,18 +1128,12 @@ function pastDueImportTimestamp(dateValue) {
 }
 
 async function pastDueImport(file, importDateValue) {
-  const status = document.getElementById('pastDueImportStatus');
-  if (!importDateValue) {
-    throw new Error('Choose an import date before importing the CSV.');
-  }
-  status.textContent = `Processing ${file.name}...`;
+  if (!importDateValue) throw new Error('Choose an import date before importing the CSV.');
+  pastDueSetUploadStatus('pastDueImportStatus', `Processing ${file.name}…`);
 
   const parsedRows = pastDueParseCsv(await file.text())
     .map(pastDueNormalizeRow)
-    .map(row => ({
-      ...row,
-      imported_at: pastDueImportTimestamp(importDateValue)
-    }));
+    .map(row => ({ ...row, imported_at: pastDueImportTimestamp(importDateValue) }));
 
   const validRows = parsedRows.map(row => {
     const cleanNumber = String(row.member_number || '').trim();
@@ -1189,75 +1146,50 @@ async function pastDueImport(file, importDateValue) {
   }).filter(row => row.member_number !== null && row.member_name !== null);
 
   if (!validRows.length) {
-    throw new Error('No valid records containing both a Bill Number and Member Name were found in the CSV.');
+    throw new Error('No rows with both a bill number and a member name were found in this CSV.');
   }
 
   const uniqueBatchMap = new Map();
   for (const row of validRows) {
     const comboKey = `${String(row.member_number).trim().toLowerCase()}::${pastDueIdentity(row.member_name)}`;
-    if (!uniqueBatchMap.has(comboKey)) {
-      uniqueBatchMap.set(comboKey, row);
-    }
+    if (!uniqueBatchMap.has(comboKey)) uniqueBatchMap.set(comboKey, row);
   }
   const cleanBatch = Array.from(uniqueBatchMap.values());
+  const before = pastDueRows.length;
   const client = await pastDueClient();
-  const dbPayload = cleanBatch.map(({ bills, ...dbRow }) => dbRow);
 
   const { error } = await client
     .from(PAST_DUE_LOG_TABLE)
-    .upsert(dbPayload, {
-      onConflict: 'member_number, member_name',
-      ignoreDuplicates: true
-    });
-
+    .upsert(cleanBatch, { onConflict: 'member_key', ignoreDuplicates: true });
   if (error) throw error;
 
-  status.textContent = `Import complete. Bills matching both the same Bill Number and Member Name were skipped.`;
-  status.classList.remove('upload-status-error');
   await pastDueLoad();
-  return true;
+  const added = pastDueRows.length - before;
+  return `Imported ${file.name}: ${pastDuePlural(added, 'new bill')}, ${cleanBatch.length - added} already on file and skipped.`;
 }
 
-async function pastDueAddManualExemption() {
-  const nameInput = document.getElementById('exemptedMemberNameInput');
-  const numberInput = document.getElementById('exemptedMemberNumberInput');
-  const status = document.getElementById('exemptedStatus');
-  const row = pastDueNormalizeExemption({ member_name: nameInput.value, member_number: numberInput.value });
-  if (!row.member_key) {
-    status.textContent = 'Enter a member name or Bill # first.';
-    return;
-  }
-  try {
-    await pastDueSaveExemptions([row]);
-    nameInput.value = '';
-    numberInput.value = '';
-    status.textContent = `${row.member_name} was added to the exemption list.`;
-  } catch (error) {
-    status.textContent = error.message || 'Unable to add member.';
-  }
-}
-
-function pastDueDownloadExemptions() {
-  const columns = ['member_number', 'first_name', 'last_name', 'membership_label', 'mbr_status', 'mbr_begin_date', 'mbr_end_date', 'att_limit', 'att_limit_type', 'people_count', 'autopay', 'note'];
-  const csv = [columns.join(','), ...pastDueExemptedRows.map(row => columns.map(column => `"${String(row[column] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  link.download = `excempted-members-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-}
-
-function pastDueCsv(rows) {
-  const columns = ['member_name', 'member_number', 'bill_type', 'first_name', 'last_name', 'income_category', 'due_date', 'amount_due', 'amount', 'days_overdue', 'failure_reason', 'stage', 'last_payment_retry', 'last_contact_date', 'notes', 'outcome_notes', 'escalated_to_darius', 'class_blocked', 'autopay', 'autopay_account', 'status', 'imported_at'];
+function pastDueCsvRows(rows, columns) {
   return [columns.join(','), ...rows.map(row => columns.map(column => `"${String(row[column] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
 }
 
-function pastDueDownload() {
+function pastDueSaveCsv(csv, name) {
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([pastDueCsv(pastDueRows)], { type: 'text/csv;charset=utf-8' }));
-  link.download = `past-due-member-log-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  link.download = `${name}-${new Date().toLocaleDateString('en-CA')}.csv`;
   link.click();
   URL.revokeObjectURL(link.href);
+}
+
+function pastDueDownloadExemptions() {
+  pastDueSaveCsv(pastDueCsvRows(pastDueExemptedRows, ['member_number', 'first_name', 'last_name', 'membership_label', 'mbr_status', 'mbr_begin_date', 'mbr_end_date', 'att_limit', 'att_limit_type', 'people_count', 'autopay', 'note']), 'exempted-members');
+}
+
+function pastDueDownload() {
+  pastDueSaveCsv(pastDueCsvRows(pastDueRows, ['member_name', 'member_number', 'bill_type', 'first_name', 'last_name', 'income_category', 'due_date', 'amount_due', 'amount', 'days_overdue', 'failure_reason', 'stage', 'last_payment_retry', 'last_contact_date', 'notes', 'outcome_notes', 'escalated_to_darius', 'class_blocked', 'autopay', 'autopay_account', 'status', 'imported_at']), 'past-due-member-log');
+}
+
+function pastDueDownloadNotes() {
+  pastDueSaveCsv(pastDueCsvRows(pastDueNotes, ['member_name', 'note', 'author', 'created_at', 'edited_by', 'edited_at']), 'past-due-member-notes');
 }
 
 function pastDueSetUploadStatus(elementId, message, isError = false) {
@@ -1267,113 +1199,122 @@ function pastDueSetUploadStatus(elementId, message, isError = false) {
   status.classList.toggle('upload-status-error', isError);
 }
 
-function pastDueSetUploadControls(buttonIds, enabled) {
-  buttonIds.forEach(buttonId => {
+const PAST_DUE_UPLOADS = {
+  pastDue: { input: 'pastDueCsvInput', status: 'pastDueImportStatus', buttons: ['confirmPastDueUploadBtn', 'removePastDueFileBtn'] },
+  exempted: { input: 'exemptedCsvInput', status: 'exemptedStatus', buttons: ['confirmExemptedUploadBtn', 'removeExemptedFileBtn'] }
+};
+
+function pastDueSetUploadControls(type, enabled) {
+  PAST_DUE_UPLOADS[type].buttons.forEach(buttonId => {
     const button = document.getElementById(buttonId);
     if (button) button.disabled = !enabled;
   });
 }
 
 function pastDueClearPendingUpload(type, statusMessage = 'No file selected') {
-  const isExempted = type === 'exempted';
-  const inputId = isExempted ? 'exemptedCsvInput' : 'pastDueCsvInput';
-  const statusId = isExempted ? 'exemptedStatus' : 'pastDueImportStatus';
-  const buttonIds = isExempted
-    ? ['confirmExemptedUploadBtn', 'cancelExemptedUploadBtn', 'removeExemptedFileBtn']
-    : ['confirmPastDueUploadBtn', 'cancelPastDueUploadBtn', 'removePastDueFileBtn'];
-  if (isExempted) pendingExemptedFile = null;
+  if (type === 'exempted') pendingExemptedFile = null;
   else pendingPastDueFile = null;
-  const input = document.getElementById(inputId);
+  const input = document.getElementById(PAST_DUE_UPLOADS[type].input);
   if (input) input.value = '';
-  pastDueSetUploadControls(buttonIds, false);
-  pastDueSetUploadStatus(statusId, statusMessage);
+  pastDueSetUploadControls(type, false);
+  pastDueSetUploadStatus(PAST_DUE_UPLOADS[type].status, statusMessage);
 }
+
+function pastDueBindUpload(type, onConfirm) {
+  const config = PAST_DUE_UPLOADS[type];
+  const input = document.getElementById(config.input);
+  const confirm = document.getElementById(config.buttons[0]);
+  input?.addEventListener('change', () => {
+    const file = input.files[0] || null;
+    if (type === 'exempted') pendingExemptedFile = file;
+    else pendingPastDueFile = file;
+    pastDueSetUploadControls(type, Boolean(file));
+    if (file) pastDueSetUploadStatus(config.status, `Selected: ${file.name}`);
+  });
+  document.getElementById(config.buttons[1])?.addEventListener('click', () => pastDueClearPendingUpload(type));
+  confirm?.addEventListener('click', async () => {
+    const file = type === 'exempted' ? pendingExemptedFile : pendingPastDueFile;
+    if (!file) return;
+    confirm.disabled = true;
+    try {
+      pastDueClearPendingUpload(type, await onConfirm(file));
+    } catch (error) {
+      pastDueSetUploadStatus(config.status, error.message || 'CSV upload failed.', true);
+      confirm.disabled = false;
+    }
+  });
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
 
 function initPastDuePage() {
   const buttons = document.querySelectorAll('nav.site-nav button');
-  buttons.forEach(button => button.addEventListener('click', () => {
-    buttons.forEach(item => item.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
-    button.classList.add('active');
-    document.getElementById(`tab-${button.dataset.tab}`).classList.add('active');
-  }));
+  const showTab = tab => {
+    buttons.forEach(item => item.classList.toggle('active', item.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === `tab-${tab}`));
+  };
+  buttons.forEach(button => button.addEventListener('click', () => showTab(button.dataset.tab)));
+  document.querySelectorAll('[data-show-tab]').forEach(link => link.addEventListener('click', () => showTab(link.dataset.showTab)));
 
-  ['nameSearchPastDue', 'nameSearchCleared', 'nameSearchCancelled'].forEach(id => {
-    const input = document.getElementById(id);
-    if (!input) return;
+  const stageFilter = document.getElementById('pastDueStageFilter');
+  if (stageFilter) stageFilter.insertAdjacentHTML('beforeend', pastDueOptionList(PAST_DUE_STAGES));
 
-    input.addEventListener('input', () => pastDueRender());
+  ['nameSearchPastDue', 'nameSearchCleared', 'nameSearchCancelled', 'pastDueStageFilter', 'pastDueSort']
+    .forEach(id => document.getElementById(id)?.addEventListener('input', pastDueRender));
+  ['exemptSearch', ...Object.keys(PAST_DUE_EXEMPT_FILTERS)]
+    .forEach(id => document.getElementById(id)?.addEventListener('input', pastDueRenderExemptions));
+  ['nameSearchLog', 'logDateFilter']
+    .forEach(id => document.getElementById(id)?.addEventListener('input', pastDueRenderLogGroups));
 
-    const clearBtn = input.nextElementSibling;
-    if (clearBtn && clearBtn.classList.contains('search-clear-btn')) {
-      clearBtn.addEventListener('click', () => {
-        input.value = '';
-        pastDueRender();
-        input.focus();
-      });
+  const main = document.querySelector('.past-due-main');
+  main?.addEventListener('click', pastDueOnClick);
+  main?.addEventListener('change', pastDueOnChange);
+  main?.addEventListener('submit', pastDueOnSubmit);
+  main?.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && event.target.matches('.pd-note-form textarea, .pd-note-edit textarea')) {
+      event.preventDefault();
+      event.target.form.requestSubmit();
     }
+    if (event.key === 'Escape' && event.target.matches('.pd-note-edit textarea')) pastDueRender();
   });
 
-  const logInput = document.getElementById('nameSearchLog');
-  if (logInput) {
-    logInput.addEventListener('input', () => pastDueRenderLogGroups());
-    const clearBtn = logInput.nextElementSibling;
-    if (clearBtn && clearBtn.classList.contains('search-clear-btn')) {
-      clearBtn.addEventListener('click', () => {
-        logInput.value = '';
-        pastDueRenderLogGroups();
-        logInput.focus();
-      });
+  document.querySelectorAll('[data-pick]').forEach(button => button.addEventListener('click', () => document.getElementById(button.dataset.pick)?.click()));
+
+  const importDate = document.getElementById('pastDueImportDate');
+  if (importDate && !importDate.value) importDate.value = new Date().toLocaleDateString('en-CA');
+
+  pastDueBindUpload('pastDue', file => {
+    if (!importDate?.value) {
+      importDate?.focus();
+      throw new Error('Choose an import date before confirming the upload.');
     }
-  }
+    return pastDueImport(file, importDate.value);
+  });
+  pastDueBindUpload('exempted', async file => {
+    const count = await pastDueSaveExemptions(pastDueParseCsv(await file.text()).map(pastDueNormalizeExemption));
+    return `Imported ${file.name}: ${pastDuePlural(count, 'member')} on the exemption list.`;
+  });
 
-  const pastDueCsvInput = document.getElementById('pastDueCsvInput');
-  if (pastDueCsvInput) {
-    pastDueCsvInput.addEventListener('change', event => {
-      pendingPastDueFile = event.target.files[0] || null;
-      pastDueSetUploadControls(['confirmPastDueUploadBtn', 'cancelPastDueUploadBtn', 'removePastDueFileBtn'], Boolean(pendingPastDueFile));
-      if (pendingPastDueFile) pastDueSetUploadStatus('pastDueImportStatus', `Selected: ${pendingPastDueFile.name}`);
-    });
-  }
-
-  const confirmPastDueBtn = document.getElementById('confirmPastDueUploadBtn');
-  if (confirmPastDueBtn) {
-    confirmPastDueBtn.addEventListener('click', async () => {
-      if (!pendingPastDueFile) return;
-      const importDate = document.getElementById('pastDueImportDate').value;
-      if (!importDate) {
-        pastDueSetUploadStatus('pastDueImportStatus', 'Choose an import date before confirming the upload.', true);
-        document.getElementById('pastDueImportDate').focus();
-        return;
-      }
-      confirmPastDueBtn.disabled = true;
-      try {
-        if (await pastDueImport(pendingPastDueFile, importDate)) {
-          const successMessage = document.getElementById('pastDueImportStatus').textContent;
-          pastDueClearPendingUpload('pastDue', successMessage);
-        }
-      } catch (error) {
-        pastDueSetUploadStatus('pastDueImportStatus', error.message || 'CSV upload failed.', true);
-        confirmPastDueBtn.disabled = false;
-      }
-    });
-  }
-
-  document.getElementById('cancelPastDueUploadBtn')?.addEventListener('click', () => pastDueClearPendingUpload('pastDue'));
-  document.getElementById('removePastDueFileBtn')?.addEventListener('click', () => pastDueClearPendingUpload('pastDue'));
   document.getElementById('downloadPastDueCsvBtn')?.addEventListener('click', pastDueDownload);
-  document.getElementById('logDateFilter')?.addEventListener('change', pastDueRenderLogGroups);
+  document.getElementById('downloadNotesCsvBtn')?.addEventListener('click', pastDueDownloadNotes);
+  document.getElementById('downloadExemptedCsvBtn')?.addEventListener('click', pastDueDownloadExemptions);
+  document.getElementById('removeExemptedBtn')?.addEventListener('click', pastDueRemoveSelectedExemptions);
+  document.getElementById('exemptedManualForm')?.addEventListener('submit', pastDueAddManualExemption);
+
   document.getElementById('addFailureReasonBtn')?.addEventListener('click', pastDueOpenFailureReasonModal);
   document.getElementById('failureReasonApproveBtn')?.addEventListener('click', pastDueApproveFailureReason);
   document.getElementById('failureReasonCancelBtn')?.addEventListener('click', pastDueCloseFailureReasonModal);
   document.getElementById('failureReasonModalClose')?.addEventListener('click', pastDueCloseFailureReasonModal);
-
-  // Cancel Membership Modal Listeners
   document.getElementById('approveCancellationBtn')?.addEventListener('click', pastDueApproveCancellation);
   document.getElementById('cancelMembershipCloseBtn')?.addEventListener('click', pastDueCloseCancelModal);
 
-  document.getElementById('cancelMembershipModal')?.addEventListener('click', event => {
-    if (event.target === event.currentTarget) pastDueCloseCancelModal();
+  ['cancelMembershipModal', 'failureReasonModal'].forEach(id => {
+    document.getElementById(id)?.addEventListener('click', event => {
+      if (event.target === event.currentTarget) {
+        pastDueCloseCancelModal();
+        pastDueCloseFailureReasonModal();
+      }
+    });
   });
 
   document.getElementById('cancellationReasonInput')?.addEventListener('keydown', event => {
@@ -1381,10 +1322,6 @@ function initPastDuePage() {
       event.preventDefault();
       pastDueApproveCancellation();
     }
-  });
-
-  document.getElementById('failureReasonModal')?.addEventListener('click', event => {
-    if (event.target === event.currentTarget) pastDueCloseFailureReasonModal();
   });
 
   document.getElementById('failureReasonInput')?.addEventListener('keydown', event => {
@@ -1401,22 +1338,8 @@ function initPastDuePage() {
     }
   });
 
-  const exemptedCsvInput = document.getElementById('exemptedCsvInput');
-  if (exemptedCsvInput) {
-    exemptedCsvInput.addEventListener('change', event => {
-      pendingExemptedFile = event.target.files[0] || null;
-      pastDueSetUploadControls(['confirmExemptedUploadBtn', 'cancelExemptedUploadBtn', 'removeExemptedFileBtn'], Boolean(pendingExemptedFile));
-      if (pendingExemptedFile) pastDueSetUploadStatus('exemptedStatus', `Selected: ${pendingExemptedFile.name}`);
-    });
-  }
-
-  document.getElementById('cancelExemptedUploadBtn')?.addEventListener('click', () => pastDueClearPendingUpload('exempted'));
-  document.getElementById('removeExemptedFileBtn')?.addEventListener('click', () => pastDueClearPendingUpload('exempted'));
-  document.getElementById('addExemptedMemberBtn')?.addEventListener('click', pastDueAddManualExemption);
-  document.getElementById('downloadExemptedCsvBtn')?.addEventListener('click', pastDueDownloadExemptions);
-
   pastDueLoad().catch(error => {
-    document.querySelectorAll('.table-wrap').forEach(container => { container.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`; });
+    document.querySelectorAll('.past-due-main .table-wrap').forEach(container => { container.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`; });
   });
 }
 

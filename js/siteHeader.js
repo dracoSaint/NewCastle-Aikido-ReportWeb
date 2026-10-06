@@ -4,6 +4,7 @@
   const homeUrl = new URL('index.html', siteRoot).href;
   const profileUrl = new URL('pages/profile.html', siteRoot).href;
   const logoUrl = new URL('imgs/aikido-logo.png', siteRoot).href;
+  const logoWhiteUrl = new URL('imgs/aikido-logo-white.png', siteRoot).href; // brand: white mark on the dark shell
 
   function initSiteIcon() {
     if (document.querySelector('link[rel="icon"]')) return;
@@ -50,18 +51,53 @@
         <button id="menuToggle" class="menu-toggle" aria-label="Open site menu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <a href="${homeUrl}" aria-label="Newcastle Aikido home">
-          <img class="site-logo" src="${logoUrl}" alt="Newcastle Aikido logo">
+        <a class="site-home" href="${homeUrl}" aria-label="Newcastle Aikido home">
+          <img class="site-logo" src="${logoWhiteUrl}" alt="">
+          <span class="site-name">Newcastle Aikido</span>
         </a>
-        <h1>Newcastle Aikido</h1>
         ${profileDropdownHtml}
       </div>
     `);
+
+    initPageHead(header);
 
     if (isLoggedIn) {
       initDropdownBehaviour();
       populateAvatarAsync();
     }
+  }
+
+  // ── Page title row: every page gets the same title / meta / actions layout ──
+  function initPageHead(header) {
+    const title = header.dataset.title || document.title
+      .replace(/\s*-\s*Newcastle Aikido( Portal)?\s*$/i, '')
+      .replace(/^Newcastle Aikido\s*-\s*/i, '');
+
+    const head = document.createElement('div');
+    head.className = 'page-head';
+    const text = document.createElement('div');
+    text.className = 'page-head-text';
+    const h1 = document.createElement('h1');
+    h1.className = 'page-title';
+    h1.textContent = title;
+    text.append(h1);
+
+    const meta = header.querySelector(':scope > p');
+    if (meta) {
+      meta.classList.add('page-meta');
+      text.append(meta);
+    }
+    head.append(text);
+
+    const controls = header.querySelectorAll(':scope > button, :scope > input');
+    if (controls.length) {
+      const actions = document.createElement('div');
+      actions.className = 'page-actions';
+      actions.append(...controls);
+      head.append(actions);
+    }
+
+    header.insertBefore(head, header.querySelector(':scope > nav'));
   }
 
   // ── Toggle open / close ───────────────────────────────────────────────────

@@ -21,7 +21,9 @@ function escapeHtml(v) {
   return String(v)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function initAttendanceReportPage() {
@@ -69,13 +71,18 @@ function renderTable(container, block) {
     container.innerHTML = '<div class="empty">No data found.</div>';
     return;
   }
-  let html = '<table id="attendanceTable" class="filterable"><thead><tr>';
-  block.headers.forEach(h => { html += '<th>' + escapeHtml(h) + '</th>'; });
+  const isNum = v => /^-?\d+(\.\d+)?$/.test(String(v).trim());
+  const numCols = block.headers.map((_, c) => {
+    const values = block.rows.map(r => r[c]).filter(v => String(v).trim() !== '');
+    return values.length > 0 && values.every(isNum);
+  });
+  let html = '<table id="attendanceTable" class="filterable stack"><thead><tr>';
+  block.headers.forEach((h, c) => { html += '<th' + (numCols[c] ? ' class="num"' : '') + '>' + escapeHtml(h) + '</th>'; });
   html += '</tr></thead><tbody>';
   block.rows.forEach(row => {
     html += '<tr>';
-    row.forEach(cell => {
-      html += '<td>' + escapeHtml(cell) + '</td>';
+    row.forEach((cell, c) => {
+      html += '<td' + (numCols[c] ? ' class="num"' : '') + ' data-label="' + escapeHtml(block.headers[c] || '') + '">' + escapeHtml(cell) + '</td>';
     });
     html += '</tr>';
   });
@@ -153,6 +160,20 @@ function getHeaders(rawRows, headerRow, fallbackKey) {
   });
 }
 
+function renderAttendanceKeyFigure(headers, rows) {
+  const el = document.getElementById('attendanceKeyFigure');
+  if (!el) return;
+  const col = re => headers.findIndex(h => re.test(String(h)));
+  const attIdx = col(/^att\.?$/i);
+  const cancelIdx = col(/cancel/i);
+  const yes = (r, i) => i >= 0 && String(r[i]).trim().toLowerCase() === 'yes';
+  const attended = rows.filter(r => yes(r, attIdx)).length;
+  const cancelled = rows.filter(r => yes(r, cancelIdx)).length;
+  el.innerHTML = '<div class="past-due-metric key"><span>Classes attended</span><strong>' + attended + '</strong></div>' +
+    '<div class="past-due-metric"><span>Bookings recorded</span><strong>' + rows.length + '</strong></div>' +
+    '<div class="past-due-metric"><span>Cancelled</span><strong>' + cancelled + '</strong></div>';
+}
+
 function loadAttendanceReport() {
   const container = document.getElementById('attendance-report-wrap');
   fetchSheetRaw(ATTENDANCE_SHEET_NAME).then(rawRows => {
@@ -161,6 +182,7 @@ function loadAttendanceReport() {
       .map(row => normalizeRow(row, headers.length).slice(0, headers.length))
       .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
     renderTable(container, { headers, rows });
+    renderAttendanceKeyFigure(headers, rows);
     const updatedLine = document.getElementById('updatedLine');
     if(updatedLine) {
         const now = new Date();
@@ -183,4 +205,4 @@ function setupPrintButton() {
   }
 }
 
-initAttendanceReportPage();a
+initAttendanceReportPage();

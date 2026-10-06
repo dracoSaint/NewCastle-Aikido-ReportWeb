@@ -1,1 +1,9 @@
 # Supabase browser configuration uses a public URL and publishable anon key.
+graphify-out/
+node_modules/
+.claude/shots/
+.claude/preview.env
+.claude/backup/
+.claude/settings.json.graphify-bak
+.impeccable/review/
+.impeccable/questions/

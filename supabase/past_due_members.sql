@@ -26,6 +26,21 @@ create table if not exists public.past_due_member_log (
   raw_data jsonb not null default '{}'::jsonb
 );
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.past_due_member_log'::regclass
+      and contype = 'u'
+      and pg_get_constraintdef(oid) = 'UNIQUE (member_key)'
+  ) then
+    alter table public.past_due_member_log
+      add constraint past_due_member_log_member_key_key unique (member_key);
+  end if;
+end
+$$;
+
 alter table public.past_due_member_log add column if not exists bill_type text;
 alter table public.past_due_member_log add column if not exists first_name text;
 alter table public.past_due_member_log add column if not exists last_name text;
@@ -43,22 +58,26 @@ alter table public.past_due_member_log add column if not exists class_blocked bo
 
 alter table public.past_due_member_log enable row level security;
 
+drop policy if exists "Authenticated users can read past due member log" on public.past_due_member_log;
 create policy "Authenticated users can read past due member log"
   on public.past_due_member_log for select
   to authenticated
   using (true);
 
+drop policy if exists "Authenticated users can insert past due member log" on public.past_due_member_log;
 create policy "Authenticated users can insert past due member log"
   on public.past_due_member_log for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Authenticated users can update past due member log" on public.past_due_member_log;
 create policy "Authenticated users can update past due member log"
   on public.past_due_member_log for update
   to authenticated
   using (true)
   with check (true);
 
+drop policy if exists "Authenticated users can delete past due member log" on public.past_due_member_log;
 create policy "Authenticated users can delete past due member log"
   on public.past_due_member_log for delete
   to authenticated
@@ -97,22 +116,26 @@ alter table public.past_due_exempted_members add column if not exists note text;
 
 alter table public.past_due_exempted_members enable row level security;
 
+drop policy if exists "Authenticated users can read exempted members" on public.past_due_exempted_members;
 create policy "Authenticated users can read exempted members"
   on public.past_due_exempted_members for select
   to authenticated
   using (true);
 
+drop policy if exists "Authenticated users can insert exempted members" on public.past_due_exempted_members;
 create policy "Authenticated users can insert exempted members"
   on public.past_due_exempted_members for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Authenticated users can update exempted members" on public.past_due_exempted_members;
 create policy "Authenticated users can update exempted members"
   on public.past_due_exempted_members for update
   to authenticated
   using (true)
   with check (true);
 
+drop policy if exists "Authenticated users can delete exempted members" on public.past_due_exempted_members;
 create policy "Authenticated users can delete exempted members"
   on public.past_due_exempted_members for delete
   to authenticated

@@ -320,37 +320,6 @@ async function ensureSupabaseDataClient() {
   return client;
 }
 
-async function loadSupabaseMemberList(key) {
-  const container = document.getElementById(key + '-wrap');
-  if (!container) return;
-  container.innerHTML = '<div class="loading">Loading members from Supabase...</div>';
-
-  try {
-    const client = await ensureSupabaseDataClient();
-    const { data, error } = await client
-      .from(MEMBER_LIST_TABLE)
-      .select('*')
-      .order('number', { ascending: true });
-
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      renderTable(container, { headers: [], rows: [] });
-      return;
-    }
-
-    const headers = Object.keys(data[0]);
-    const rows = data.map(item => headers.map(header => {
-      const value = item[header];
-      return value === null || value === undefined ? '' : value;
-    }));
-
-    renderTable(container, { headers, rows });
-  } catch (err) {
-    showError(key + '-wrap', err);
-  }
-}
-
 function getMemberLogSnapshotRows(logRows) {
   if (!Array.isArray(logRows) || !logRows.length) return [];
   const snapshotRows = logRows.filter(row => row.snapshot_label === 'LAST WEEK');
@@ -360,47 +329,6 @@ function getMemberLogSnapshotRows(logRows) {
   if (previousRows.length) return previousRows;
 
   return getLatestSavedSnapshot(snapshotRows);
-}
-
-async function loadSupabaseMemberListHistory() {
-  const container = document.getElementById('memberListLastWeek-wrap');
-  if (!container) return;
-  container.innerHTML = '<div class="loading">Loading archived member list...</div>';
-
-  try {
-    const client = await ensureSupabaseDataClient();
-
-    const { data: previousRows, error: previousError } = await client
-      .from(MEMBER_LIST_PREVIOUS_TABLE)
-      .select('*')
-      .order('number', { ascending: true });
-
-    if (previousError) {
-      console.warn('membership_data_previous unavailable, falling back to log table.', previousError);
-    }
-
-    const snapshotRows = (await client
-      .from(MEMBER_LIST_LOG_TABLE)
-      .select('*')
-      .order('archived_at', { ascending: false })).data || [];
-
-    if (!snapshotRows.length) {
-      container.innerHTML = '<div class="empty">No archived member list snapshots yet.</div>';
-      return;
-    }
-
-    const selectedRows = getMemberLogSnapshotRows(snapshotRows);
-
-    const headers = Object.keys(selectedRows[0]).filter(key => !['archived_at', 'snapshot_label'].includes(key));
-    const rows = selectedRows.map(item => headers.map(header => {
-      const value = item[header];
-      return value === null || value === undefined ? '' : value;
-    }));
-
-    renderTable(container, { headers, rows });
-  } catch (err) {
-    showError('memberListLastWeek-wrap', err);
-  }
 }
 
 function getSnapshotDateKey(row) {
@@ -1236,56 +1164,6 @@ function fetchMondaySheetRaw(sheetName) {
   return promise;
 }
 
-async function fetchSupabaseTable(tableName) {
-  if (!config.supabaseUrl || !config.supabaseAnonKey) {
-    throw new Error('Supabase configuration (supabaseUrl and supabaseAnonKey) is missing in config.js.');
-  }
-
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/${tableName}?select=*`, {
-    headers: {
-      'apikey': config.supabaseAnonKey,
-      'Authorization': `Bearer ${config.supabaseAnonKey}`
-    }
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Failed to fetch from Supabase: ${errorData.message || response.statusText}`);
-  }
-
-  return response.json();
-}
-
-function loadSupabaseMemberList(key) {
-  const container = document.getElementById(key + '-wrap');
-  container.innerHTML = '<div class="loading">Loading members from Supabase...</div>';
-
-  fetchSupabaseTable('membership_data')
-    .then(data => {
-      console.log('Data received from Supabase:', data); // Debugging line
-      if (!data || data.length === 0) {
-        currentMemberListState.headers = [];
-        currentMemberListState.rows = [];
-        renderTable(container, { headers: [], rows: [] });
-        renderCurrentMemberListWithFilters();
-        return;
-      }
-
-      const headers = Object.keys(data[0]);
-      const rows = data.map(item => headers.map(header => {
-        const value = item[header];
-        return value === null || value === undefined ? '' : value;
-      }));
-
-      currentMemberListState.headers = headers;
-      currentMemberListState.rows = rows;
-      updateCurrentMemberFilterOptions(headers);
-      toggleCurrentMemberFilters();
-      renderCurrentMemberListWithFilters();
-    })
-    .catch(err => showError(key + '-wrap', err));
-}
-
 function dashboardCell(row, index) {
 const cell = row[index];
 return cell && cell.v !== null && cell.v !== undefined ? cell.v : null;
@@ -1312,7 +1190,7 @@ function dashboardDateLabels(rows, dateCount) {
 }
 
 function chartColors(count) {
-    const colors = ['#a3272c', '#1c2b3a', '#2f7f7a', '#d28c32', '#63748a', '#8c4f5a', '#4c8a52', '#8f6b3d'];
+    const colors = ['#2F3237', '#7C2D2E', '#2F6B4A', '#C8961E', '#82A5E0', '#C77B6B', '#7A5C9E', '#8A5D0C'];
     return Array.from({ length: count }, (_, index) => colors[index % colors.length]);
 }
 
@@ -1528,10 +1406,10 @@ function formatReportDate(dateValue) {
 function getTrendBadge(value, label) {
   const abs = Math.abs(value || 0);
   if (value > 0) {
-    return `<span class="report-status report-status-up">▲ ${abs} ${label}</span>`;
+    return `<span class="report-status report-status-up"><span class="sr-only">Up </span>${abs} ${label}</span>`;
   }
   if (value < 0) {
-    return `<span class="report-status report-status-down">▼ ${abs} ${label}</span>`;
+    return `<span class="report-status report-status-down"><span class="sr-only">Down </span>${abs} ${label}</span>`;
   }
   return `<span class="report-status report-status-neutral">- ${label}</span>`;
 }
@@ -1539,10 +1417,10 @@ function getTrendBadge(value, label) {
 function getGoalBadge(value) {
   const abs = Math.abs(value || 0);
   if (value > 0) {
-    return `<span class="report-status report-status-up">▲ ${abs}</span>`;
+    return `<span class="report-status report-status-up"><span class="sr-only">Up </span>${abs}</span>`;
   }
   if (value < 0) {
-    return `<span class="report-status report-status-down">▼ ${abs}</span>`;
+    return `<span class="report-status report-status-down"><span class="sr-only">Down </span>${abs}</span>`;
   }
   return `<span class="report-status report-status-neutral">-</span>`;
 }
@@ -1880,19 +1758,24 @@ async function loadLastMondayReportSummary() {
 }
 
 function renderMondayBoardCharts(data) {
-    const dateCount = Math.max(0, data.columns.length - 2);
+    // The sheet pre-fills future week columns; stop the x-axis at the last week with a total.
+    const columnCount = Math.max(0, data.columns.length - 2);
+    const totals = valuesForRow(findDashboardRow(data.rows, 'MEMBERS TOTALS'), columnCount);
+    const lastFilled = totals.findLastIndex(value => value !== null && value !== undefined && value !== '');
+    const dateCount = lastFilled >= 0 ? lastFilled + 1 : columnCount;
     const labels = dashboardDateLabels(data.rows, dateCount);
+    renderMondayKeyFigure(totals[dateCount - 1], dateCount > 1 ? totals[dateCount - 2] : null);
 
     const memberTrendChartConfigs = [
-        { label: 'Total members', rowLabel: 'MEMBERS TOTALS', borderColor: '#a3272c', backgroundColor: 'rgba(163, 39, 44, 0.12)' },
-        { label: 'Regular Adult Members', rowLabel: 'REGULAR ADULT', borderColor: '#306497', backgroundColor: 'rgba(28, 43, 58, 0.12)' },
-        { label: 'Beginner', rowLabel: 'BEGINNER', borderColor: '#2f7f7a', backgroundColor: 'rgba(47, 127, 122, 0.12)' },
-        { label: 'Concession', rowLabel: 'CONCESSION', borderColor: '#6f00ff', backgroundColor: 'rgba(111, 0, 255, 0.12)' },
-        { label: 'Chiisai Kai 4-7', rowLabel: 'CHIISAI KAI 4-7', borderColor: '#d6b50d', backgroundColor: 'rgba(163, 139, 21, 0.12)' },
-        { label: 'Kids 8-14', rowLabel: 'KIDS 8-14', borderColor: 'rgb(132, 133, 218)', backgroundColor: 'rgba(132, 133, 218, 0.12)' },
-        { label: 'Kids 15-17', rowLabel: 'KIDS 15-17', borderColor: 'rgb(154, 77, 157)', backgroundColor: 'rgba(154, 77, 157, 0.12)' },
-        { label: 'Blue Zone', rowLabel: 'BLUE ZONE', borderColor: 'rgb(0, 4, 255)', backgroundColor: 'rgba(0, 4, 255, 0.12)' },
-        { label: 'Combat Pilates', rowLabel: 'COMBAT PILATES', borderColor: 'rgb(137, 73, 0)', backgroundColor: 'rgba(137, 73, 0, 0.12)' }
+        { label: 'Total members', rowLabel: 'MEMBERS TOTALS', borderColor: '#2F3237', backgroundColor: 'rgba(47, 50, 55, 0.06)' },
+        { label: 'Regular Adult Members', rowLabel: 'REGULAR ADULT', borderColor: '#7C2D2E', backgroundColor: 'rgba(124, 45, 46, 0.06)' },
+        { label: 'Beginner', rowLabel: 'BEGINNER', borderColor: '#2F6B4A', backgroundColor: 'rgba(47, 107, 74, 0.07)' },
+        { label: 'Concession', rowLabel: 'CONCESSION', borderColor: '#7A5C9E', backgroundColor: 'rgba(122, 92, 158, 0.07)' },
+        { label: 'Chiisai Kai 4-7', rowLabel: 'CHIISAI KAI 4-7', borderColor: '#C8961E', backgroundColor: 'rgba(200, 150, 30, 0.07)' },
+        { label: 'Kids 8-14', rowLabel: 'KIDS 8-14', borderColor: '#82A5E0', backgroundColor: 'rgba(130, 165, 224, 0.10)' },
+        { label: 'Kids 15-17', rowLabel: 'KIDS 15-17', borderColor: '#C77B6B', backgroundColor: 'rgba(199, 123, 107, 0.08)' },
+        { label: 'Blue Zone', rowLabel: 'BLUE ZONE', borderColor: '#3E8E9A', backgroundColor: 'rgba(62, 142, 154, 0.07)' },
+        { label: 'Combat Pilates', rowLabel: 'COMBAT PILATES', borderColor: '#8A5D0C', backgroundColor: 'rgba(138, 93, 12, 0.07)' }
     ];
 
     const memberRows = data.rows.filter(row => {
@@ -1945,7 +1828,7 @@ function renderMondayBoardCharts(data) {
             borderColor: '#ffffff'
         }]
         },
-        options: chartOptions('Current membership breakdown')
+        options: chartOptions('Current membership breakdown', 'doughnut')
     });
 
         new Chart(document.getElementById('beginnerBreakdownChart'), {
@@ -1959,7 +1842,7 @@ function renderMondayBoardCharts(data) {
             borderColor: '#ffffff'
         }]
         },
-        options: chartOptions('Current beginner packages breakdown')
+        options: chartOptions('Current beginner packages breakdown', 'doughnut')
     });
 
     document.querySelectorAll('.chart-card .loading').forEach(loading => loading.remove());
@@ -1971,25 +1854,26 @@ function renderMondayBoardChartsFromLog(logRows) {
     }
 
     const labels = logRows.map(row => formatReportDate(row.report_date));
+    renderMondayKeyFigure(logRows[logRows.length - 1]?.members_total, logRows.length > 1 ? logRows[logRows.length - 2]?.members_total : null);
 
     const memberTrendConfigs = [
-        { label: 'Total members', key: 'members_total', color: '#a3272c', bg: 'rgba(163, 39, 44, 0.12)' },
-        { label: 'Regular Adult Members', key: 'regular_adult', color: '#306497', bg: 'rgba(28, 43, 58, 0.12)' },
-        { label: 'Beginner', key: 'beginner_adult', color: '#2f7f7a', bg: 'rgba(47, 127, 122, 0.12)' },
-        { label: 'Concession', key: 'concession_adult', color: '#6f00ff', bg: 'rgba(111, 0, 255, 0.12)' },
-        { label: 'Chiisai Kai 4-7', key: 'chiisai_kai', color: '#d6b50d', bg: 'rgba(163, 139, 21, 0.12)' },
-        { label: 'Kids 8-14', key: 'kids_8_14', color: 'rgb(132, 133, 218)', bg: 'rgba(132, 133, 218, 0.12)' },
-        { label: 'Kids 15-17', key: 'kids_15_17', color: 'rgb(154, 77, 157)', bg: 'rgba(154, 77, 157, 0.12)' },
-        { label: 'Blue Zone', key: 'blue_zone', color: 'rgb(0, 4, 255)', bg: 'rgba(0, 4, 255, 0.12)' },
-        { label: 'Combat Pilates', key: 'combat_pilates', color: 'rgb(137, 73, 0)', bg: 'rgba(137, 73, 0, 0.12)' }
+        { label: 'Total members', key: 'members_total', color: '#2F3237', bg: 'rgba(47, 50, 55, 0.06)' },
+        { label: 'Regular Adult Members', key: 'regular_adult', color: '#7C2D2E', bg: 'rgba(124, 45, 46, 0.06)' },
+        { label: 'Beginner', key: 'beginner_adult', color: '#2F6B4A', bg: 'rgba(47, 107, 74, 0.07)' },
+        { label: 'Concession', key: 'concession_adult', color: '#7A5C9E', bg: 'rgba(122, 92, 158, 0.07)' },
+        { label: 'Chiisai Kai 4-7', key: 'chiisai_kai', color: '#C8961E', bg: 'rgba(200, 150, 30, 0.07)' },
+        { label: 'Kids 8-14', key: 'kids_8_14', color: '#82A5E0', bg: 'rgba(130, 165, 224, 0.10)' },
+        { label: 'Kids 15-17', key: 'kids_15_17', color: '#C77B6B', bg: 'rgba(199, 123, 107, 0.08)' },
+        { label: 'Blue Zone', key: 'blue_zone', color: '#3E8E9A', bg: 'rgba(62, 142, 154, 0.07)' },
+        { label: 'Combat Pilates', key: 'combat_pilates', color: '#8A5D0C', bg: 'rgba(138, 93, 12, 0.07)' }
     ];
 
     const beginnerTrendConfigs = [
-        { label: 'Become Adult', key: 'become_adult', color: '#a3272c' },
-        { label: 'Become Chiisai', key: 'become_chiisai', color: '#306497' },
-        { label: 'Become Kids', key: 'become_kids', color: '#2f7f7a' },
-        { label: 'Become Blue Zone', key: 'become_blue_zone', color: '#d6b50d' },
-        { label: 'Become C-Pilates', key: 'become_c_pilates', color: '#6f00ff' }
+        { label: 'Become Adult', key: 'become_adult', color: '#2F3237' },
+        { label: 'Become Chiisai', key: 'become_chiisai', color: '#7C2D2E' },
+        { label: 'Become Kids', key: 'become_kids', color: '#2F6B4A' },
+        { label: 'Become Blue Zone', key: 'become_blue_zone', color: '#C8961E' },
+        { label: 'Become C-Pilates', key: 'become_c_pilates', color: '#7A5C9E' }
     ];
 
     const memberRows = [
@@ -2053,7 +1937,7 @@ function renderMondayBoardChartsFromLog(logRows) {
                 borderColor: '#ffffff'
             }]
         },
-        options: chartOptions('Current membership breakdown')
+        options: chartOptions('Current membership breakdown', 'doughnut')
     });
 
     new Chart(document.getElementById('beginnerBreakdownChart'), {
@@ -2067,7 +1951,7 @@ function renderMondayBoardChartsFromLog(logRows) {
                 borderColor: '#ffffff'
             }]
         },
-        options: chartOptions('Current beginner packages breakdown')
+        options: chartOptions('Current beginner packages breakdown', 'doughnut')
     });
 
     document.querySelectorAll('.chart-card .loading').forEach(loading => loading.remove());
@@ -2086,17 +1970,32 @@ async function loadOverviewFromWeeklyLog() {
   renderMondayBoardChartsFromLog(data);
 }
 
-function chartOptions(title) {
+// Members this week on the indigo plate; last week and the change beside it.
+function renderMondayKeyFigure(current, previous) {
+    const el = document.getElementById('mondayKeyFigure');
+    if (!el || current === null || current === undefined || current === '') return;
+    const now = Number(current) || 0;
+    const prev = previous === null || previous === undefined || previous === '' ? null : Number(previous) || 0;
+    const change = prev === null ? '' : getGoalBadge(now - prev);
+    el.innerHTML = `<div class="past-due-metric key"><span>Total members this week</span><strong>${now}</strong></div>` +
+        `<div class="past-due-metric"><span>Last week</span><strong>${prev === null ? '—' : prev}</strong></div>` +
+        `<div class="past-due-metric"><span>Change</span><strong>${change || '—'}</strong></div>`;
+}
+
+function chartOptions(title, type = 'line') {
+    // The card heading already names the chart, so Chart.js draws no title of its own.
     return {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-        legend: { position: 'bottom' },
-        title: { display: true, text: title, color: '#1c2b3a', font: { size: 16 } }
+        legend: { position: 'bottom', labels: { boxWidth: 12, boxHeight: 12, padding: 10, font: { size: 11 } } },
+        title: { display: false, text: title }
         },
-        scales: {
-        y: { beginAtZero: true, ticks: { precision: 0 } }
-        }
+        // Doughnuts have no axes; a y scale draws a stray 0–1 grid behind them.
+        ...(type === 'doughnut' ? {} : { scales: {
+            x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+        } })
     };
 }
 
@@ -2104,147 +2003,302 @@ function escapeHtml(v) {
   return String(v)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
-const currentMemberListState = {
-  headers: [],
-  rows: []
+// ─── Current Member List ─────────────────────────────────────────────────────
+// One table, four views: current members, joined this week, left since last
+// week, and last week's list. Filters, sort and export act on the active view.
+
+const MEMBER_HIDDEN_COLUMNS = new Set(['id', 'report_date', 'imported_at', 'snapshot_label', 'archived_at', 'created_at', 'updated_at', 'uploaded_at']);
+const MEMBER_COLUMN_LABELS = {
+  number: '#',
+  first_name: 'First name',
+  last_name: 'Last name',
+  membership_label: 'Membership',
+  mbr_status: 'Status',
+  mbr_create_date: 'Created',
+  mbr_begin_date: 'Begins',
+  mbr_end_date: 'Ends',
+  att_limit: 'Att. limit',
+  att_limit_type: 'Limit type',
+  people_count: 'People',
+  autopay: 'Autopay'
+};
+const MEMBER_VIEW_TITLES = {
+  current: 'Current members',
+  joined: 'Joined this week',
+  left: 'Left since last week',
+  lastWeek: "Last week's list"
 };
 
-function updateCurrentMemberFilterOptions(headers) {
-  const fieldSelect = document.getElementById('memberFilterField');
-  if (!fieldSelect) return;
+const memberListState = {
+  current: [],
+  lastWeek: null,
+  view: 'current',
+  search: '',
+  status: 'all',
+  membership: 'all',
+  sortKey: 'last_name',
+  sortDir: 1,
+  controlsReady: false
+};
 
-  const previousValue = fieldSelect.value || 'all';
-  const fieldLabels = ['all', ...headers.filter(Boolean)];
-
-  fieldSelect.innerHTML = fieldLabels.map(label => {
-    const text = label === 'all' ? 'All columns' : label;
-    return '<option value="' + escapeHtml(label) + '">' + escapeHtml(text) + '</option>';
-  }).join('');
-
-  if (fieldLabels.includes(previousValue)) {
-    fieldSelect.value = previousValue;
-  } else {
-    fieldSelect.value = 'all';
-  }
-
-  updateCurrentMemberFilterSuggestions();
+function memberIdentity(row) {
+  const number = String(row.number ?? '').trim();
+  if (number) return 'n:' + number;
+  return 'p:' + [row.first_name, row.last_name].join(' ').trim().toLowerCase();
 }
 
-function updateCurrentMemberFilterSuggestions() {
-  const fieldSelect = document.getElementById('memberFilterField');
-  const datalist = document.getElementById('memberFilterValueList');
-  const valueInput = document.getElementById('memberFilterValue');
-  if (!datalist || !fieldSelect || !valueInput) return;
+function memberDiff() {
+  if (!memberListState.lastWeek) return { joined: [], left: [], joinedKeys: new Set() };
+  const lastKeys = new Set(memberListState.lastWeek.map(memberIdentity));
+  const currentKeys = new Set(memberListState.current.map(memberIdentity));
+  const joined = memberListState.current.filter(row => !lastKeys.has(memberIdentity(row)));
+  const left = memberListState.lastWeek.filter(row => !currentKeys.has(memberIdentity(row)));
+  return { joined, left, joinedKeys: new Set(joined.map(memberIdentity)) };
+}
 
-  const selectedField = fieldSelect.value;
-  if (selectedField === 'all') {
-    datalist.innerHTML = '';
-    valueInput.placeholder = 'Choose a value';
+function memberViewRows(diff) {
+  switch (memberListState.view) {
+    case 'joined': return diff.joined;
+    case 'left': return diff.left;
+    case 'lastWeek': return memberListState.lastWeek || [];
+    default: return memberListState.current;
+  }
+}
+
+function memberColumns(rows) {
+  const order = Object.keys(MEMBER_COLUMN_LABELS);
+  const rank = column => (order.indexOf(column) + 1) || order.length + 1;
+  return [...new Set(rows.flatMap(row => Object.keys(row)))]
+    .filter(column => !MEMBER_HIDDEN_COLUMNS.has(column))
+    .sort((a, b) => rank(a) - rank(b));
+}
+
+function memberColumnLabel(column) {
+  return MEMBER_COLUMN_LABELS[column] || column.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+}
+
+function formatMemberValue(column, value) {
+  if (value === null || value === undefined || value === '') return '';
+  if (/date/.test(column) && /^\d{4}-\d{2}-\d{2}/.test(String(value))) {
+    const date = new Date(String(value).slice(0, 10) + 'T00:00:00');
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+  }
+  return String(value);
+}
+
+function compareMemberValues(a, b) {
+  const x = a ?? '';
+  const y = b ?? '';
+  const nx = Number(x);
+  const ny = Number(y);
+  if (x !== '' && y !== '' && Number.isFinite(nx) && Number.isFinite(ny)) return nx - ny;
+  return String(x).localeCompare(String(y), 'en', { sensitivity: 'base' });
+}
+
+function filterMemberRows(rows) {
+  const search = memberListState.search.trim().toLowerCase();
+  return rows.filter(row => {
+    if (memberListState.status !== 'all' && String(row.mbr_status ?? '') !== memberListState.status) return false;
+    if (memberListState.membership !== 'all' && String(row.membership_label ?? '') !== memberListState.membership) return false;
+    if (!search) return true;
+    const name = [row.first_name, row.last_name].join(' ').toLowerCase();
+    return name.includes(search) || String(row.number ?? '').includes(search);
+  });
+}
+
+function sortMemberRows(rows) {
+  const { sortKey, sortDir } = memberListState;
+  return [...rows].sort((a, b) =>
+    compareMemberValues(a[sortKey], b[sortKey]) * sortDir ||
+    compareMemberValues(a.last_name, b.last_name) ||
+    compareMemberValues(a.first_name, b.first_name));
+}
+
+function fillMemberSelect(select, values, allLabel) {
+  if (!select) return;
+  const previous = select.value || 'all';
+  const options = [...new Set(values.filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b));
+  select.innerHTML = `<option value="all">${escapeHtml(allLabel)}</option>` +
+    options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+  select.value = options.includes(previous) ? previous : 'all';
+  if (select.value === 'all') {
+    if (select.id === 'memberStatusFilter') memberListState.status = 'all';
+    if (select.id === 'memberTypeFilter') memberListState.membership = 'all';
+  }
+}
+
+function renderMemberSummary(diff) {
+  const el = document.getElementById('memberSummary');
+  if (!el) return;
+  const hasHistory = Boolean(memberListState.lastWeek);
+  const tile = (view, label, value, extraClass = '') => {
+    const pressed = memberListState.view === view;
+    const disabled = view !== 'current' && !hasHistory;
+    return `<button type="button" class="past-due-metric member-view-tile ${extraClass}${pressed ? ' is-active' : ''}"
+      data-member-view="${view}" aria-pressed="${pressed}"${disabled ? ' disabled' : ''}>
+      <span>${escapeHtml(label)}</span><strong>${value}</strong></button>`;
+  };
+  el.innerHTML =
+    tile('current', 'Current members', memberListState.current.length, 'key') +
+    tile('joined', 'Joined this week', hasHistory ? '+' + diff.joined.length : '—') +
+    tile('left', 'Left since last week', hasHistory ? diff.left.length : '—') +
+    tile('lastWeek', "Last week's list", hasHistory ? memberListState.lastWeek.length : '—');
+}
+
+function renderMemberList() {
+  const container = document.getElementById('current_memberList-wrap');
+  if (!container) return;
+
+  const diff = memberDiff();
+  renderMemberSummary(diff);
+
+  const viewRows = memberViewRows(diff);
+  fillMemberSelect(document.getElementById('memberStatusFilter'), viewRows.map(row => row.mbr_status), 'All statuses');
+  fillMemberSelect(document.getElementById('memberTypeFilter'), viewRows.map(row => row.membership_label), 'All memberships');
+
+  const rows = sortMemberRows(filterMemberRows(viewRows));
+  const columns = memberColumns(viewRows.length ? viewRows : memberListState.current);
+
+  const title = document.getElementById('memberListTitle');
+  if (title) title.textContent = MEMBER_VIEW_TITLES[memberListState.view];
+  const count = document.getElementById('memberCount');
+  if (count) count.textContent = `Showing ${rows.length} of ${viewRows.length}`;
+
+  if (!rows.length) {
+    const filtered = viewRows.length > 0;
+    container.innerHTML = `<div class="empty">${filtered
+      ? 'No members match these filters. <button type="button" class="link-button" data-member-reset>Clear filters</button>'
+      : 'No members in this view.'}</div>`;
     return;
   }
 
-  const uniqueValues = new Set();
-  currentMemberListState.rows.forEach(row => {
-    const headerIndex = currentMemberListState.headers.indexOf(selectedField);
-    if (headerIndex === -1) return;
-    const value = row[headerIndex];
-    if (value !== null && value !== undefined && String(value).trim() !== '') {
-      uniqueValues.add(String(value).trim());
-    }
-  });
+  const showNewTag = memberListState.view === 'current';
+  const headerCells = columns.map(column => {
+    const active = memberListState.sortKey === column;
+    const sort = active ? (memberListState.sortDir === 1 ? 'ascending' : 'descending') : 'none';
+    const numeric = column === 'number' || column === 'att_limit' || column === 'people_count';
+    return `<th scope="col" aria-sort="${sort}"${numeric ? ' class="num"' : ''}>
+      <button type="button" class="sort-button" data-member-sort="${escapeHtml(column)}">${escapeHtml(memberColumnLabel(column))}<span class="sort-mark" aria-hidden="true"></span></button></th>`;
+  }).join('');
 
-  const values = Array.from(uniqueValues).sort((a, b) => a.localeCompare(b));
-  datalist.innerHTML = values.map(value => '<option value="' + escapeHtml(value) + '"></option>').join('');
-  valueInput.placeholder = `Choose a ${selectedField} value`;
+  const bodyRows = rows.map(row => {
+    const isNew = showNewTag && diff.joinedKeys.has(memberIdentity(row));
+    return '<tr>' + columns.map(column => {
+      const numeric = column === 'number' || column === 'att_limit' || column === 'people_count';
+      let value = escapeHtml(formatMemberValue(column, row[column]));
+      if (column === 'mbr_status' && value) value = `<span class="member-status" data-status="${value.toLowerCase()}">${value}</span>`;
+      if (column === 'last_name' && isNew) value += ' <span class="member-new-tag">New</span>';
+      return `<td${numeric ? ' class="num"' : ''} data-label="${escapeHtml(memberColumnLabel(column))}">${value}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  container.innerHTML = `<table class="filterable stack member-table"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
 }
 
-function getCurrentFilteredMemberRows() {
-  const fieldSelect = document.getElementById('memberFilterField');
-  const filterValueInput = document.getElementById('memberFilterValue');
-  const nameInput = document.getElementById('memberNameFilter');
+function exportMemberListCsv() {
+  const diff = memberDiff();
+  const viewRows = memberViewRows(diff);
+  const rows = sortMemberRows(filterMemberRows(viewRows));
+  if (!rows.length) return;
+  const columns = memberColumns(viewRows);
+  const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const csv = [columns.map(column => quote(memberColumnLabel(column))).join(',')]
+    .concat(rows.map(row => columns.map(column => quote(row[column])).join(',')))
+    .join('\r\n');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  link.download = `members-${memberListState.view}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
 
-  if (!currentMemberListState.rows.length) return [];
+function initMemberListControls() {
+  if (memberListState.controlsReady) return;
+  memberListState.controlsReady = true;
 
-  const selectedField = fieldSelect ? fieldSelect.value : 'all';
-  const filterText = filterValueInput ? filterValueInput.value.trim().toLowerCase() : '';
-  const nameText = nameInput ? nameInput.value.trim().toLowerCase() : '';
+  const panel = document.getElementById('tab-current_memberList');
+  const search = document.getElementById('memberSearch');
+  const status = document.getElementById('memberStatusFilter');
+  const type = document.getElementById('memberTypeFilter');
 
-  return currentMemberListState.rows.filter(row => {
-    const valueMap = {};
-    currentMemberListState.headers.forEach((header, index) => {
-      valueMap[header] = row[index] !== null && row[index] !== undefined ? String(row[index]) : '';
-    });
+  search?.addEventListener('input', () => { memberListState.search = search.value; renderMemberList(); });
+  status?.addEventListener('change', () => { memberListState.status = status.value; renderMemberList(); });
+  type?.addEventListener('change', () => { memberListState.membership = type.value; renderMemberList(); });
+  document.getElementById('exportMemberCsvBtn')?.addEventListener('click', exportMemberListCsv);
 
-    const rowName = [valueMap.first_name || '', valueMap.last_name || ''].join(' ').trim().toLowerCase();
-    const matchesName = !nameText || rowName.includes(nameText);
-
-    if (!matchesName) return false;
-
-    if (!filterText) return true;
-
-    if (selectedField === 'all') {
-      return Object.values(valueMap).some(value => value.toLowerCase().includes(filterText));
+  panel?.addEventListener('click', event => {
+    const viewButton = event.target.closest('[data-member-view]');
+    if (viewButton && !viewButton.disabled) {
+      memberListState.view = viewButton.dataset.memberView;
+      renderMemberList();
+      return;
     }
-
-    const columnValue = String(valueMap[selectedField] || '').trim().toLowerCase();
-    return columnValue === filterText || columnValue.includes(filterText);
+    const sortButton = event.target.closest('[data-member-sort]');
+    if (sortButton) {
+      const key = sortButton.dataset.memberSort;
+      memberListState.sortDir = memberListState.sortKey === key ? -memberListState.sortDir : 1;
+      memberListState.sortKey = key;
+      renderMemberList();
+      document.querySelector(`[data-member-sort="${CSS.escape(key)}"]`)?.focus();
+      return;
+    }
+    if (event.target.closest('[data-member-reset]')) {
+      memberListState.search = '';
+      memberListState.status = 'all';
+      memberListState.membership = 'all';
+      if (search) search.value = '';
+      if (status) status.value = 'all';
+      if (type) type.value = 'all';
+      renderMemberList();
+    }
   });
 }
 
-function renderCurrentMemberListWithFilters() {
+async function loadSupabaseMemberList() {
   const container = document.getElementById('current_memberList-wrap');
-  const countLabel = document.getElementById('currentMemberCountLabel');
   if (!container) return;
+  container.innerHTML = '<div class="loading">Loading members…</div>';
 
-  const filteredRows = getCurrentFilteredMemberRows();
-  if (countLabel) {
-    countLabel.textContent = `${filteredRows.length} members shown`;
+  try {
+    // Signed-in session client: member data must never be fetched with the public key.
+    const client = await ensureSupabaseDataClient();
+    const { data, error } = await client
+      .from(MEMBER_LIST_TABLE)
+      .select('*')
+      .order('number', { ascending: true });
+    if (error) throw error;
+
+    memberListState.current = data || [];
+    initMemberListControls();
+    renderMemberList();
+  } catch (err) {
+    showError('current_memberList-wrap', err);
   }
-
-  renderTable(container, {
-    headers: currentMemberListState.headers,
-    rows: filteredRows
-  });
 }
 
-function toggleCurrentMemberFilters() {
-  const fieldSelect = document.getElementById('memberFilterField');
-  const filterValueInput = document.getElementById('memberFilterValue');
-  const nameInput = document.getElementById('memberNameFilter');
+async function loadSupabaseMemberListHistory() {
+  try {
+    const client = await ensureSupabaseDataClient();
+    const { data, error } = await client
+      .from(MEMBER_LIST_LOG_TABLE)
+      .select('*')
+      .order('archived_at', { ascending: false });
+    if (error) throw error;
 
-  if (!fieldSelect || !filterValueInput || !nameInput) return;
-
-  const listeners = [fieldSelect, filterValueInput, nameInput];
-  listeners.forEach(input => {
-    input.oninput = () => {
-      if (input === fieldSelect) {
-        updateCurrentMemberFilterSuggestions();
-      }
-      renderCurrentMemberListWithFilters();
-    };
-
-    if (input === filterValueInput) {
-      input.onfocus = () => {
-        if (fieldSelect.value !== 'all') {
-          input.click();
-        }
-      };
-    }
-  });
-
-  document.querySelectorAll('.member-clear-btn').forEach(button => {
-    button.addEventListener('click', () => {
-      const targetId = button.getAttribute('data-clear-target');
-      const target = document.getElementById(targetId);
-      if (!target) return;
-      target.value = '';
-      target.dispatchEvent(new Event('input'));
-      target.focus();
-    });
-  });
+    const snapshot = getMemberLogSnapshotRows(data || []);
+    memberListState.lastWeek = snapshot.length ? snapshot : null;
+  } catch (err) {
+    console.warn('Last week member snapshot unavailable:', err);
+    memberListState.lastWeek = null;
+  }
+  if (memberListState.controlsReady) renderMemberList();
 }
 
 function renderTable(container, block) {
@@ -2332,115 +2386,94 @@ function applyPricingSettings(rows) {
 }
 
 /**
- * Upsert a single pricing key/value to Supabase.
+ * Pricing Settings: two editable tables with live "revenue at goal", one
+ * save bar for every pending change, and per-row reset to defaults.
+ * Nothing is written to Supabase until "Save changes".
  */
-async function savePricingSetting(key, value) {
-  const client = await ensureSupabaseDataClient();
-  const { error } = await client
-    .from(PRICING_TABLE)
-    .upsert({ key, value: Number(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
-  if (error) throw error;
+function getPricingSections() {
+  return [
+    {
+      id: 'membership',
+      title: 'Membership categories',
+      hint: 'Weekly fee per member and the headcount you are aiming for.',
+      rows: CURRENT_REPORT_ROW_LABELS.map(label => ({ label, name: REPORT_DISPLAY_LABELS[label] || label })),
+      fields: [
+        { prefix: 'weekly_fee__', title: 'Weekly fee', money: true, current: REPORT_CATEGORY_WEEKLY_FEE, defaults: DEFAULT_REPORT_CATEGORY_WEEKLY_FEE },
+        { prefix: 'goal__', title: 'Headcount goal', current: REPORT_CATEGORY_GOALS, defaults: DEFAULT_REPORT_CATEGORY_GOALS }
+      ],
+      derived: { title: 'Weekly revenue at goal', calc: v => v.weekly_fee__ * v.goal__ }
+    },
+    {
+      id: 'beginner',
+      title: 'Beginner packages',
+      hint: 'One-off package price, the weekly fee once it rolls over, and the enrolment goal.',
+      rows: BEGINNER_PACKAGE_LABELS.map(label => ({ label, name: BEGINNER_PACKAGE_DISPLAY[label] || label })),
+      fields: [
+        { prefix: 'beginner_fee__', title: 'Package fee', money: true, current: BEGINNER_PACKAGE_FEE, defaults: DEFAULT_BEGINNER_PACKAGE_FEE },
+        { prefix: 'beginner_rollover__', title: 'Rollover fee', money: true, current: BEGINNER_PACKAGE_ROLLOVER_FEE, defaults: DEFAULT_BEGINNER_PACKAGE_ROLLOVER_FEE },
+        { prefix: 'beginner_goal__', title: 'Goal', current: BEGINNER_PACKAGE_GOALS, defaults: DEFAULT_BEGINNER_PACKAGE_GOALS }
+      ],
+      derived: { title: 'Package revenue at goal', calc: v => v.beginner_fee__ * v.beginner_goal__ }
+    }
+  ];
 }
 
-/**
- * Delete a pricing key from Supabase (restore to hardcoded default).
- */
-async function deletePricingSetting(key) {
-  const client = await ensureSupabaseDataClient();
-  const { error } = await client.from(PRICING_TABLE).delete().eq('key', key);
-  if (error) throw error;
-}
+const formatPricingMoney = value => '$' + Number(value || 0).toLocaleString('en-AU', { maximumFractionDigits: 2 });
 
-/**
- * Build and inject the full Pricing Settings tab UI.
- */
 function renderPricingSettingsTab() {
   const container = document.getElementById('pricingSettings-content');
   if (!container) return;
 
-  // ── Helper: build one pricing card ────────────────────────────────────────
-  function buildCard(cardTitle, fields) {
-    // fields: [{ label, prefix, keyPrefix, currentObj, defaultObj, defaultKey }]
-    const fieldsHtml = fields.map(f => {
-      const currentVal = f.currentObj[f.defaultKey];
-      const showPrefix = f.prefix ? `<span class="pricing-field-prefix">${escapeHtml(f.prefix)}</span>` : '';
-      return `
-        <div class="pricing-field">
-          <span class="pricing-field-label">${escapeHtml(f.label)}</span>
-          <div class="pricing-field-row">
-            ${showPrefix}
-            <input
-              type="number"
-              class="pricing-input"
-              value="${escapeHtml(String(currentVal))}"
-              min="0"
-              step="any"
-              data-pricing-key="${escapeHtml(f.keyPrefix + f.defaultKey)}"
-              data-default-value="${escapeHtml(String(f.defaultObj[f.defaultKey]))}"
-              aria-label="${escapeHtml(f.label)} for ${escapeHtml(cardTitle)}"
-            />
-          </div>
-        </div>`;
+  const sections = getPricingSections().map(section => {
+    const head = section.fields.map(f => `<th scope="col" class="num">${escapeHtml(f.title)}</th>`).join('');
+    const body = section.rows.map(row => {
+      const inputs = section.fields.map(f => {
+        const value = f.current[row.label];
+        const def = f.defaults[row.label];
+        return `<td class="num" data-label="${escapeHtml(f.title)}">
+          <label class="pricing-cell${f.money ? ' is-money' : ''}">
+            <span class="sr-only">${escapeHtml(f.title)} for ${escapeHtml(row.name)}</span>
+            <input type="number" inputmode="decimal" min="0" step="${f.money ? '0.01' : '1'}"
+              class="pricing-input" value="${escapeHtml(String(value))}"
+              data-pricing-key="${escapeHtml(f.prefix + row.label)}" data-field="${f.prefix}"
+              data-saved="${escapeHtml(String(value))}" data-default="${escapeHtml(String(def))}">
+          </label>
+          <span class="pricing-default" data-default-note>Default ${f.money ? formatPricingMoney(def) : escapeHtml(String(def))}</span>
+        </td>`;
+      }).join('');
+      return `<tr data-pricing-row>
+        <th scope="row" data-label="">${escapeHtml(row.name)}</th>
+        ${inputs}
+        <td class="num pricing-derived" data-label="${escapeHtml(section.derived.title)}" data-derived></td>
+        <td class="pricing-row-actions" data-label=""><button type="button" class="link-button" data-pricing-reset>Reset to default</button></td>
+      </tr>`;
     }).join('');
 
-    return `
-      <div class="pricing-card">
-        <div class="pricing-card-header">
-          <p class="pricing-card-title">${escapeHtml(cardTitle)}</p>
-        </div>
-        <div class="pricing-card-body">${fieldsHtml}</div>
-        <div class="pricing-card-footer">
-          <button type="button" class="pricing-reset-btn" aria-label="Reset ${escapeHtml(cardTitle)} to defaults">↺ Reset to default</button>
-          <button type="button" class="pricing-save-btn" aria-label="Save ${escapeHtml(cardTitle)} pricing">Save</button>
-        </div>
-      </div>`;
-  }
-
-  // ── Membership Categories section ─────────────────────────────────────────
-  const memberCards = CURRENT_REPORT_ROW_LABELS.map(label => buildCard(
-    REPORT_DISPLAY_LABELS[label] || label,
-    [
-      { label: 'Weekly Fee', prefix: '$', keyPrefix: 'weekly_fee__', currentObj: REPORT_CATEGORY_WEEKLY_FEE, defaultObj: DEFAULT_REPORT_CATEGORY_WEEKLY_FEE, defaultKey: label },
-      { label: 'Headcount Goal', prefix: '#', keyPrefix: 'goal__', currentObj: REPORT_CATEGORY_GOALS, defaultObj: DEFAULT_REPORT_CATEGORY_GOALS, defaultKey: label }
-    ]
-  )).join('');
-
-  // ── Beginner Packages section ──────────────────────────────────────────────
-  const beginnerCards = BEGINNER_PACKAGE_LABELS.map(label => buildCard(
-    BEGINNER_PACKAGE_DISPLAY[label] || label,
-    [
-      { label: 'Package Fee', prefix: '$', keyPrefix: 'beginner_fee__', currentObj: BEGINNER_PACKAGE_FEE, defaultObj: DEFAULT_BEGINNER_PACKAGE_FEE, defaultKey: label },
-      { label: 'Rollover Fee', prefix: '$', keyPrefix: 'beginner_rollover__', currentObj: BEGINNER_PACKAGE_ROLLOVER_FEE, defaultObj: DEFAULT_BEGINNER_PACKAGE_ROLLOVER_FEE, defaultKey: label },
-      { label: 'Goal', prefix: '#', keyPrefix: 'beginner_goal__', currentObj: BEGINNER_PACKAGE_GOALS, defaultObj: DEFAULT_BEGINNER_PACKAGE_GOALS, defaultKey: label }
-    ]
-  )).join('');
+    return `<section class="card pricing-section" data-section="${section.id}" aria-labelledby="pricing-${section.id}">
+      <div class="card-heading-row"><h2 id="pricing-${section.id}">${escapeHtml(section.title)}</h2></div>
+      <p class="pricing-section-hint">${escapeHtml(section.hint)}</p>
+      <div class="table-wrap">
+        <table class="stack pricing-table">
+          <thead><tr><th scope="col">Category</th>${head}<th scope="col" class="num">${escapeHtml(section.derived.title)}</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>${body}</tbody>
+          <tfoot><tr><th scope="row">Total</th>${section.fields.map(() => '<td></td>').join('')}<td class="num" data-total></td><td></td></tr></tfoot>
+        </table>
+      </div>
+    </section>`;
+  }).join('');
 
   container.innerHTML = `
     <div class="pricing-settings-page">
-      <div class="pricing-info-note">
-        <span>ℹ️</span>
-        <span>Changes saved here will immediately update all report calculations. <strong>Reload the page to refresh report tabs</strong> after saving pricing changes.</span>
-      </div>
-
-      <div id="pricingStatusBar" class="pricing-status-bar" role="status" aria-live="polite"></div>
-
-      <div>
-        <p class="pricing-section-eyebrow">Membership Categories</p>
-        <div class="pricing-section-header">
-          <h2 class="pricing-section-title">Weekly Fees & Headcount Goals</h2>
-          <p class="pricing-section-hint">Per-member weekly fee and target headcount.</p>
+      <p class="page-lede">These figures drive the revenue and goal columns in This Week's and Last Week's reports. Edit any cell, then save once.</p>
+      ${sections}
+      <div class="pricing-save-bar" id="pricingSaveBar" hidden>
+        <span id="pricingDirtyCount" role="status" aria-live="polite"></span>
+        <div class="pricing-save-actions">
+          <button type="button" class="sop-action-button secondary" id="pricingDiscardBtn">Discard</button>
+          <button type="button" class="sop-action-button primary" id="pricingSaveBtn">Save changes</button>
         </div>
-        <div class="pricing-settings-grid" id="memberCategoryCards">${memberCards}</div>
       </div>
-
-      <div>
-        <p class="pricing-section-eyebrow">Beginner Packages</p>
-        <div class="pricing-section-header">
-          <h2 class="pricing-section-title">Package Fees & Goals</h2>
-          <p class="pricing-section-hint">One-time package price, rollover fee, and enrolment goal.</p>
-        </div>
-        <div class="pricing-settings-grid" id="beginnerPackageCards">${beginnerCards}</div>
-      </div>
+      <p id="pricingStatusBar" class="pricing-status" role="status" aria-live="polite"></p>
     </div>`;
 
   initPricingSettingsTab();
@@ -2450,99 +2483,131 @@ function showPricingStatusBar(message, isError = false) {
   const bar = document.getElementById('pricingStatusBar');
   if (!bar) return;
   bar.textContent = message;
-  bar.classList.toggle('error', isError);
-  bar.classList.add('visible');
-  clearTimeout(bar._hideTimer);
-  bar._hideTimer = setTimeout(() => bar.classList.remove('visible'), 3500);
+  bar.classList.toggle('is-error', isError);
+}
+
+function pricingInputValid(input) {
+  return input.value.trim() !== '' && Number.isFinite(Number(input.value)) && Number(input.value) >= 0;
+}
+
+function refreshPricingTable() {
+  const container = document.getElementById('pricingSettings-content');
+  if (!container) return;
+  const sections = getPricingSections();
+  let dirty = 0;
+
+  container.querySelectorAll('.pricing-section').forEach(sectionEl => {
+    const section = sections.find(s => s.id === sectionEl.dataset.section);
+    let total = 0;
+    sectionEl.querySelectorAll('[data-pricing-row]').forEach(rowEl => {
+      const values = {};
+      let rowAtDefault = true;
+      rowEl.querySelectorAll('.pricing-input').forEach(input => {
+        const changed = input.value !== input.dataset.saved;
+        const valid = pricingInputValid(input);
+        const atDefault = Number(input.value) === Number(input.dataset.default);
+        input.classList.toggle('is-dirty', changed);
+        input.setAttribute('aria-invalid', String(!valid));
+        input.closest('td').querySelector('[data-default-note]').hidden = atDefault;
+        if (changed) dirty += 1;
+        if (!atDefault) rowAtDefault = false;
+        values[input.dataset.field] = valid ? Number(input.value) : 0;
+      });
+      const derived = section.derived.calc(values);
+      total += derived;
+      rowEl.querySelector('[data-derived]').textContent = formatPricingMoney(derived);
+      rowEl.querySelector('[data-pricing-reset]').disabled = rowAtDefault;
+    });
+    sectionEl.querySelector('[data-total]').textContent = formatPricingMoney(total);
+  });
+
+  const bar = document.getElementById('pricingSaveBar');
+  if (bar) bar.hidden = dirty === 0;
+  const count = document.getElementById('pricingDirtyCount');
+  if (count) count.textContent = dirty === 1 ? '1 unsaved change' : `${dirty} unsaved changes`;
+  return dirty;
+}
+
+async function savePricingChanges() {
+  const container = document.getElementById('pricingSettings-content');
+  const saveBtn = document.getElementById('pricingSaveBtn');
+  const changed = [...container.querySelectorAll('.pricing-input.is-dirty')];
+  if (!changed.length) return;
+
+  const invalid = changed.find(input => !pricingInputValid(input));
+  if (invalid) {
+    showPricingStatusBar('Each value must be a number of 0 or more.', true);
+    invalid.focus();
+    return;
+  }
+
+  // A value equal to its default removes the override; anything else is upserted.
+  const toDelete = changed.filter(input => Number(input.value) === Number(input.dataset.default)).map(input => input.dataset.pricingKey);
+  const toUpsert = changed.filter(input => Number(input.value) !== Number(input.dataset.default))
+    .map(input => ({ key: input.dataset.pricingKey, value: Number(input.value), updated_at: new Date().toISOString() }));
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+  try {
+    const client = await ensureSupabaseDataClient();
+    if (toUpsert.length) {
+      const { error } = await client.from(PRICING_TABLE).upsert(toUpsert, { onConflict: 'key' });
+      if (error) throw error;
+    }
+    if (toDelete.length) {
+      const { error } = await client.from(PRICING_TABLE).delete().in('key', toDelete);
+      if (error) throw error;
+    }
+
+    applyPricingSettings(changed.map(input => ({ key: input.dataset.pricingKey, value: Number(input.value) })));
+    changed.forEach(input => { input.dataset.saved = input.value; });
+    delete loadedTabs['current_mondayReport'];
+    delete loadedTabs['last_mondayReport'];
+    refreshPricingTable();
+    showPricingStatusBar(`Saved ${changed.length} ${changed.length === 1 ? 'change' : 'changes'}. The weekly reports recalculate next time you open them.`);
+  } catch (err) {
+    showPricingStatusBar('Could not save: ' + (err.message || 'unknown error') + '. Your edits are still here; try again.', true);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save changes';
+  }
 }
 
 function initPricingSettingsTab() {
   const container = document.getElementById('pricingSettings-content');
   if (!container) return;
 
-  container.querySelectorAll('.pricing-card').forEach(card => {
-    const inputs = card.querySelectorAll('.pricing-input');
-    const saveBtn = card.querySelector('.pricing-save-btn');
-    const resetBtn = card.querySelector('.pricing-reset-btn');
-
-    // ── Save button ──────────────────────────────────────────────────────────
-    if (saveBtn) {
-      saveBtn.addEventListener('click', async () => {
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving…';
-        saveBtn.classList.remove('saved', 'error');
-
-        try {
-          for (const input of inputs) {
-            const key = input.getAttribute('data-pricing-key');
-            const rawValue = input.value;
-            if (!key || rawValue === '') continue;
-            const num = Number(rawValue);
-            if (!Number.isFinite(num) || num < 0) {
-              throw new Error(`Invalid value "${rawValue}" for field "${key}"`);
-            }
-            await savePricingSetting(key, num);
-            // Update the live constant immediately
-            applyPricingSettings([{ key, value: num }]);
-          }
-
-          saveBtn.textContent = '✓ Saved';
-          saveBtn.classList.add('saved');
-          showPricingStatusBar('✓ Pricing updated successfully. Reload report tabs to see the new numbers.');
-
-          // Reset report tabs so they re-render with new pricing
-          delete loadedTabs['current_mondayReport'];
-          delete loadedTabs['last_mondayReport'];
-
-          setTimeout(() => {
-            saveBtn.textContent = 'Save';
-            saveBtn.classList.remove('saved');
-            saveBtn.disabled = false;
-          }, 2200);
-        } catch (err) {
-          saveBtn.textContent = '✗ Failed';
-          saveBtn.classList.add('error');
-          showPricingStatusBar('Error: ' + (err.message || 'Could not save pricing.'), true);
-          setTimeout(() => {
-            saveBtn.textContent = 'Save';
-            saveBtn.classList.remove('error');
-            saveBtn.disabled = false;
-          }, 2200);
-        }
-      });
-    }
-
-    // ── Reset button ─────────────────────────────────────────────────────────
-    if (resetBtn) {
-      resetBtn.addEventListener('click', async () => {
-        if (!window.confirm('Reset these values back to the original defaults?')) return;
-
-        resetBtn.disabled = true;
-        resetBtn.textContent = 'Resetting…';
-
-        try {
-          for (const input of inputs) {
-            const key = input.getAttribute('data-pricing-key');
-            const defaultVal = input.getAttribute('data-default-value');
-            if (!key) continue;
-            await deletePricingSetting(key);
-            // Restore live constant
-            applyPricingSettings([{ key, value: Number(defaultVal) }]);
-            input.value = defaultVal;
-          }
-
-          showPricingStatusBar('↺ Pricing reset to original defaults.');
-          delete loadedTabs['current_mondayReport'];
-          delete loadedTabs['last_mondayReport'];
-        } catch (err) {
-          showPricingStatusBar('Error resetting: ' + (err.message || 'Unknown error.'), true);
-        } finally {
-          resetBtn.disabled = false;
-          resetBtn.textContent = '↺ Reset to default';
-        }
-      });
+  container.addEventListener('input', event => {
+    if (event.target.matches('.pricing-input')) {
+      refreshPricingTable();
+      showPricingStatusBar('');
     }
   });
+
+  container.addEventListener('click', event => {
+    const reset = event.target.closest('[data-pricing-reset]');
+    if (reset) {
+      reset.closest('[data-pricing-row]').querySelectorAll('.pricing-input').forEach(input => { input.value = input.dataset.default; });
+      refreshPricingTable();
+      showPricingStatusBar('Defaults filled in. Save changes to keep them.');
+    }
+  });
+
+  document.getElementById('pricingSaveBtn')?.addEventListener('click', savePricingChanges);
+  document.getElementById('pricingDiscardBtn')?.addEventListener('click', () => {
+    container.querySelectorAll('.pricing-input').forEach(input => { input.value = input.dataset.saved; });
+    refreshPricingTable();
+    showPricingStatusBar('Changes discarded.');
+  });
+
+  window.addEventListener('beforeunload', event => {
+    if (container.querySelector('.pricing-input.is-dirty')) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  });
+
+  refreshPricingTable();
 }
 
 // ─── Tab dispatcher ───────────────────────────────────────────────────────────
