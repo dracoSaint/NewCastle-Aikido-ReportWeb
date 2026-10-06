@@ -20,6 +20,10 @@
       <span>SOP Library</span>
     </div>
     <div class="sop-sidebar-actions">
+      <label class="sop-search">
+        <span class="sr-only">Search procedures</span>
+        <input id="sopSearch" type="search" placeholder="Search procedures" autocomplete="off">
+      </label>
       <button id="addSopBtn" class="sop-action-button primary" type="button">Add New SOP</button>
     </div>
     <nav id="sopMenu"></nav>
@@ -32,6 +36,7 @@
         <h2 id="sopTitle">Billing & Payments</h2>
       </div>
       <div class="sop-reader-actions">
+        <button id="sopBrowseBtn" class="sop-action-button primary sop-browse-btn" type="button">All procedures</button>
         <button id="editSopBtn" class="sop-action-button secondary" type="button" hidden>Edit SOP</button>
         <button id="deleteSopBtn" class="sop-action-button danger" type="button" hidden>Delete SOP</button>
         <a id="openSopLink" class="sop-open-link" target="_blank" rel="noopener" hidden>Open in Google Drive</a>
@@ -39,7 +44,7 @@
     </div>
     <div id="sopStatus" class="sop-status" hidden>
       <strong>Google Drive file not connected yet.</strong>
-      <span>Add the Drive file ID for this SOP in <code>js/sopReader.js</code>.</span>
+      <span>Use “Edit SOP” and paste the document link.</span>
     </div>
     <iframe id="sopFrame" class="sop-frame" title="Selected SOP document" hidden></iframe>
   </section>
@@ -71,8 +76,8 @@
       </div>
 
       <div class="form-field">
-        <label for="sopDriveIdInput">Google Doc ID</label>
-        <input id="sopDriveIdInput" name="driveFileId" type="text" placeholder="Paste the document ID only" maxlength="200" required>
+        <label for="sopDriveIdInput">Google Doc link</label>
+        <input id="sopDriveIdInput" name="driveFileId" type="text" placeholder="Paste the document link (or its ID)" maxlength="300" required>
       </div>
 
       <div class="sop-form-actions">
