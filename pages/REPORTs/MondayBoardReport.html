@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Newcastle Aikido - Monday Board Report</title>
+  <link rel="stylesheet" href="../../css/styles.css">
+  <script src="../../js/auth.js"></script>
+</head>
+
+<body>
+
+  <header>
+    <p id="updatedLine">Loading...</p>
+    <button id="openSpreadsheet"
+      onclick="window.open('https://docs.google.com/spreadsheets/d/1E9zvuJDxDCSpA7_zwlTZsKLeeK94K6rl8c77FKalpv8/edit?usp=sharing', '_blank')">Open
+      Spreadsheet</button>
+    <nav class="site-nav">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="current_mondayReport">This Week's Report</button>
+      <button data-tab="last_mondayReport">Last Week's Report</button>
+      <button data-tab="current_memberList">Current Member List</button>
+      <button data-tab="memberHistoryLog">Member History Log</button>
+      <button data-tab="pricingSettings" id="pricingSettingsTab">Pricing Settings</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="tab-panel active" id="tab-overview">
+      <div class="past-due-metrics key-strip chart-card-wide" id="mondayKeyFigure" aria-live="polite"></div>
+      <div class="card chart-card chart-card-wide">
+        <h2>Membership Trend</h2>
+        <div class="chart-wrap">
+          <canvas id="membersTrendChart" aria-label="Total members by week"></canvas>
+          <div class="loading">Loading dashboard...</div>
+        </div>
+      </div>
+
+      <div class="card chart-card chart-card-wide">
+        <h2>Beginner Progression</h2>
+        <div class="chart-wrap">
+          <canvas id="beginnerTrendChart" aria-label="Beginner progression by week"></canvas>
+          <div class="loading">Loading dashboard...</div>
+        </div>
+      </div>
+
+      <div class="card chart-card">
+        <h2>Overall Membership Registration</h2>
+        <div class="chart-wrap chart-wrap-doughnut">
+          <canvas id="membershipBreakdownChart" aria-label="Overall membership registration"></canvas>
+          <div class="loading">Loading dashboard...</div>
+        </div>
+      </div>
+
+      <div class="card chart-card">
+        <h2>Overall Beginner Packages Registration</h2>
+        <div class="chart-wrap chart-wrap-doughnut">
+          <canvas id="beginnerBreakdownChart" aria-label="Overall beginner packages registration"></canvas>
+          <div class="loading">Loading dashboard...</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-current_mondayReport">
+      <div class="card">
+        <h2>This Week's Report</h2>
+        <div id="current_mondayReport-content" class="report-summary-container"></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-last_mondayReport">
+      <div class="card">
+        <h2>Last Week's Report</h2>
+        <div id="last_mondayReport-content" class="report-summary-container"></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-current_memberList">
+      <div class="past-due-metrics key-strip member-summary" id="memberSummary" aria-label="Member list views"></div>
+
+      <div class="card member-list-card">
+        <div class="card-heading-row">
+          <h2 id="memberListTitle">Current members</h2>
+          <span class="member-count" id="memberCount" role="status" aria-live="polite"></span>
+        </div>
+
+        <div class="member-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search members by name or number</span>
+            <input id="memberSearch" type="search" placeholder="Search name or number" autocomplete="off">
+          </label>
+          <label>
+            <span class="sr-only">Filter by status</span>
+            <select id="memberStatusFilter"><option value="all">All statuses</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Filter by membership</span>
+            <select id="memberTypeFilter"><option value="all">All memberships</option></select>
+          </label>
+          <div class="member-toolbar-actions">
+            <button type="button" class="sop-action-button secondary" id="exportMemberCsvBtn">Export CSV</button>
+            <input id="memberCsvInput" type="file" accept=".csv,text/csv" hidden>
+            <button id="importMemberCsvBtn" type="button" class="sop-action-button primary">Upload CSV</button>
+          </div>
+          <span id="csvUploadStatus" class="csv-upload-status" role="status"></span>
+        </div>
+
+        <div class="table-wrap" id="current_memberList-wrap">
+          <div class="loading">Loading members…</div>
+        </div>
+      </div>
+
+        <div id="csvUploadModal" class="csv-upload-modal hidden" aria-hidden="true">
+          <div class="csv-upload-modal-card">
+            <div class="csv-upload-modal-header">
+              <h3>Upload member CSV</h3>
+              <button type="button" id="closeCsvUploadModal" class="csv-upload-close"
+                aria-label="Close upload dialog">×</button>
+            </div>
+
+            <div class="csv-upload-modal-body">
+              <div class="csv-upload-selected-file" id="csvUploadSelectedFile">No file selected</div>
+
+              <label class="member-filter-field">
+                <span>Report date <small>(required)</small></span>
+                <input id="csvReportDateInput" type="date" required aria-describedby="csvReportDateHelp" />
+                <small id="csvReportDateHelp">Choose the date represented by this member report. This is useful when
+                  importing an older CSV.</small>
+              </label>
+
+              <div class="csv-progress-wrapper">
+                <div class="csv-progress-labels">
+                  <span>Upload progress</span>
+                  <strong id="csvProgressText">0%</strong>
+                </div>
+                <div class="csv-progress-track">
+                  <div id="csvProgressBar" class="csv-progress-bar"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="csv-upload-modal-actions">
+              <button type="button" id="cancelCsvUploadBtn" class="sop-action-button secondary">Cancel</button>
+              <button type="button" id="confirmCsvUploadBtn" class="sop-action-button primary">Confirm upload</button>
+            </div>
+          </div>
+        </div>
+    </section>
+
+    <section class="tab-panel" id="tab-memberHistoryLog">
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Member History Log</h2>
+          <button type="button" class="monday-report-button primary" id="addWeeklyLogBtn">Add Log</button>
+        </div>
+        <div class="table-wrap" id="memberHistoryLog-wrap">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-pricingSettings">
+      <div id="pricingSettings-content"></div>
+    </section>
+  </main>
+
+  <div id="manualWeeklyLogModal" class="manual-weekly-log-modal hidden" aria-hidden="true">
+    <div class="manual-weekly-log-dialog" role="dialog" aria-modal="true" aria-labelledby="manualWeeklyLogTitle">
+      <div class="manual-weekly-log-header">
+        <h3 id="manualWeeklyLogTitle">Add weekly log</h3>
+        <button type="button" id="closeManualWeeklyLogBtn" class="csv-upload-close"
+          aria-label="Close add weekly log dialog">×</button>
+      </div>
+      <div id="manualWeeklyLogForm-wrap"></div>
+    </div>
+  </div>
+
+  <footer></footer>
+
+  <script src="../../js/siteHeader.js"></script>
+  <script src="../../js/siteMenu.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="../../js/config.js"></script>
+  <script src="../../js/mondayBoardScripts.js"></script>
+</body>
+
+<script src="../../js/footer.js"></script>
+
+</html>

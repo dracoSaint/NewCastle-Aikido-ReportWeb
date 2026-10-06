@@ -1,0 +1,2674 @@
+const MONDAY_BOARD_SHEET_NAME = 'DASHBOARD';
+const MEMBER_LIST_TABLE = 'membership_data';
+const MEMBER_LIST_PREVIOUS_TABLE = 'membership_data_previous';
+const MEMBER_LIST_LOG_TABLE = 'membership_data_log';
+const MEMBER_WEEKLY_LOG_TABLE = 'membership_weekly_log';
+const TARGET_BEGINNER_PACKAGES = [
+  'become - 6 week transformation journey',
+  'blue zone- new beginnings 6 week life change introduction only',
+  'chiisai kai beginners package',
+  'junior beginner package'
+];
+const PREFERRED_BEGINNER_PACKAGE_LABELS = TARGET_BEGINNER_PACKAGES;
+
+const MONDAY_PAGE_CONFIGS = {
+  current_mondayReport: {
+    sheetName: 'MONDAY BOARD_SHEET',
+    publishedUrl: config.mondayBoard.thisWeekReportUrl
+  },
+  last_mondayReport:    {
+    sheetName: 'LAST WEEK REPORT',
+    publishedUrl: config.mondayBoard.lastWeekReportUrl
+  },
+  // "Current Member List" is now fetched from Supabase, see loadMondayTab function.
+};
+
+let mondayJsonpCounter = 0;
+const mondaySheetCache = {};
+
+function normalizeHeaderName(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function parseCsvLine(line) {
+  const cells = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      cells.push(current);
+      current = '';
+      continue;
+    }
+
+    if ((char === '\t' || char === ';') && !inQuotes) {
+      cells.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  cells.push(current);
+  return cells.map(value => value.trim());
+}
+
+function parseUploadedCsv(text) {
+  const cleanText = String(text || '').replace(/\r\n?/g, '\n').trim();
+  if (!cleanText) return [];
+
+  const lines = cleanText.split('\n').filter(line => line.trim() !== '');
+  if (lines.length < 2) return [];
+
+  const delimiter = cleanText.includes('\t') ? '\t' : ',';
+  const parsedLines = lines.map(line => {
+    if (delimiter === ',') return parseCsvLine(line);
+    return parseCsvLine(line.replace(/,/g, '\t'));
+  });
+
+  const headers = parsedLines[0].map(header => normalizeHeaderName(header));
+  return parsedLines.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((header, index) => {
+      const rawValue = row[index] ?? '';
+      obj[header] = rawValue.trim();
+    });
+    return obj;
+  }).filter(row => Object.values(row).some(value => String(value || '').trim() !== ''));
+}
+
+function formatCsvDateValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (!match) return raw;
+  const [, day, month, year] = match;
+  const yearFull = year.length === 2 ? `20${year}` : year;
+  return `${yearFull}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function normalizeSupabaseNullableValue(value) {
+  if (value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  return trimmed === '' ? null : trimmed;
+}
+
+function normalizeMembershipCsvRow(row) {
+  const normalized = {};
+
+  const fieldMap = {
+    number: 'number',
+    'first_name': 'first_name',
+    'first name': 'first_name',
+    'last_name': 'last_name',
+    'last name': 'last_name',
+    'membership_label': 'membership_label',
+    'membership label': 'membership_label',
+    'mbr_status': 'mbr_status',
+    'mbr. status': 'mbr_status',
+    'mbr_status_': 'mbr_status',
+    'mbr_create_date': 'mbr_create_date',
+    'mbr. create date': 'mbr_create_date',
+    'mbr_begin_date': 'mbr_begin_date',
+    'mbr. begin date': 'mbr_begin_date',
+    'mbr_end_date': 'mbr_end_date',
+    'mbr. end date': 'mbr_end_date',
+    'att_limit': 'att_limit',
+    'att. limit': 'att_limit',
+    'att_limit_type': 'att_limit_type',
+    'att. limit type': 'att_limit_type',
+    'people_count': 'people_count',
+    'people (count)': 'people_count',
+    'autopay': 'autopay',
+    'autopay_': 'autopay'
+  };
+
+  Object.entries(row).forEach(([key, value]) => {
+    const canonical = fieldMap[normalizeHeaderName(key)] || normalizeHeaderName(key);
+    if (!canonical) return;
+    let cleaned = String(value ?? '').trim();
+
+    if (canonical.includes('date')) {
+      cleaned = formatCsvDateValue(cleaned);
+    }
+
+    if (canonical === 'number' || canonical === 'att_limit' || canonical === 'people_count') {
+      cleaned = cleaned === '' ? null : String(cleaned).replace(/[^0-9.-]/g, '');
+      if (cleaned === '') cleaned = null;
+    }
+
+    normalized[canonical] = cleaned;
+  });
+
+  if (!normalized.number && normalized['member_number']) {
+    normalized.number = normalized.member_number;
+  }
+
+  return {
+    number: normalizeSupabaseNullableValue(normalized.number),
+    first_name: normalizeSupabaseNullableValue(normalized.first_name),
+    last_name: normalizeSupabaseNullableValue(normalized.last_name),
+    membership_label: normalizeSupabaseNullableValue(normalized.membership_label),
+    mbr_status: normalizeSupabaseNullableValue(normalized.mbr_status),
+    mbr_create_date: normalizeSupabaseNullableValue(normalized.mbr_create_date),
+    mbr_begin_date: normalizeSupabaseNullableValue(normalized.mbr_begin_date),
+    mbr_end_date: normalizeSupabaseNullableValue(normalized.mbr_end_date),
+    att_limit: normalizeSupabaseNullableValue(normalized.att_limit),
+    att_limit_type: normalizeSupabaseNullableValue(normalized.att_limit_type),
+    people_count: normalizeSupabaseNullableValue(normalized.people_count),
+    autopay: normalizeSupabaseNullableValue(normalized.autopay),
+    report_date: null,
+    imported_at: null,
+    snapshot_label: 'CURRENT'
+  };
+}
+
+function normalizeMemberCleanString(str) {
+  return str ? String(str).toLowerCase().trim() : '';
+}
+
+function isTargetBeginnerPackage(label) {
+  const clean = normalizeMemberCleanString(label);
+  if (!clean) return false;
+
+  for (let i = 0; i < TARGET_BEGINNER_PACKAGES.length; i++) {
+    const pkg = TARGET_BEGINNER_PACKAGES[i];
+    if (clean === pkg || clean.indexOf(pkg) === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function dedupeImportedMemberRows(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+
+  // 1. Group rows by Member Name (First Name + Last Name)
+  const membersGrouped = {};
+
+  rows.forEach((row, index) => {
+    const firstName = row.first_name || row['first_name'] || '';
+    const lastName = row.last_name || row['last_name'] || '';
+
+    if (!firstName && !lastName) {
+      return;
+    }
+
+    const firstNameClean = normalizeMemberCleanString(firstName).replace(/\s+/g, '');
+    const lastNameClean = normalizeMemberCleanString(lastName).replace(/\s+/g, '');
+    const personKey = `${firstNameClean}_${lastNameClean}`;
+
+    if (!membersGrouped[personKey]) {
+      membersGrouped[personKey] = [];
+    }
+    membersGrouped[personKey].push({ index, data: row });
+  });
+
+  // 2. Process Deduplication Rules
+  const rowsToDiscard = new Set();
+
+  for (const personKey in membersGrouped) {
+    const memberRecords = membersGrouped[personKey];
+    if (memberRecords.length <= 1) continue;
+
+    const beginnerRecords = [];
+    const otherRecords = [];
+
+    memberRecords.forEach(rec => {
+      const label = rec.data.membership_label || rec.data['membership_label'] || '';
+      if (isTargetBeginnerPackage(label)) {
+        beginnerRecords.push(rec);
+      } else {
+        otherRecords.push(rec);
+      }
+    });
+
+    // Rule: If beginner package(s) exist alongside other records, discard all other records
+    if (beginnerRecords.length > 0 && otherRecords.length > 0) {
+      otherRecords.forEach(oRec => {
+        rowsToDiscard.add(oRec.index);
+      });
+    }
+
+    // Secondary Check: Deduplicate remaining records with identical labels for the same person
+    const seenLabels = {};
+    memberRecords.forEach(rec => {
+      if (rowsToDiscard.has(rec.index)) return;
+      const cleanLabel = normalizeMemberCleanString(rec.data.membership_label || rec.data['membership_label'] || '');
+      if (seenLabels[cleanLabel]) {
+        rowsToDiscard.add(rec.index);
+      } else {
+        seenLabels[cleanLabel] = true;
+      }
+    });
+  }
+
+  // 3. Construct Cleaned Rows
+  const cleanedRows = [];
+  rows.forEach((row, index) => {
+    if (!rowsToDiscard.has(index)) {
+      cleanedRows.push(row);
+    }
+  });
+
+  return cleanedRows;
+}
+
+async function ensureSupabaseDataClient() {
+  if (window.authReady) {
+    try {
+      await window.authReady;
+    } catch (err) {
+      console.warn('Auth initialization warning:', err);
+    }
+  }
+
+  if (window.supabaseClient) {
+    const { data: { session }, error } = await window.supabaseClient.auth.getSession();
+    if (error) throw error;
+    if (!session) {
+      throw new Error('Your Supabase session is not active. Please sign in again.');
+    }
+    return window.supabaseClient;
+  }
+
+  if (typeof supabase === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    await new Promise((resolve, reject) => {
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Failed to load Supabase client.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  if (typeof config === 'undefined') {
+    throw new Error('Missing Supabase config.js.');
+  }
+
+  if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    throw new Error('Supabase URL or anon key is missing.');
+  }
+
+  const client = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+  const { data: { session }, error } = await client.auth.getSession();
+  if (error) throw error;
+  if (!session) {
+    throw new Error('Your Supabase session is not active. Please sign in again.');
+  }
+
+  window.supabaseClient = client;
+  return client;
+}
+
+function getMemberLogSnapshotRows(logRows) {
+  if (!Array.isArray(logRows) || !logRows.length) return [];
+  const snapshotRows = logRows.filter(row => row.snapshot_label === 'LAST WEEK');
+  if (!snapshotRows.length) return [];
+
+  const previousRows = getPreviousSavedSnapshot(snapshotRows);
+  if (previousRows.length) return previousRows;
+
+  return getLatestSavedSnapshot(snapshotRows);
+}
+
+function getSnapshotDateKey(row) {
+  return getReportDateValue(row) || row.archived_at || row.imported_at || 'unknown';
+}
+
+function getWeeklyLogColumnOrder() {
+  return [
+    'report_date',
+    'members_total',
+    'regular_adult',
+    'beginner_adult',
+    'concession_adult',
+    'chiisai_kai',
+    'kids_8_14',
+    'kids_15_17',
+    'blue_zone',
+    'combat_pilates',
+    'beginner_totals',
+    'become_adult',
+    'become_chiisai',
+    'become_kids',
+    'become_blue_zone',
+    'become_c_pilates',
+    'uploaded_at',
+    'snapshot_label'
+  ];
+}
+
+function getEditableWeeklyLogColumns(row) {
+  const orderedColumns = getWeeklyLogColumnOrder();
+  const rowColumns = Object.keys(row || {});
+  const uniqueColumns = [...new Set([...orderedColumns.filter(column => rowColumns.includes(column)), ...rowColumns])];
+
+  return uniqueColumns.filter(column => !['id', 'created_at', 'updated_at'].includes(column));
+}
+
+function coerceEditableWeeklyLogFieldValue(fieldName, rawValue) {
+  if (rawValue === '' || rawValue === null || rawValue === undefined) {
+    return null;
+  }
+
+  const textFields = new Set(['snapshot_label', 'report_date', 'uploaded_at']);
+  if (fieldName === 'report_date' || fieldName === 'uploaded_at') {
+    return rawValue || null;
+  }
+
+  if (textFields.has(fieldName)) {
+    const trimmed = String(rawValue).trim();
+    return trimmed === '' ? null : trimmed;
+  }
+
+  const numericValue = Number(rawValue);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function buildEditableWeeklyLogTableHTML(rows) {
+  if (!Array.isArray(rows) || !rows.length) {
+    return '<div class="empty">No weekly log rows are available yet.</div>';
+  }
+
+  const firstRow = rows[0] || {};
+  const columns = getEditableWeeklyLogColumns(firstRow);
+  const headers = columns.map(column => String(column).replace(/_/g, ' '));
+
+  let html = '<table class="filterable"><thead><tr>';
+  headers.forEach(header => { html += '<th>' + escapeHtml(header) + '</th>'; });
+  html += '<th>Action</th></tr></thead><tbody>';
+
+  rows.forEach(row => {
+    const rowId = row.id || 'draft';
+    html += '<tr data-row-id="' + escapeHtml(String(rowId)) + '" data-editable="false">';
+
+    columns.forEach(column => {
+      const value = row[column] === null || row[column] === undefined ? '' : row[column];
+      const isDate = column === 'report_date' || column === 'uploaded_at';
+      const isNumeric = ['members_total', 'regular_adult', 'beginner_adult', 'concession_adult', 'chiisai_kai', 'kids_8_14', 'kids_15_17', 'blue_zone', 'combat_pilates', 'beginner_totals', 'become_adult', 'become_chiisai', 'become_kids', 'become_blue_zone', 'become_c_pilates'].includes(column);
+      const inputType = isDate ? 'date' : isNumeric ? 'number' : 'text';
+      const step = isNumeric ? 'any' : '';
+      const castValue = isDate ? String(value).slice(0, 10) : String(value);
+
+      html += '<td><input type="' + inputType + '" value="' + escapeHtml(castValue) + '" data-field="' + escapeHtml(column) + '" step="' + escapeHtml(step) + '" disabled /></td>';
+    });
+
+    html += '<td>' +
+      '<button type="button" class="sop-action-button primary weekly-log-edit" data-row-id="' + escapeHtml(String(rowId)) + '">Edit</button>' +
+      '<button type="button" class="sop-action-button secondary weekly-log-delete" data-row-id="' + escapeHtml(String(rowId)) + '" style="margin-left:8px;">Delete</button>' +
+      '<button type="button" class="sop-action-button primary weekly-log-save hidden" data-row-id="' + escapeHtml(String(rowId)) + '" style="margin-left:8px;">Save</button>' +
+      '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  return html;
+}
+
+async function saveWeeklyLogRowEdit(rowId, rowNode) {
+  const client = await ensureSupabaseDataClient();
+  const inputFields = rowNode.querySelectorAll('input[data-field]');
+  const payload = {};
+
+  inputFields.forEach(input => {
+    const fieldName = input.getAttribute('data-field');
+    if (!fieldName) return;
+
+    const rawValue = input.value;
+    payload[fieldName] = coerceEditableWeeklyLogFieldValue(fieldName, rawValue);
+  });
+
+  if (!rowId || rowId === 'draft') {
+    const { error } = await client
+      .from(MEMBER_WEEKLY_LOG_TABLE)
+      .insert(payload);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await client
+    .from(MEMBER_WEEKLY_LOG_TABLE)
+    .update(payload)
+    .eq('id', rowId);
+
+  if (error) throw error;
+}
+
+async function deleteWeeklyLogRow(rowId) {
+  if (!rowId || rowId === 'draft') return false;
+
+  const confirmed = window.confirm('Are you sure you want to delete this weekly log row?');
+  if (!confirmed) return false;
+
+  const client = await ensureSupabaseDataClient();
+  const { error } = await client
+    .from(MEMBER_WEEKLY_LOG_TABLE)
+    .delete()
+    .eq('id', rowId);
+
+  if (error) throw error;
+  return true;
+}
+
+async function getWeeklyLogFallbackRows(client) {
+  const { data: currentRows, error: currentError } = await client
+    .from(MEMBER_LIST_TABLE)
+    .select('*');
+
+  if (currentError) throw currentError;
+  if (!currentRows || !currentRows.length) return [];
+
+  const payload = buildWeeklySummaryLogFromRows(currentRows);
+  return [{
+    ...payload,
+    report_date: getSelectedReportDate(new Date().toISOString().split('T')[0]),
+    uploaded_at: new Date().toISOString(),
+    snapshot_label: 'CURRENT'
+  }];
+}
+
+function buildManualWeeklyLogFormHTML() {
+  const numericColumns = getWeeklyLogColumnOrder().filter(column => !['report_date', 'uploaded_at', 'snapshot_label'].includes(column));
+  const fields = numericColumns.map(column => `
+    <label>
+      <span>${escapeHtml(String(column).replace(/_/g, ' '))}</span>
+      <input type="number" step="any" min="0" data-manual-weekly-field="${escapeHtml(column)}" />
+    </label>
+  `).join('');
+
+  return `
+    <form class="manual-weekly-log-form" id="manualWeeklyLogForm">
+      <div class="manual-weekly-log-fields">
+        <label>
+          <span>Report date</span>
+          <input type="date" required data-manual-weekly-field="report_date" value="${escapeHtml(new Date().toISOString().split('T')[0])}" />
+        </label>
+        ${fields}
+      </div>
+      <div class="button-group">
+        <button type="submit" class="sop-action-button primary" id="saveManualWeeklyLogBtn">Save Log</button>
+        <button type="button" class="sop-action-button secondary" id="cancelManualWeeklyLogBtn">Cancel</button>
+        <span id="manualWeeklyLogStatus" role="status"></span>
+      </div>
+    </form>
+  `;
+}
+
+function initManualWeeklyLogForm() {
+  const addButton = document.getElementById('addWeeklyLogBtn');
+  const formContainer = document.getElementById('manualWeeklyLogForm-wrap');
+  const modal = document.getElementById('manualWeeklyLogModal');
+  const closeButton = document.getElementById('closeManualWeeklyLogBtn');
+  if (!addButton || !formContainer || !modal || addButton.dataset.initialized === 'true') return;
+
+  addButton.dataset.initialized = 'true';
+  const closeModal = () => {
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    formContainer.innerHTML = '';
+  };
+
+  addButton.addEventListener('click', () => {
+    formContainer.innerHTML = buildManualWeeklyLogFormHTML();
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+
+    const form = document.getElementById('manualWeeklyLogForm');
+    const cancelButton = document.getElementById('cancelManualWeeklyLogBtn');
+    const status = document.getElementById('manualWeeklyLogStatus');
+    const saveButton = document.getElementById('saveManualWeeklyLogBtn');
+
+    cancelButton.addEventListener('click', closeModal);
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      saveButton.disabled = true;
+      status.textContent = 'Saving...';
+
+      try {
+        const client = await ensureSupabaseDataClient();
+        const payload = {};
+        form.querySelectorAll('[data-manual-weekly-field]').forEach(input => {
+          const fieldName = input.getAttribute('data-manual-weekly-field');
+          payload[fieldName] = coerceEditableWeeklyLogFieldValue(fieldName, input.value);
+        });
+        payload.uploaded_at = new Date().toISOString();
+        payload.snapshot_label = 'CURRENT';
+
+        const { error } = await client.from(MEMBER_WEEKLY_LOG_TABLE).insert(payload);
+        if (error) throw error;
+
+        closeModal();
+        await loadMemberHistoryLog();
+      } catch (err) {
+        status.textContent = err.message || 'Unable to save log.';
+        saveButton.disabled = false;
+      }
+    });
+  });
+
+  closeButton.addEventListener('click', closeModal);
+  modal.addEventListener('click', event => {
+    if (event.target === modal) closeModal();
+  });
+}
+
+async function loadMemberHistoryLog() {
+  const container = document.getElementById('memberHistoryLog-wrap');
+  if (!container) return;
+  initManualWeeklyLogForm();
+  container.innerHTML = '<div class="loading">Loading weekly membership log...</div>';
+
+  try {
+    const client = await ensureSupabaseDataClient();
+    const { data, error } = await client
+      .from(MEMBER_WEEKLY_LOG_TABLE)
+      .select('*')
+      .order('report_date', { ascending: false });
+
+    if (error) throw error;
+
+    let logRows = Array.isArray(data) ? data : [];
+    if (!logRows.length) {
+      logRows = await getWeeklyLogFallbackRows(client);
+    }
+
+    if (!logRows.length) {
+      container.innerHTML = '<div class="empty">No weekly membership log rows are available yet.</div>';
+      return;
+    }
+
+    container.innerHTML = buildEditableWeeklyLogTableHTML(logRows);
+
+    container.querySelectorAll('.weekly-log-edit').forEach(button => {
+      button.addEventListener('click', () => {
+        const rowNode = button.closest('tr');
+        if (!rowNode) return;
+
+        rowNode.setAttribute('data-editable', 'true');
+        rowNode.querySelectorAll('input[data-field]').forEach(input => {
+          input.disabled = false;
+        });
+
+        button.classList.add('hidden');
+        const saveBtn = rowNode.querySelector('.weekly-log-save');
+        const deleteBtn = rowNode.querySelector('.weekly-log-delete');
+        if (saveBtn) saveBtn.classList.remove('hidden');
+        if (deleteBtn) deleteBtn.classList.add('hidden');
+      });
+    });
+
+    container.querySelectorAll('.weekly-log-save').forEach(button => {
+      button.addEventListener('click', async () => {
+        const rowId = button.getAttribute('data-row-id');
+        const rowNode = button.closest('tr');
+        if (!rowNode) return;
+
+        button.disabled = true;
+        button.textContent = 'Saving...';
+
+        try {
+          await saveWeeklyLogRowEdit(rowId, rowNode);
+          rowNode.setAttribute('data-editable', 'false');
+          rowNode.querySelectorAll('input[data-field]').forEach(input => {
+            input.disabled = true;
+          });
+
+          const editBtn = rowNode.querySelector('.weekly-log-edit');
+          const deleteBtn = rowNode.querySelector('.weekly-log-delete');
+          if (editBtn) editBtn.classList.remove('hidden');
+          if (deleteBtn) deleteBtn.classList.remove('hidden');
+          button.classList.add('hidden');
+          button.textContent = 'Save';
+        } catch (err) {
+          button.textContent = 'Save failed';
+          setTimeout(() => {
+            button.textContent = 'Save';
+            button.disabled = false;
+          }, 1800);
+          showError('memberHistoryLog-wrap', err);
+        }
+      });
+    });
+
+    container.querySelectorAll('.weekly-log-delete').forEach(button => {
+      button.addEventListener('click', async () => {
+        const rowId = button.getAttribute('data-row-id');
+        const rowNode = button.closest('tr');
+        if (!rowNode) return;
+
+        button.disabled = true;
+        button.textContent = 'Deleting...';
+
+        try {
+          const shouldDelete = await deleteWeeklyLogRow(rowId);
+          if (!shouldDelete) {
+            button.textContent = 'Delete';
+            button.disabled = false;
+            return;
+          }
+
+          rowNode.remove();
+          const remainingRows = container.querySelectorAll('tr[data-row-id]');
+          if (!remainingRows.length) {
+            container.innerHTML = '<div class="empty">No weekly membership log rows are available yet.</div>';
+          }
+        } catch (err) {
+          button.textContent = 'Delete failed';
+          setTimeout(() => {
+            button.textContent = 'Delete';
+            button.disabled = false;
+          }, 1800);
+          showError('memberHistoryLog-wrap', err);
+        }
+      });
+    });
+  } catch (err) {
+    showError('memberHistoryLog-wrap', err);
+  }
+}
+
+function getSelectedReportDate(reportDateValue) {
+  if (!reportDateValue) {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  const selectedDate = new Date(`${reportDateValue}T12:00:00`);
+  if (Number.isNaN(selectedDate.getTime())) {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  return selectedDate.toISOString().split('T')[0];
+}
+
+function getSelectedReportTimestamp(reportDateValue) {
+  if (!reportDateValue) {
+    return new Date().toISOString();
+  }
+
+  const selectedDate = new Date(`${reportDateValue}T12:00:00`);
+  if (Number.isNaN(selectedDate.getTime())) {
+    return new Date().toISOString();
+  }
+
+  return selectedDate.toISOString();
+}
+
+function buildWeeklySummaryLogFromRows(rows) {
+  const summary = buildCurrentReportSummary(rows || []);
+  const beginnerSummary = buildCurrentBeginnerPackageSummary(rows || []);
+
+  const payload = {
+    report_date: getSelectedReportDate(new Date().toISOString().split('T')[0]),
+    regular_adult: summary['Regular Adult']?.current || 0,
+    beginner_adult: summary['Beginner Adult']?.current || 0,
+    concession_adult: summary['Concession Adult']?.current || 0,
+    chiisai_kai: summary['Chiisai Kai']?.current || 0,
+    kids_8_14: summary['8-14 Junior Member']?.current || 0,
+    kids_15_17: summary['15-17 Junior Member']?.current || 0,
+    blue_zone: summary['Blue Zone Fitness ongoing']?.current || 0,
+    combat_pilates: summary['Combat Pilates']?.current || 0,
+    members_total: CURRENT_REPORT_ROW_LABELS.reduce((sum, label) => sum + (summary[label]?.current || 0), 0),
+    become_adult: beginnerSummary['BECOME - 6 Week transformation journey'] || 0,
+    become_chiisai: beginnerSummary['Chiisai Kai Beginners Package'] || 0,
+    become_kids: beginnerSummary['Junior Beginner Package'] || 0,
+    become_blue_zone: beginnerSummary['Blue Zone- New beginnings 6 week life change Introduction only'] || 0,
+    become_c_pilates: beginnerSummary['Combat Pilates Become'] || 0,
+    beginner_totals: BEGINNER_PACKAGE_LABELS.reduce((sum, label) => sum + (beginnerSummary[label] || 0), 0)
+  };
+
+  return payload;
+}
+
+async function saveWeeklyMemberSummaryLog(reportDateValue, rows) {
+  const client = await ensureSupabaseDataClient();
+  const selectedReportDate = getSelectedReportDate(reportDateValue);
+  const summary = buildWeeklySummaryLogFromRows(rows || []);
+
+  const payload = {
+    ...summary,
+    report_date: selectedReportDate,
+    uploaded_at: new Date().toISOString(),
+    snapshot_label: 'CURRENT'
+  };
+
+  const { error } = await client
+    .from(MEMBER_WEEKLY_LOG_TABLE)
+    .insert(payload);
+
+  if (error) throw error;
+}
+
+async function archiveCurrentMemberList(reportDateValue) {
+  const client = await ensureSupabaseDataClient();
+  const { data: currentRows, error: fetchError } = await client
+    .from(MEMBER_LIST_TABLE)
+    .select('*');
+
+  if (fetchError) throw fetchError;
+  if (!currentRows || currentRows.length === 0) return;
+
+  const selectedReportDate = getSelectedReportDate(reportDateValue);
+
+  const previousRows = currentRows.map((row) => {
+    const { csv_import_batch, ...safeRow } = row || {};
+    return {
+      ...safeRow,
+      report_date: row.report_date || selectedReportDate,
+      archived_at: getSelectedReportTimestamp(reportDateValue),
+      snapshot_label: 'LAST WEEK',
+      imported_at: row.imported_at || getSelectedReportTimestamp(reportDateValue)
+    };
+  });
+
+  try {
+    const { error: previousDeleteError } = await client
+      .from(MEMBER_LIST_PREVIOUS_TABLE)
+      .delete()
+      .neq('number', -1);
+
+    if (previousDeleteError) throw previousDeleteError;
+
+    const { error: previousInsertError } = await client
+      .from(MEMBER_LIST_PREVIOUS_TABLE)
+      .insert(currentRows.map(row => ({
+        ...row,
+        number: Number(row.number),
+        report_date: row.report_date || selectedReportDate
+      })));
+
+    if (previousInsertError) throw previousInsertError;
+  } catch (previousTableError) {
+    console.warn('membership_data_previous could not be updated; using membership_data_log instead.', previousTableError);
+  }
+
+  const { error: insertError } = await client
+    .from(MEMBER_LIST_LOG_TABLE)
+    .insert(previousRows);
+
+  if (insertError) throw insertError;
+}
+
+async function replaceCurrentMemberList(rows) {
+  const client = await ensureSupabaseDataClient();
+  const cleanRows = dedupeImportedMemberRows(rows.map(row => ({
+    ...row,
+    number: normalizeSupabaseNullableValue(row.number),
+    first_name: normalizeSupabaseNullableValue(row.first_name),
+    last_name: normalizeSupabaseNullableValue(row.last_name),
+    membership_label: normalizeSupabaseNullableValue(row.membership_label),
+    mbr_status: normalizeSupabaseNullableValue(row.mbr_status),
+    mbr_create_date: normalizeSupabaseNullableValue(row.mbr_create_date),
+    mbr_begin_date: normalizeSupabaseNullableValue(row.mbr_begin_date),
+    mbr_end_date: normalizeSupabaseNullableValue(row.mbr_end_date),
+    att_limit: normalizeSupabaseNullableValue(row.att_limit),
+    att_limit_type: normalizeSupabaseNullableValue(row.att_limit_type),
+    people_count: normalizeSupabaseNullableValue(row.people_count),
+    autopay: normalizeSupabaseNullableValue(row.autopay),
+    report_date: row.report_date || getSelectedReportDate(row.imported_at),
+    imported_at: row.imported_at || new Date().toISOString(),
+    snapshot_label: row.snapshot_label || 'CURRENT'
+  })));
+
+  const { data: existingRows, error: fetchError } = await client
+    .from(MEMBER_LIST_TABLE)
+    .select('*');
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  const incomingByNumber = new Map(cleanRows.map(row => [String(row.number || '').trim(), row]));
+  const existingByNumber = new Map((existingRows || []).map(row => [String(row.number || '').trim(), row]));
+
+  const rowsToInsert = cleanRows.filter(row => !existingByNumber.has(String(row.number || '').trim()));
+  const rowsToUpdate = cleanRows.filter(row => existingByNumber.has(String(row.number || '').trim()));
+  const rowsToDelete = (existingRows || [])
+    .map(row => String(row.number || '').trim())
+    .filter(number => number && !incomingByNumber.has(number));
+
+  if (rowsToDelete.length > 0) {
+    const { error: deleteError } = await client
+      .from(MEMBER_LIST_TABLE)
+      .delete()
+      .in('number', rowsToDelete);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+  }
+
+  if (rowsToInsert.length > 0) {
+    const { error: insertError } = await client
+      .from(MEMBER_LIST_TABLE)
+      .insert(rowsToInsert);
+
+    if (insertError) {
+      throw insertError;
+    }
+  }
+
+  if (rowsToUpdate.length > 0) {
+    const updates = rowsToUpdate.map(row => ({
+      ...row,
+      number: String(row.number || '').trim()
+    }));
+
+    for (const row of updates) {
+      const { error: updateError } = await client
+        .from(MEMBER_LIST_TABLE)
+        .update({
+          first_name: row.first_name,
+          last_name: row.last_name,
+          membership_label: row.membership_label,
+          mbr_status: row.mbr_status,
+          mbr_create_date: row.mbr_create_date,
+          mbr_begin_date: row.mbr_begin_date,
+          mbr_end_date: row.mbr_end_date,
+          att_limit: row.att_limit,
+          att_limit_type: row.att_limit_type,
+          people_count: row.people_count,
+          autopay: row.autopay,
+          report_date: row.report_date || getSelectedReportDate(row.imported_at),
+          imported_at: row.imported_at,
+          snapshot_label: row.snapshot_label
+        })
+        .eq('number', row.number);
+
+      if (updateError) {
+        throw updateError;
+      }
+    }
+  }
+
+  return cleanRows;
+}
+
+let pendingCsvFile = null;
+
+function setUploadProgress(percent, label) {
+  const bar = document.getElementById('csvProgressBar');
+  const text = document.getElementById('csvProgressText');
+
+  if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+  if (text) text.textContent = label || `${Math.round(percent)}%`;
+}
+
+function openCsvUploadModal(file) {
+  const modal = document.getElementById('csvUploadModal');
+  const selectedFileEl = document.getElementById('csvUploadSelectedFile');
+  const dateInput = document.getElementById('csvReportDateInput');
+  if (!modal || !selectedFileEl || !dateInput) return;
+
+  pendingCsvFile = file;
+  selectedFileEl.textContent = file ? file.name : 'No file selected';
+  const defaultDate = new Date();
+  defaultDate.setDate(defaultDate.getDate() - 7);
+  dateInput.value = defaultDate.toISOString().split('T')[0];
+  setUploadProgress(0, '0%');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeCsvUploadModal() {
+  const modal = document.getElementById('csvUploadModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+async function processConfirmedCsvUpload(file, reportDateValue) {
+  const statusEl = document.getElementById('csvUploadStatus');
+  if (!file) return;
+  if (!reportDateValue) {
+    if (statusEl) statusEl.textContent = 'Choose a report date before uploading.';
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = 'Processing CSV...';
+  setUploadProgress(8, '8%');
+
+  try {
+    const text = await file.text();
+    setUploadProgress(24, '24%');
+
+    const parsedRows = parseUploadedCsv(text)
+      .map(normalizeMembershipCsvRow)
+      .filter(row => row.number || row.first_name || row.last_name);
+
+    if (!parsedRows.length) {
+      throw new Error('No valid member rows were found in the CSV file.');
+    }
+
+    const finalRows = parsedRows.map(row => ({
+      ...row,
+      report_date: getSelectedReportDate(reportDateValue),
+      imported_at: getSelectedReportTimestamp(reportDateValue),
+      snapshot_label: 'CURRENT'
+    }));
+
+    setUploadProgress(46, '46%');
+    await archiveCurrentMemberList(reportDateValue);
+    setUploadProgress(72, '72%');
+    const cleanRows = await replaceCurrentMemberList(finalRows);
+    await saveWeeklyMemberSummaryLog(reportDateValue, cleanRows);
+    setUploadProgress(100, '100%');
+
+    if (statusEl) statusEl.textContent = `${cleanRows.length} rows imported successfully.`;
+    closeCsvUploadModal();
+    delete loadedTabs['current_mondayReport'];
+    delete loadedTabs['last_mondayReport'];
+    delete loadedTabs['current_memberList'];
+    await loadCurrentMondayReportSummary();
+    await loadLastMondayReportSummary();
+    await loadSupabaseMemberList('current_memberList');
+    await loadSupabaseMemberListHistory();
+  } catch (error) {
+    console.error('CSV import failed:', error);
+    if (statusEl) statusEl.textContent = error.message || 'CSV import failed.';
+    setUploadProgress(0, '0%');
+  }
+}
+
+async function handleMemberCsvUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  openCsvUploadModal(file);
+}
+
+function initCsvUploadControls() {
+  const importButton = document.getElementById('importMemberCsvBtn');
+  const csvInput = document.getElementById('memberCsvInput');
+  const statusEl = document.getElementById('csvUploadStatus');
+  const confirmUploadBtn = document.getElementById('confirmCsvUploadBtn');
+  const cancelUploadBtn = document.getElementById('cancelCsvUploadBtn');
+  const closeUploadBtn = document.getElementById('closeCsvUploadModal');
+  const dateInput = document.getElementById('csvReportDateInput');
+
+  if (!importButton || !csvInput) return;
+
+  const updateStatusText = () => {
+    if (!statusEl) return;
+
+    const file = csvInput.files && csvInput.files[0];
+    if (!file) {
+      statusEl.textContent = 'No file selected';
+      return;
+    }
+
+    statusEl.textContent = `Selected: ${file.name}`;
+  };
+
+  importButton.addEventListener('click', () => {
+    csvInput.click();
+  });
+
+  csvInput.addEventListener('change', () => {
+    updateStatusText();
+    if (csvInput.files && csvInput.files.length > 0) {
+      handleMemberCsvUpload({ target: csvInput });
+    }
+  });
+
+  if (confirmUploadBtn) {
+    confirmUploadBtn.addEventListener('click', async () => {
+      if (!pendingCsvFile) return;
+      const reportDateValue = dateInput ? dateInput.value : '';
+      if (!reportDateValue) {
+        if (statusEl) statusEl.textContent = 'Choose a report date before confirming the upload.';
+        if (dateInput) dateInput.focus();
+        return;
+      }
+      await processConfirmedCsvUpload(pendingCsvFile, reportDateValue);
+    });
+  }
+
+  if (cancelUploadBtn) {
+    cancelUploadBtn.addEventListener('click', () => {
+      closeCsvUploadModal();
+      pendingCsvFile = null;
+    });
+  }
+
+  if (closeUploadBtn) {
+    closeUploadBtn.addEventListener('click', () => {
+      closeCsvUploadModal();
+      pendingCsvFile = null;
+    });
+  }
+
+  const modal = document.getElementById('csvUploadModal');
+  if (modal) {
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) {
+        closeCsvUploadModal();
+        pendingCsvFile = null;
+      }
+    });
+  }
+}
+
+function normalizeRow(row, length) {
+  const normalized = (row || []).slice();
+  while (normalized.length < length) normalized.push('');
+  return normalized;
+}
+
+function fetchMondayBoardDashboard() {
+return new Promise((resolve, reject) => {
+    const callbackName = 'mondayDashboardCb' + mondayJsonpCounter++;
+    const timeout = setTimeout(() => {
+    cleanup();
+    reject(new Error('Timed out loading the DASHBOARD sheet.'));
+    }, 12000);
+
+    function cleanup() {
+    clearTimeout(timeout);
+    delete window[callbackName];
+    if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[callbackName] = response => {
+    cleanup();
+    try {
+        const table = response.table;
+        resolve({
+        columns: table.cols,
+        rows: table.rows.map(row => row.c || [])
+        });
+    } catch (error) {
+        reject(error);
+    }
+    };
+
+    const url = 'https://docs.google.com/spreadsheets/d/' + config.mondayBoardSpreadsheetId +
+    '/gviz/tq?tqx=out:json;responseHandler:' + callbackName +
+    '&sheet=' + encodeURIComponent(MONDAY_BOARD_SHEET_NAME) + '&headers=1';
+    const script = document.createElement('script');
+    script.src = url;
+    script.onerror = () => {
+    cleanup();
+    reject(new Error('Failed to load the DASHBOARD sheet.'));
+    };
+    document.body.appendChild(script);
+});
+}
+
+function fetchMondaySheetRaw(sheetName) {
+  if (mondaySheetCache[sheetName]) return mondaySheetCache[sheetName];
+
+  const promise = new Promise((resolve, reject) => {
+    const cbName = 'gvizCb' + (mondayJsonpCounter++);
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out loading "' + sheetName + '". Check the sheet is shared as "Anyone with the link".'));
+    }, 12000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[cbName] = function (response) {
+      cleanup();
+      try {
+        const table = response.table;
+        const colCount = table.cols.length;
+        const rows = table.rows.map(r => {
+          const row = (r.c || []).map(cell => {
+            if (!cell) return '';
+            return cell.f !== undefined && cell.f !== null ? cell.f : (cell.v === null ? '' : cell.v);
+          });
+          return normalizeRow(row, colCount);
+        });
+        resolve(rows);
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    const url = 'https://docs.google.com/spreadsheets/d/' + config.mondayBoardSpreadsheetId +
+      '/gviz/tq?tqx=out:json;responseHandler:' + cbName +
+      '&sheet=' + encodeURIComponent(sheetName) +
+      '&headers=0';
+
+    const script = document.createElement('script');
+    script.src = url;
+    script.onerror = () => { cleanup(); reject(new Error('Failed to load sheet "' + sheetName + '".')); };
+    document.body.appendChild(script);
+  });
+
+  mondaySheetCache[sheetName] = promise;
+  return promise;
+}
+
+function dashboardCell(row, index) {
+const cell = row[index];
+return cell && cell.v !== null && cell.v !== undefined ? cell.v : null;
+}
+
+function dashboardLabel(row, index) {
+    const cell = row[index];
+    return cell && cell.f ? cell.f : dashboardCell(row, index);
+}
+
+function findDashboardRow(rows, label) {
+    const expectedLabel = label.toLowerCase();
+    return rows.find(row => String(dashboardCell(row, 0) || '').toLowerCase() === expectedLabel);
+}
+
+function valuesForRow(row, dateCount) {
+    if (!row) return Array.from({ length: dateCount }, () => null);
+    return Array.from({ length: dateCount }, (_, index) => dashboardCell(row, index + 2));
+}
+
+function dashboardDateLabels(rows, dateCount) {
+    const dateRow = rows[9] || [];
+    return Array.from({ length: dateCount }, (_, index) => dashboardLabel(dateRow, index + 2) || '');
+}
+
+function chartColors(count) {
+    const colors = ['#2F3237', '#7C2D2E', '#2F6B4A', '#C8961E', '#82A5E0', '#C77B6B', '#7A5C9E', '#8A5D0C'];
+    return Array.from({ length: count }, (_, index) => colors[index % colors.length]);
+}
+
+const CURRENT_REPORT_ROW_LABELS = [
+  'Regular Adult',
+  'Beginner Adult',
+  'Concession Adult',
+  'Chiisai Kai',
+  '8-14 Junior Member',
+  '15-17 Junior Member',
+  'Blue Zone Fitness ongoing',
+  'Combat Pilates'
+];
+
+const BEGINNER_PACKAGE_LABELS = [
+  'BECOME - 6 Week transformation journey',
+  'Chiisai Kai Beginners Package',
+  'Junior Beginner Package',
+  'Blue Zone- New beginnings 6 week life change Introduction only',
+  'Combat Pilates Become'
+];
+
+// NOTE: These are `let` so Supabase pricing_settings can override them at runtime.
+// Default values are preserved in DEFAULT_* copies for the reset feature.
+let REPORT_CATEGORY_GOALS = {
+  'Regular Adult': 100,
+  'Beginner Adult': 15,
+  'Concession Adult': 15,
+  'Chiisai Kai': 20,
+  '8-14 Junior Member': 50,
+  '15-17 Junior Member': 20,
+  'Blue Zone Fitness ongoing': 20,
+  'Combat Pilates': 15
+};
+
+let REPORT_CATEGORY_WEEKLY_FEE = {
+  'Regular Adult': 55,
+  'Beginner Adult': 45,
+  'Concession Adult': 45,
+  'Chiisai Kai': 45,
+  '8-14 Junior Member': 35,
+  '15-17 Junior Member': 40,
+  'Blue Zone Fitness ongoing': 60,
+  'Combat Pilates': 20
+};
+
+const REPORT_DISPLAY_LABELS = {
+  'Regular Adult': 'Regular Adult',
+  'Beginner Adult': 'Beginner',
+  'Concession Adult': 'Concession',
+  'Chiisai Kai': 'Chiisai Kai 4-7',
+  '8-14 Junior Member': 'Kids 8-14',
+  '15-17 Junior Member': 'Kids 15-17',
+  'Blue Zone Fitness ongoing': 'Blue Zone',
+  'Combat Pilates': 'Combat Pilates'
+};
+
+const BEGINNER_PACKAGE_DISPLAY = {
+  'BECOME - 6 Week transformation journey': 'Become Adult',
+  'Chiisai Kai Beginners Package': 'Become Chiisai',
+  'Junior Beginner Package': 'Become Kids',
+  'Blue Zone- New beginnings 6 week life change Introduction only': 'Become Blue Zone',
+  'Combat Pilates Become': 'Become C-Pilates'
+};
+
+let BEGINNER_PACKAGE_GOALS = {
+  'BECOME - 6 Week transformation journey': 10,
+  'Chiisai Kai Beginners Package': 10,
+  'Junior Beginner Package': 10,
+  'Blue Zone- New beginnings 6 week life change Introduction only': 10,
+  'Combat Pilates Become': 15
+};
+
+let BEGINNER_PACKAGE_FEE = {
+  'BECOME - 6 Week transformation journey': 300,
+  'Chiisai Kai Beginners Package': 300,
+  'Junior Beginner Package': 300,
+  'Blue Zone- New beginnings 6 week life change Introduction only': 300,
+  'Combat Pilates Become': 300
+};
+
+let BEGINNER_PACKAGE_ROLLOVER_FEE = {
+  'BECOME - 6 Week transformation journey': 45,
+  'Chiisai Kai Beginners Package': 45,
+  'Junior Beginner Package': 45,
+  'Blue Zone- New beginnings 6 week life change Introduction only': 45,
+  'Combat Pilates Become': 45
+};
+
+// Frozen default copies — used by the "Reset to default" button
+const DEFAULT_REPORT_CATEGORY_GOALS       = Object.freeze({ ...REPORT_CATEGORY_GOALS });
+const DEFAULT_REPORT_CATEGORY_WEEKLY_FEE  = Object.freeze({ ...REPORT_CATEGORY_WEEKLY_FEE });
+const DEFAULT_BEGINNER_PACKAGE_GOALS      = Object.freeze({ ...BEGINNER_PACKAGE_GOALS });
+const DEFAULT_BEGINNER_PACKAGE_FEE        = Object.freeze({ ...BEGINNER_PACKAGE_FEE });
+const DEFAULT_BEGINNER_PACKAGE_ROLLOVER_FEE = Object.freeze({ ...BEGINNER_PACKAGE_ROLLOVER_FEE });
+
+function normalizeReportCategory(value) {
+  const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const lookup = {
+    'regular adult': 'Regular Adult',
+    'beginner adult': 'Beginner Adult',
+    'beginner': 'Beginner Adult',
+    'concession adult': 'Concession Adult',
+    'concession': 'Concession Adult',
+    'chiisai kai': 'Chiisai Kai',
+    '8-14 junior member': '8-14 Junior Member',
+    '8 14 junior member': '8-14 Junior Member',
+    '15-17 junior member': '15-17 Junior Member',
+    '15 17 junior member': '15-17 Junior Member',
+    'blue zone fitness ongoing': 'Blue Zone Fitness ongoing',
+    'blue zone': 'Blue Zone Fitness ongoing',
+    'combat pilates': 'Combat Pilates',
+    'combat pilates become': 'Combat Pilates'
+  };
+
+  return lookup[normalized] || String(value || '').trim();
+}
+
+function normalizeBeginnerPackageCategory(value) {
+  const normalized = String(value || '').trim();
+  const lookup = {
+    'become - 6 week transformation journey': 'BECOME - 6 Week transformation journey',
+    'become adult': 'BECOME - 6 Week transformation journey',
+    'chiisai kai beginners package': 'Chiisai Kai Beginners Package',
+    'junior beginner package': 'Junior Beginner Package',
+    'blue zone- new beginnings 6 week life change introduction only': 'Blue Zone- New beginnings 6 week life change Introduction only',
+    'blue zone new beginnings 6 week life change introduction only': 'Blue Zone- New beginnings 6 week life change Introduction only',
+    'combat pilates become': 'Combat Pilates Become'
+  };
+
+  return lookup[normalized.toLowerCase()] || normalized;
+}
+
+function buildCurrentReportSummary(rows) {
+  const summary = {};
+  CURRENT_REPORT_ROW_LABELS.forEach(label => {
+    summary[label] = { current: 0, hold: 0 };
+  });
+
+  (rows || []).forEach(row => {
+    const rowLabel = normalizeReportCategory(row.membership_label || row['membership_label'] || '');
+    const status = String(row.mbr_status || row['mbr_status'] || '').trim().toUpperCase();
+
+    if (!summary[rowLabel]) return;
+    if (status === 'CURRENT') summary[rowLabel].current += 1;
+    if (status === 'HOLD') summary[rowLabel].hold += 1;
+  });
+
+  return summary;
+}
+
+function buildCurrentBeginnerPackageSummary(rows) {
+  const summary = {};
+  BEGINNER_PACKAGE_LABELS.forEach(label => {
+    summary[label] = 0;
+  });
+
+  (rows || []).forEach(row => {
+    const label = normalizeBeginnerPackageCategory(row.membership_label || row['membership_label'] || '');
+    const status = String(row.mbr_status || row['mbr_status'] || '').trim().toUpperCase();
+    if (summary[label] !== undefined && status !== 'HOLD') {
+      summary[label] += 1;
+    }
+  });
+
+  return summary;
+}
+
+function buildReportSummariesFromWeeklyLogRow(row) {
+  const summary = {};
+  const memberFields = {
+    'Regular Adult': 'regular_adult',
+    'Beginner Adult': 'beginner_adult',
+    'Concession Adult': 'concession_adult',
+    'Chiisai Kai': 'chiisai_kai',
+    '8-14 Junior Member': 'kids_8_14',
+    '15-17 Junior Member': 'kids_15_17',
+    'Blue Zone Fitness ongoing': 'blue_zone',
+    'Combat Pilates': 'combat_pilates'
+  };
+  const beginnerFields = {
+    'BECOME - 6 Week transformation journey': 'become_adult',
+    'Chiisai Kai Beginners Package': 'become_chiisai',
+    'Junior Beginner Package': 'become_kids',
+    'Blue Zone- New beginnings 6 week life change Introduction only': 'become_blue_zone',
+    'Combat Pilates Become': 'become_c_pilates'
+  };
+
+  Object.entries(memberFields).forEach(([label, field]) => {
+    summary[label] = { current: Number(row?.[field] || 0), hold: 0 };
+  });
+
+  const beginnerSummary = {};
+  Object.entries(beginnerFields).forEach(([label, field]) => {
+    beginnerSummary[label] = Number(row?.[field] || 0);
+  });
+
+  return { summary, beginnerSummary };
+}
+
+function formatMoney(value) {
+  const amount = Number(value || 0);
+  return `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function formatReportDate(dateValue) {
+  if (!dateValue) return '—';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return String(dateValue);
+  return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+}
+
+function getTrendBadge(value, label) {
+  const abs = Math.abs(value || 0);
+  if (value > 0) {
+    return `<span class="report-status report-status-up"><span class="sr-only">Up </span>${abs} ${label}</span>`;
+  }
+  if (value < 0) {
+    return `<span class="report-status report-status-down"><span class="sr-only">Down </span>${abs} ${label}</span>`;
+  }
+  return `<span class="report-status report-status-neutral">- ${label}</span>`;
+}
+
+function getGoalBadge(value) {
+  const abs = Math.abs(value || 0);
+  if (value > 0) {
+    return `<span class="report-status report-status-up"><span class="sr-only">Up </span>${abs}</span>`;
+  }
+  if (value < 0) {
+    return `<span class="report-status report-status-down"><span class="sr-only">Down </span>${abs}</span>`;
+  }
+  return `<span class="report-status report-status-neutral">-</span>`;
+}
+
+function renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSummary, lastWeekBeginnerSummary, reportDate = new Date(), containerId = 'current_mondayReport-content') {
+  const currentReportContainer = document.getElementById(containerId);
+  if (!currentReportContainer) return;
+
+  const displayDate = formatReportDate(reportDate);
+
+  const memberRows = CURRENT_REPORT_ROW_LABELS.map(label => {
+    const current = summary[label]?.current || 0;
+    const hold = summary[label]?.hold || 0;
+    const previousTotal = lastWeekSummary[label]?.current || 0;
+    const deltaValue = current - previousTotal;
+    const goal = REPORT_CATEGORY_GOALS[label] || 0;
+    const toAchieve = current - goal;
+    const weeklyIncome = current * (REPORT_CATEGORY_WEEKLY_FEE[label] || 0);
+    const targetIncome = (goal || 0) * (REPORT_CATEGORY_WEEKLY_FEE[label] || 0);
+
+    return {
+      label: REPORT_DISPLAY_LABELS[label] || label,
+      current,
+      delta: Math.abs(deltaValue),
+      trend: deltaValue > 0 ? 'up' : deltaValue < 0 ? 'down' : 'neutral',
+      holds: hold,
+      goal,
+      toAchieve,
+      weekly: formatMoney(weeklyIncome),
+      target: formatMoney(targetIncome),
+      totalRow: false
+    };
+  });
+
+  const memberTotalCurrent = memberRows.reduce((sum, row) => sum + row.current, 0);
+  const memberTotalHolds = memberRows.reduce((sum, row) => sum + row.holds, 0);
+  const memberTotalGoal = memberRows.reduce((sum, row) => sum + row.goal, 0);
+  const memberTotalDelta = memberTotalCurrent - (CURRENT_REPORT_ROW_LABELS.reduce((sum, label) => sum + (lastWeekSummary[label]?.current || 0), 0));
+
+  memberRows.push({
+    label: 'MEMBERS TOTALS',
+    current: memberTotalCurrent,
+    delta: Math.abs(memberTotalDelta),
+    trend: memberTotalDelta > 0 ? 'up' : memberTotalDelta < 0 ? 'down' : 'neutral',
+    holds: memberTotalHolds,
+    goal: memberTotalGoal,
+    toAchieve: memberTotalCurrent - memberTotalGoal,
+    weekly: '',
+    target: '',
+    totalRow: true
+  });
+
+  const beginnerRows = BEGINNER_PACKAGE_LABELS.map(label => {
+    const packageLabel = BEGINNER_PACKAGE_DISPLAY[label] || label;
+    const current = beginnerSummary[label] || 0;
+    const previous = lastWeekBeginnerSummary[label] || 0;
+    const deltaValue = current - previous;
+    const goal = BEGINNER_PACKAGE_GOALS[label] || 0;
+    const toAchieve = current - goal;
+    const incomeValue = current * (BEGINNER_PACKAGE_FEE[label] || 0);
+    const rolloverValue = current * (BEGINNER_PACKAGE_ROLLOVER_FEE[label] || 0);
+
+    return {
+      label: packageLabel,
+      current,
+      delta: Math.abs(deltaValue),
+      trend: deltaValue > 0 ? 'up' : deltaValue < 0 ? 'down' : 'neutral',
+      holds: 0,
+      goal,
+      toAchieve,
+      income: formatMoney(incomeValue),
+      rollover: current > 0 ? formatMoney(rolloverValue) : '$0',
+      packageIncome: '',
+      totalRow: false
+    };
+  });
+
+  const beginnerTotalCurrent = beginnerRows.reduce((sum, row) => sum + row.current, 0);
+  const beginnerTotalGoal = beginnerRows.reduce((sum, row) => sum + row.goal, 0);
+  const beginnerTotalDelta = beginnerTotalCurrent - beginnerRows.reduce((sum, row) => sum + (lastWeekBeginnerSummary[BEGINNER_PACKAGE_LABELS[beginnerRows.findIndex(item => item.label === row.label)] ] || 0), 0);
+  const beginnerIncomeTotal = beginnerRows.reduce((sum, row) => sum + Number(String(row.income).replace(/[$,]/g, '')), 0);
+  const beginnerRolloverTotal = beginnerRows.reduce((sum, row) => sum + Number(String(row.rollover).replace(/[$,]/g, '')), 0);
+
+  beginnerRows.push({
+    label: 'BEGINNER TOTALS',
+    current: beginnerTotalCurrent,
+    delta: Math.abs(beginnerTotalDelta),
+    trend: beginnerTotalDelta > 0 ? 'up' : beginnerTotalDelta < 0 ? 'down' : 'neutral',
+    holds: 0,
+    goal: beginnerTotalGoal,
+    toAchieve: beginnerTotalCurrent - beginnerTotalGoal,
+    income: formatMoney(beginnerIncomeTotal),
+    rollover: formatMoney(beginnerRolloverTotal),
+    packageIncome: formatMoney(beginnerIncomeTotal),
+    totalRow: true
+  });
+
+  const memberTableHtml = memberRows.map(row => `
+    <tr class="${row.totalRow ? 'report-summary-total' : ''}">
+      <td>${escapeHtml(row.label)}</td>
+      <td>${row.current}</td>
+      <td>${getTrendBadge(row.trend === 'up' ? row.delta : row.trend === 'down' ? -row.delta : 0, 'since last week')}</td>
+      <td>${row.holds}</td>
+      <td>${row.goal}</td>
+      <td>${getGoalBadge(row.toAchieve)}</td>
+      <td>${row.weekly}</td>
+      <td>${row.target}</td>
+    </tr>
+  `).join('');
+
+  const beginnerTableHtml = beginnerRows.map(row => `
+    <tr class="${row.totalRow ? 'report-summary-total' : ''}">
+      <td>${escapeHtml(row.label)}</td>
+      <td>${row.current}</td>
+      <td>${getTrendBadge(row.trend === 'up' ? row.delta : row.trend === 'down' ? -row.delta : 0, 'since last week')}</td>
+      <td>${row.holds}</td>
+      <td>${row.goal}</td>
+      <td>${getGoalBadge(row.toAchieve)}</td>
+      <td>${row.income}</td>
+      <td>${row.rollover}</td>
+      <td>${row.packageIncome}</td>
+    </tr>
+  `).join('');
+
+  currentReportContainer.innerHTML = `
+    <div class="report-sheet-shell">
+      <div class="report-summary-grid">
+        <div class="report-card-panel">
+          <table class="report-summary-table report-sheet-table">
+            <thead>
+              <tr>
+                <th>Member Type</th>
+                <th>Current #</th>
+                <th>Since Last week</th>
+                <th>Holds</th>
+                <th>Goal #</th>
+                <th>To Achieve #</th>
+                <th>Current Weekly $</th>
+                <th>Target Weekly $</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${memberTableHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="report-summary-grid report-grid-secondary">
+        <div class="report-card-panel">
+          <table class="report-summary-table report-sheet-table">
+            <thead>
+              <tr>
+                <th>Become Packages</th>
+                <th>Current #</th>
+                <th>Since Last week</th>
+                <th>Holds</th>
+                <th>Goal #</th>
+                <th>To Achieve #</th>
+                <th>Income</th>
+                <th>Roll-over Income</th>
+                <th>30 day Package Income</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${beginnerTableHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="report-metadata">
+        <div><strong>Report Date:</strong> ${displayDate}</div>
+        <div><strong>Last Updated:</strong> ${new Date(reportDate).toLocaleString('en-CA')}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLastMondayReportSummary(summary, beginnerSummary, reportDate) {
+  const lastReportContainer = document.getElementById('last_mondayReport-content');
+  if (!lastReportContainer) return;
+
+  const clonedSummary = JSON.parse(JSON.stringify(summary || {}));
+  const clonedBeginnerSummary = JSON.parse(JSON.stringify(beginnerSummary || {}));
+
+  renderCurrentMondayReportSummary(clonedSummary, clonedSummary, clonedBeginnerSummary, clonedBeginnerSummary, reportDate);
+
+  const hasCurrentContainer = document.getElementById('current_mondayReport-content');
+  if (hasCurrentContainer) {
+    const target = document.getElementById('last_mondayReport-content');
+    if (target) {
+      target.innerHTML = target.innerHTML;
+    }
+  }
+}
+
+function getReportDateValue(row) {
+  return row && (row.report_date || row.archived_at || row.imported_at || row.created_at || 0);
+}
+
+function getLogRowSortValue(row) {
+  const idValue = Number(row && row.id);
+  if (Number.isFinite(idValue)) return idValue;
+
+  const reportDateValue = getReportDateValue(row);
+  const timeValue = new Date(`${reportDateValue}T12:00:00`).getTime();
+  return Number.isFinite(timeValue) ? timeValue : 0;
+}
+
+function getNthSavedSnapshot(logRows, offset = 0) {
+  if (!Array.isArray(logRows) || !logRows.length) return [];
+
+  const snapshotRows = logRows
+    .filter(row => row.snapshot_label === 'LAST WEEK')
+    .sort((a, b) => new Date(getReportDateValue(b)) - new Date(getReportDateValue(a)));
+
+  if (!snapshotRows.length) return [];
+  if (offset < 0) return [];
+
+  const targetIndex = offset;
+  if (targetIndex >= snapshotRows.length) return [];
+
+  const targetDate = getReportDateValue(snapshotRows[targetIndex]);
+  return snapshotRows.filter(row => getReportDateValue(row) === targetDate);
+}
+
+function getLatestSavedSnapshot(logRows) {
+  return getNthSavedSnapshot(logRows, 0);
+}
+
+function getPreviousSavedSnapshot(logRows) {
+  return getNthSavedSnapshot(logRows, 1);
+}
+
+function getThirdSavedSnapshot(logRows) {
+  return getNthSavedSnapshot(logRows, 2);
+}
+
+async function loadCurrentMondayReportSummary() {
+  const container = document.getElementById('current_mondayReport-content');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading this week report...</div>';
+
+  try {
+    const client = await ensureSupabaseDataClient();
+
+    const { data: currentRows, error: currentError } = await client
+      .from(MEMBER_LIST_TABLE)
+      .select('*');
+
+    if (currentError) throw currentError;
+
+    const { data: previousRows, error: previousError } = await client
+      .from(MEMBER_LIST_PREVIOUS_TABLE)
+      .select('*');
+
+    const { data: logRows, error: logError } = await client
+      .from(MEMBER_LIST_LOG_TABLE)
+      .select('*')
+      .order('archived_at', { ascending: false });
+
+    if (logError) throw logError;
+    if (previousError) {
+      console.warn('membership_data_previous unavailable, falling back to log data for comparison.', previousError);
+    }
+
+    const previousSnapshotRows = getLatestSavedSnapshot(logRows || []);
+    const summary = buildCurrentReportSummary(currentRows || []);
+    const lastWeekSummary = buildCurrentReportSummary(previousSnapshotRows.length ? previousSnapshotRows : currentRows || []);
+    const beginnerSummary = buildCurrentBeginnerPackageSummary(currentRows || []);
+    const lastWeekBeginnerSummary = buildCurrentBeginnerPackageSummary(previousSnapshotRows.length ? previousSnapshotRows : currentRows || []);
+
+    renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSummary, lastWeekBeginnerSummary, new Date());
+  } catch (error) {
+    console.error('Failed to load current Monday report summary:', error);
+    container.innerHTML = '<div class="error">' + escapeHtml(error.message || 'Unable to load this week report.') + '</div>';
+  }
+}
+
+async function loadLastMondayReportSummary() {
+  const container = document.getElementById('last_mondayReport-content');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading last week report...</div>';
+
+  try {
+    const client = await ensureSupabaseDataClient();
+
+    const { data: previousRows, error: previousError } = await client
+      .from(MEMBER_LIST_PREVIOUS_TABLE)
+      .select('*');
+
+    const { data: logRows, error: logError } = await client
+      .from(MEMBER_LIST_LOG_TABLE)
+      .select('*')
+      .order('archived_at', { ascending: false });
+
+    const { data: weeklyLogRows, error: weeklyLogError } = await client
+      .from(MEMBER_WEEKLY_LOG_TABLE)
+      .select('*')
+      .order('id', { ascending: false });
+
+    if (logError) throw logError;
+    if (weeklyLogError) throw weeklyLogError;
+    if (previousError) {
+      console.warn('membership_data_previous unavailable, falling back to log snapshot for last week report.', previousError);
+    }
+
+    const reportRows = getLatestSavedSnapshot(logRows || []);
+    const comparisonRows = getThirdSavedSnapshot(logRows || []) || getPreviousSavedSnapshot(logRows || []) || reportRows;
+
+    if (!reportRows.length) {
+      container.innerHTML = '<div class="empty">No archived last-week report data is available yet.</div>';
+      return;
+    }
+
+    const reportDate = getReportDateValue(reportRows[0]) || new Date();
+    const summary = buildCurrentReportSummary(reportRows);
+    const beginnerSummary = buildCurrentBeginnerPackageSummary(reportRows);
+    const thirdLatestWeeklyLog = Array.isArray(weeklyLogRows) ? weeklyLogRows[2] : null;
+    const weeklyLogSummaries = thirdLatestWeeklyLog
+      ? buildReportSummariesFromWeeklyLogRow(thirdLatestWeeklyLog)
+      : {
+          summary: buildCurrentReportSummary(comparisonRows),
+          beginnerSummary: buildCurrentBeginnerPackageSummary(comparisonRows)
+        };
+
+    renderCurrentMondayReportSummary(summary, weeklyLogSummaries.summary, beginnerSummary, weeklyLogSummaries.beginnerSummary, reportDate, 'last_mondayReport-content');
+  } catch (error) {
+    console.error('Failed to load last Monday report summary:', error);
+    container.innerHTML = '<div class="error">' + escapeHtml(error.message || 'Unable to load last week report.') + '</div>';
+  }
+}
+
+function renderMondayBoardCharts(data) {
+    // The sheet pre-fills future week columns; stop the x-axis at the last week with a total.
+    const columnCount = Math.max(0, data.columns.length - 2);
+    const totals = valuesForRow(findDashboardRow(data.rows, 'MEMBERS TOTALS'), columnCount);
+    const lastFilled = totals.findLastIndex(value => value !== null && value !== undefined && value !== '');
+    const dateCount = lastFilled >= 0 ? lastFilled + 1 : columnCount;
+    const labels = dashboardDateLabels(data.rows, dateCount);
+    renderMondayKeyFigure(totals[dateCount - 1], dateCount > 1 ? totals[dateCount - 2] : null);
+
+    const memberTrendChartConfigs = [
+        { label: 'Total members', rowLabel: 'MEMBERS TOTALS', borderColor: '#2F3237', backgroundColor: 'rgba(47, 50, 55, 0.06)' },
+        { label: 'Regular Adult Members', rowLabel: 'REGULAR ADULT', borderColor: '#7C2D2E', backgroundColor: 'rgba(124, 45, 46, 0.06)' },
+        { label: 'Beginner', rowLabel: 'BEGINNER', borderColor: '#2F6B4A', backgroundColor: 'rgba(47, 107, 74, 0.07)' },
+        { label: 'Concession', rowLabel: 'CONCESSION', borderColor: '#7A5C9E', backgroundColor: 'rgba(122, 92, 158, 0.07)' },
+        { label: 'Chiisai Kai 4-7', rowLabel: 'CHIISAI KAI 4-7', borderColor: '#C8961E', backgroundColor: 'rgba(200, 150, 30, 0.07)' },
+        { label: 'Kids 8-14', rowLabel: 'KIDS 8-14', borderColor: '#82A5E0', backgroundColor: 'rgba(130, 165, 224, 0.10)' },
+        { label: 'Kids 15-17', rowLabel: 'KIDS 15-17', borderColor: '#C77B6B', backgroundColor: 'rgba(199, 123, 107, 0.08)' },
+        { label: 'Blue Zone', rowLabel: 'BLUE ZONE', borderColor: '#3E8E9A', backgroundColor: 'rgba(62, 142, 154, 0.07)' },
+        { label: 'Combat Pilates', rowLabel: 'COMBAT PILATES', borderColor: '#8A5D0C', backgroundColor: 'rgba(138, 93, 12, 0.07)' }
+    ];
+
+    const memberRows = data.rows.filter(row => {
+        const label = String(dashboardCell(row, 0) || '');
+        return label && !label.includes('TOTALS') && !label.startsWith('Become');
+    });
+    const beginnerRows = data.rows.filter(row => String(dashboardCell(row, 0) || '').startsWith('Become'));
+
+    const memberTrendDatasets = memberTrendChartConfigs.map(config => ({
+        label: config.label,
+        data: valuesForRow(findDashboardRow(data.rows, config.rowLabel), dateCount),
+        borderColor: config.borderColor,
+        backgroundColor: config.backgroundColor,
+        fill: true,
+        tension: 0.3
+    }));
+
+    new Chart(document.getElementById('membersTrendChart'), {
+        type: 'line',
+        data: {
+        labels,
+        datasets: memberTrendDatasets
+        },
+        options: chartOptions('Members by week')
+    });
+
+        new Chart(document.getElementById('beginnerTrendChart'), {
+        type: 'line',
+        data: {
+        labels,
+        datasets: beginnerRows.map((row, index) => ({
+            label: dashboardCell(row, 0),
+            data: valuesForRow(row, dateCount),
+            borderColor: chartColors(beginnerRows.length)[index],
+            backgroundColor: 'transparent',
+            tension: 0.3
+        }))
+        },
+        options: chartOptions('Beginner progression')
+    });
+
+    new Chart(document.getElementById('membershipBreakdownChart'), {
+        type: 'doughnut',
+        data: {
+        labels: memberRows.map(row => dashboardCell(row, 0)),
+        datasets: [{
+            data: memberRows.map(row => dashboardCell(row, 1)),
+            backgroundColor: chartColors(memberRows.length),
+            borderWidth: 2,
+            borderColor: '#ffffff'
+        }]
+        },
+        options: chartOptions('Current membership breakdown', 'doughnut')
+    });
+
+        new Chart(document.getElementById('beginnerBreakdownChart'), {
+        type: 'doughnut',
+        data: {
+        labels: beginnerRows.map(row => dashboardCell(row, 0)),
+        datasets: [{
+            data: beginnerRows.map(row => dashboardCell(row, 1)),
+            backgroundColor: chartColors(beginnerRows.length),
+            borderWidth: 2,
+            borderColor: '#ffffff'
+        }]
+        },
+        options: chartOptions('Current beginner packages breakdown', 'doughnut')
+    });
+
+    document.querySelectorAll('.chart-card .loading').forEach(loading => loading.remove());
+}
+
+function renderMondayBoardChartsFromLog(logRows) {
+    if (!Array.isArray(logRows) || !logRows.length) {
+        throw new Error('No weekly log data available.');
+    }
+
+    const labels = logRows.map(row => formatReportDate(row.report_date));
+    renderMondayKeyFigure(logRows[logRows.length - 1]?.members_total, logRows.length > 1 ? logRows[logRows.length - 2]?.members_total : null);
+
+    const memberTrendConfigs = [
+        { label: 'Total members', key: 'members_total', color: '#2F3237', bg: 'rgba(47, 50, 55, 0.06)' },
+        { label: 'Regular Adult Members', key: 'regular_adult', color: '#7C2D2E', bg: 'rgba(124, 45, 46, 0.06)' },
+        { label: 'Beginner', key: 'beginner_adult', color: '#2F6B4A', bg: 'rgba(47, 107, 74, 0.07)' },
+        { label: 'Concession', key: 'concession_adult', color: '#7A5C9E', bg: 'rgba(122, 92, 158, 0.07)' },
+        { label: 'Chiisai Kai 4-7', key: 'chiisai_kai', color: '#C8961E', bg: 'rgba(200, 150, 30, 0.07)' },
+        { label: 'Kids 8-14', key: 'kids_8_14', color: '#82A5E0', bg: 'rgba(130, 165, 224, 0.10)' },
+        { label: 'Kids 15-17', key: 'kids_15_17', color: '#C77B6B', bg: 'rgba(199, 123, 107, 0.08)' },
+        { label: 'Blue Zone', key: 'blue_zone', color: '#3E8E9A', bg: 'rgba(62, 142, 154, 0.07)' },
+        { label: 'Combat Pilates', key: 'combat_pilates', color: '#8A5D0C', bg: 'rgba(138, 93, 12, 0.07)' }
+    ];
+
+    const beginnerTrendConfigs = [
+        { label: 'Become Adult', key: 'become_adult', color: '#2F3237' },
+        { label: 'Become Chiisai', key: 'become_chiisai', color: '#7C2D2E' },
+        { label: 'Become Kids', key: 'become_kids', color: '#2F6B4A' },
+        { label: 'Become Blue Zone', key: 'become_blue_zone', color: '#C8961E' },
+        { label: 'Become C-Pilates', key: 'become_c_pilates', color: '#7A5C9E' }
+    ];
+
+    const memberRows = [
+        { label: 'Regular Adult', value: Number(logRows[logRows.length - 1]?.regular_adult || 0) },
+        { label: 'Beginner', value: Number(logRows[logRows.length - 1]?.beginner_adult || 0) },
+        { label: 'Concession', value: Number(logRows[logRows.length - 1]?.concession_adult || 0) },
+        { label: 'Chiisai Kai 4-7', value: Number(logRows[logRows.length - 1]?.chiisai_kai || 0) },
+        { label: 'Kids 8-14', value: Number(logRows[logRows.length - 1]?.kids_8_14 || 0) },
+        { label: 'Kids 15-17', value: Number(logRows[logRows.length - 1]?.kids_15_17 || 0) },
+        { label: 'Blue Zone', value: Number(logRows[logRows.length - 1]?.blue_zone || 0) },
+        { label: 'Combat Pilates', value: Number(logRows[logRows.length - 1]?.combat_pilates || 0) }
+    ];
+
+    const beginnerRows = [
+        { label: 'Become Adult', value: Number(logRows[logRows.length - 1]?.become_adult || 0) },
+        { label: 'Become Chiisai', value: Number(logRows[logRows.length - 1]?.become_chiisai || 0) },
+        { label: 'Become Kids', value: Number(logRows[logRows.length - 1]?.become_kids || 0) },
+        { label: 'Become Blue Zone', value: Number(logRows[logRows.length - 1]?.become_blue_zone || 0) },
+        { label: 'Become C-Pilates', value: Number(logRows[logRows.length - 1]?.become_c_pilates || 0) }
+    ];
+
+    new Chart(document.getElementById('membersTrendChart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: memberTrendConfigs.map(config => ({
+                label: config.label,
+                data: logRows.map(row => Number(row[config.key] || 0)),
+                borderColor: config.color,
+                backgroundColor: config.bg,
+                fill: true,
+                tension: 0.3
+            }))
+        },
+        options: chartOptions('Members by week')
+    });
+
+    new Chart(document.getElementById('beginnerTrendChart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: beginnerTrendConfigs.map((config, index) => ({
+                label: config.label,
+                data: logRows.map(row => Number(row[config.key] || 0)),
+                borderColor: chartColors(beginnerTrendConfigs.length)[index],
+                backgroundColor: 'transparent',
+                tension: 0.3
+            }))
+        },
+        options: chartOptions('Beginner progression')
+    });
+
+    new Chart(document.getElementById('membershipBreakdownChart'), {
+        type: 'doughnut',
+        data: {
+            labels: memberRows.map(row => row.label),
+            datasets: [{
+                data: memberRows.map(row => row.value),
+                backgroundColor: chartColors(memberRows.length),
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: chartOptions('Current membership breakdown', 'doughnut')
+    });
+
+    new Chart(document.getElementById('beginnerBreakdownChart'), {
+        type: 'doughnut',
+        data: {
+            labels: beginnerRows.map(row => row.label),
+            datasets: [{
+                data: beginnerRows.map(row => row.value),
+                backgroundColor: chartColors(beginnerRows.length),
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: chartOptions('Current beginner packages breakdown', 'doughnut')
+    });
+
+    document.querySelectorAll('.chart-card .loading').forEach(loading => loading.remove());
+}
+
+async function loadOverviewFromWeeklyLog() {
+  const client = await ensureSupabaseDataClient();
+  const { data, error } = await client
+    .from(MEMBER_WEEKLY_LOG_TABLE)
+    .select('*')
+    .order('report_date', { ascending: true });
+
+  if (error) throw error;
+  if (!data || !data.length) throw new Error('No weekly log data found in Supabase.');
+
+  renderMondayBoardChartsFromLog(data);
+}
+
+// Members this week on the indigo plate; last week and the change beside it.
+function renderMondayKeyFigure(current, previous) {
+    const el = document.getElementById('mondayKeyFigure');
+    if (!el || current === null || current === undefined || current === '') return;
+    const now = Number(current) || 0;
+    const prev = previous === null || previous === undefined || previous === '' ? null : Number(previous) || 0;
+    const change = prev === null ? '' : getGoalBadge(now - prev);
+    el.innerHTML = `<div class="past-due-metric key"><span>Total members this week</span><strong>${now}</strong></div>` +
+        `<div class="past-due-metric"><span>Last week</span><strong>${prev === null ? '—' : prev}</strong></div>` +
+        `<div class="past-due-metric"><span>Change</span><strong>${change || '—'}</strong></div>`;
+}
+
+function chartOptions(title, type = 'line') {
+    // The card heading already names the chart, so Chart.js draws no title of its own.
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, boxHeight: 12, padding: 10, font: { size: 11 } } },
+        title: { display: false, text: title }
+        },
+        // Doughnuts have no axes; a y scale draws a stray 0–1 grid behind them.
+        ...(type === 'doughnut' ? {} : { scales: {
+            x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+        } })
+    };
+}
+
+function escapeHtml(v) {
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ─── Current Member List ─────────────────────────────────────────────────────
+// One table, four views: current members, joined this week, left since last
+// week, and last week's list. Filters, sort and export act on the active view.
+
+const MEMBER_HIDDEN_COLUMNS = new Set(['id', 'report_date', 'imported_at', 'snapshot_label', 'archived_at', 'created_at', 'updated_at', 'uploaded_at']);
+const MEMBER_COLUMN_LABELS = {
+  number: '#',
+  first_name: 'First name',
+  last_name: 'Last name',
+  membership_label: 'Membership',
+  mbr_status: 'Status',
+  mbr_create_date: 'Created',
+  mbr_begin_date: 'Begins',
+  mbr_end_date: 'Ends',
+  att_limit: 'Att. limit',
+  att_limit_type: 'Limit type',
+  people_count: 'People',
+  autopay: 'Autopay'
+};
+const MEMBER_VIEW_TITLES = {
+  current: 'Current members',
+  joined: 'Joined this week',
+  left: 'Left since last week',
+  lastWeek: "Last week's list"
+};
+
+const memberListState = {
+  current: [],
+  lastWeek: null,
+  view: 'current',
+  search: '',
+  status: 'all',
+  membership: 'all',
+  sortKey: 'last_name',
+  sortDir: 1,
+  controlsReady: false
+};
+
+function memberIdentity(row) {
+  const number = String(row.number ?? '').trim();
+  if (number) return 'n:' + number;
+  return 'p:' + [row.first_name, row.last_name].join(' ').trim().toLowerCase();
+}
+
+function memberDiff() {
+  if (!memberListState.lastWeek) return { joined: [], left: [], joinedKeys: new Set() };
+  const lastKeys = new Set(memberListState.lastWeek.map(memberIdentity));
+  const currentKeys = new Set(memberListState.current.map(memberIdentity));
+  const joined = memberListState.current.filter(row => !lastKeys.has(memberIdentity(row)));
+  const left = memberListState.lastWeek.filter(row => !currentKeys.has(memberIdentity(row)));
+  return { joined, left, joinedKeys: new Set(joined.map(memberIdentity)) };
+}
+
+function memberViewRows(diff) {
+  switch (memberListState.view) {
+    case 'joined': return diff.joined;
+    case 'left': return diff.left;
+    case 'lastWeek': return memberListState.lastWeek || [];
+    default: return memberListState.current;
+  }
+}
+
+function memberColumns(rows) {
+  const order = Object.keys(MEMBER_COLUMN_LABELS);
+  const rank = column => (order.indexOf(column) + 1) || order.length + 1;
+  return [...new Set(rows.flatMap(row => Object.keys(row)))]
+    .filter(column => !MEMBER_HIDDEN_COLUMNS.has(column))
+    .sort((a, b) => rank(a) - rank(b));
+}
+
+function memberColumnLabel(column) {
+  return MEMBER_COLUMN_LABELS[column] || column.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+}
+
+function formatMemberValue(column, value) {
+  if (value === null || value === undefined || value === '') return '';
+  if (/date/.test(column) && /^\d{4}-\d{2}-\d{2}/.test(String(value))) {
+    const date = new Date(String(value).slice(0, 10) + 'T00:00:00');
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+  }
+  return String(value);
+}
+
+function compareMemberValues(a, b) {
+  const x = a ?? '';
+  const y = b ?? '';
+  const nx = Number(x);
+  const ny = Number(y);
+  if (x !== '' && y !== '' && Number.isFinite(nx) && Number.isFinite(ny)) return nx - ny;
+  return String(x).localeCompare(String(y), 'en', { sensitivity: 'base' });
+}
+
+function filterMemberRows(rows) {
+  const search = memberListState.search.trim().toLowerCase();
+  return rows.filter(row => {
+    if (memberListState.status !== 'all' && String(row.mbr_status ?? '') !== memberListState.status) return false;
+    if (memberListState.membership !== 'all' && String(row.membership_label ?? '') !== memberListState.membership) return false;
+    if (!search) return true;
+    const name = [row.first_name, row.last_name].join(' ').toLowerCase();
+    return name.includes(search) || String(row.number ?? '').includes(search);
+  });
+}
+
+function sortMemberRows(rows) {
+  const { sortKey, sortDir } = memberListState;
+  return [...rows].sort((a, b) =>
+    compareMemberValues(a[sortKey], b[sortKey]) * sortDir ||
+    compareMemberValues(a.last_name, b.last_name) ||
+    compareMemberValues(a.first_name, b.first_name));
+}
+
+function fillMemberSelect(select, values, allLabel) {
+  if (!select) return;
+  const previous = select.value || 'all';
+  const options = [...new Set(values.filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b));
+  select.innerHTML = `<option value="all">${escapeHtml(allLabel)}</option>` +
+    options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+  select.value = options.includes(previous) ? previous : 'all';
+  if (select.value === 'all') {
+    if (select.id === 'memberStatusFilter') memberListState.status = 'all';
+    if (select.id === 'memberTypeFilter') memberListState.membership = 'all';
+  }
+}
+
+function renderMemberSummary(diff) {
+  const el = document.getElementById('memberSummary');
+  if (!el) return;
+  const hasHistory = Boolean(memberListState.lastWeek);
+  const tile = (view, label, value, extraClass = '') => {
+    const pressed = memberListState.view === view;
+    const disabled = view !== 'current' && !hasHistory;
+    return `<button type="button" class="past-due-metric member-view-tile ${extraClass}${pressed ? ' is-active' : ''}"
+      data-member-view="${view}" aria-pressed="${pressed}"${disabled ? ' disabled' : ''}>
+      <span>${escapeHtml(label)}</span><strong>${value}</strong></button>`;
+  };
+  el.innerHTML =
+    tile('current', 'Current members', memberListState.current.length, 'key') +
+    tile('joined', 'Joined this week', hasHistory ? '+' + diff.joined.length : '—') +
+    tile('left', 'Left since last week', hasHistory ? diff.left.length : '—') +
+    tile('lastWeek', "Last week's list", hasHistory ? memberListState.lastWeek.length : '—');
+}
+
+function renderMemberList() {
+  const container = document.getElementById('current_memberList-wrap');
+  if (!container) return;
+
+  const diff = memberDiff();
+  renderMemberSummary(diff);
+
+  const viewRows = memberViewRows(diff);
+  fillMemberSelect(document.getElementById('memberStatusFilter'), viewRows.map(row => row.mbr_status), 'All statuses');
+  fillMemberSelect(document.getElementById('memberTypeFilter'), viewRows.map(row => row.membership_label), 'All memberships');
+
+  const rows = sortMemberRows(filterMemberRows(viewRows));
+  const columns = memberColumns(viewRows.length ? viewRows : memberListState.current);
+
+  const title = document.getElementById('memberListTitle');
+  if (title) title.textContent = MEMBER_VIEW_TITLES[memberListState.view];
+  const count = document.getElementById('memberCount');
+  if (count) count.textContent = `Showing ${rows.length} of ${viewRows.length}`;
+
+  if (!rows.length) {
+    const filtered = viewRows.length > 0;
+    container.innerHTML = `<div class="empty">${filtered
+      ? 'No members match these filters. <button type="button" class="link-button" data-member-reset>Clear filters</button>'
+      : 'No members in this view.'}</div>`;
+    return;
+  }
+
+  const showNewTag = memberListState.view === 'current';
+  const headerCells = columns.map(column => {
+    const active = memberListState.sortKey === column;
+    const sort = active ? (memberListState.sortDir === 1 ? 'ascending' : 'descending') : 'none';
+    const numeric = column === 'number' || column === 'att_limit' || column === 'people_count';
+    return `<th scope="col" aria-sort="${sort}"${numeric ? ' class="num"' : ''}>
+      <button type="button" class="sort-button" data-member-sort="${escapeHtml(column)}">${escapeHtml(memberColumnLabel(column))}<span class="sort-mark" aria-hidden="true"></span></button></th>`;
+  }).join('');
+
+  const bodyRows = rows.map(row => {
+    const isNew = showNewTag && diff.joinedKeys.has(memberIdentity(row));
+    return '<tr>' + columns.map(column => {
+      const numeric = column === 'number' || column === 'att_limit' || column === 'people_count';
+      let value = escapeHtml(formatMemberValue(column, row[column]));
+      if (column === 'mbr_status' && value) value = `<span class="member-status" data-status="${value.toLowerCase()}">${value}</span>`;
+      if (column === 'last_name' && isNew) value += ' <span class="member-new-tag">New</span>';
+      return `<td${numeric ? ' class="num"' : ''} data-label="${escapeHtml(memberColumnLabel(column))}">${value}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  container.innerHTML = `<table class="filterable stack member-table"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+}
+
+function exportMemberListCsv() {
+  const diff = memberDiff();
+  const viewRows = memberViewRows(diff);
+  const rows = sortMemberRows(filterMemberRows(viewRows));
+  if (!rows.length) return;
+  const columns = memberColumns(viewRows);
+  const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const csv = [columns.map(column => quote(memberColumnLabel(column))).join(',')]
+    .concat(rows.map(row => columns.map(column => quote(row[column])).join(',')))
+    .join('\r\n');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  link.download = `members-${memberListState.view}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function initMemberListControls() {
+  if (memberListState.controlsReady) return;
+  memberListState.controlsReady = true;
+
+  const panel = document.getElementById('tab-current_memberList');
+  const search = document.getElementById('memberSearch');
+  const status = document.getElementById('memberStatusFilter');
+  const type = document.getElementById('memberTypeFilter');
+
+  search?.addEventListener('input', () => { memberListState.search = search.value; renderMemberList(); });
+  status?.addEventListener('change', () => { memberListState.status = status.value; renderMemberList(); });
+  type?.addEventListener('change', () => { memberListState.membership = type.value; renderMemberList(); });
+  document.getElementById('exportMemberCsvBtn')?.addEventListener('click', exportMemberListCsv);
+
+  panel?.addEventListener('click', event => {
+    const viewButton = event.target.closest('[data-member-view]');
+    if (viewButton && !viewButton.disabled) {
+      memberListState.view = viewButton.dataset.memberView;
+      renderMemberList();
+      return;
+    }
+    const sortButton = event.target.closest('[data-member-sort]');
+    if (sortButton) {
+      const key = sortButton.dataset.memberSort;
+      memberListState.sortDir = memberListState.sortKey === key ? -memberListState.sortDir : 1;
+      memberListState.sortKey = key;
+      renderMemberList();
+      document.querySelector(`[data-member-sort="${CSS.escape(key)}"]`)?.focus();
+      return;
+    }
+    if (event.target.closest('[data-member-reset]')) {
+      memberListState.search = '';
+      memberListState.status = 'all';
+      memberListState.membership = 'all';
+      if (search) search.value = '';
+      if (status) status.value = 'all';
+      if (type) type.value = 'all';
+      renderMemberList();
+    }
+  });
+}
+
+async function loadSupabaseMemberList() {
+  const container = document.getElementById('current_memberList-wrap');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">Loading members…</div>';
+
+  try {
+    // Signed-in session client: member data must never be fetched with the public key.
+    const client = await ensureSupabaseDataClient();
+    const { data, error } = await client
+      .from(MEMBER_LIST_TABLE)
+      .select('*')
+      .order('number', { ascending: true });
+    if (error) throw error;
+
+    memberListState.current = data || [];
+    initMemberListControls();
+    renderMemberList();
+  } catch (err) {
+    showError('current_memberList-wrap', err);
+  }
+}
+
+async function loadSupabaseMemberListHistory() {
+  try {
+    const client = await ensureSupabaseDataClient();
+    const { data, error } = await client
+      .from(MEMBER_LIST_LOG_TABLE)
+      .select('*')
+      .order('archived_at', { ascending: false });
+    if (error) throw error;
+
+    const snapshot = getMemberLogSnapshotRows(data || []);
+    memberListState.lastWeek = snapshot.length ? snapshot : null;
+  } catch (err) {
+    console.warn('Last week member snapshot unavailable:', err);
+    memberListState.lastWeek = null;
+  }
+  if (memberListState.controlsReady) renderMemberList();
+}
+
+function renderTable(container, block) {
+  if (!block.rows.length) {
+    container.innerHTML = '<div class="empty">No data found.</div>';
+    return;
+  }
+  let html = '<table class="filterable"><thead><tr>';
+  block.headers.forEach(h => { html += '<th>' + escapeHtml(h) + '</th>'; });
+  html += '</tr></thead><tbody>';
+  block.rows.forEach(row => {
+    html += '<tr>';
+    row.forEach((cell, c) => {
+      html += '<td>' + escapeHtml(cell) + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function showError(elId, err) {
+  document.getElementById(elId).innerHTML = '<div class="error">' + escapeHtml(err.message || err) + '</div>';
+}
+
+function loadMondayPage(key) {
+  const config = MONDAY_PAGE_CONFIGS[key];
+  fetchMondaySheetRaw(config.sheetName).then(rawRows => {
+    const colStartIdx = (config.dataStartCol || 1) - 1; // Default to 1 (column A) if not specified, convert to 0-indexed
+    const headerRowData = rawRows[config.headerRow - 1] || [];
+    const headers = headerRowData.slice(colStartIdx).filter(h => h); // Extract headers starting from dataStartCol
+    const rows = rawRows.slice(config.dataStartRow - 1)
+      .map(row => normalizeRow(row, colStartIdx + headers.length).slice(colStartIdx, colStartIdx + headers.length))
+      .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
+    renderTable(document.getElementById(key + '-wrap'), { headers, rows });
+  }).catch(err => showError(key + '-wrap', err));
+}
+
+// ─── Pricing Settings ────────────────────────────────────────────────────────
+
+const PRICING_TABLE = 'pricing_settings';
+
+/**
+ * Fetch all rows from pricing_settings and override the live constants.
+ * Silently falls back to hardcoded defaults if the table doesn't exist.
+ */
+async function loadPricingSettings() {
+  try {
+    const client = await ensureSupabaseDataClient();
+    const { data, error } = await client.from(PRICING_TABLE).select('key, value');
+    if (error) {
+      console.warn('[PricingSettings] Could not load from Supabase (table may not exist yet):', error.message);
+      return;
+    }
+    applyPricingSettings(data || []);
+  } catch (err) {
+    console.warn('[PricingSettings] Load skipped:', err.message);
+  }
+}
+
+/**
+ * Apply an array of { key, value } rows to the live pricing constants.
+ */
+function applyPricingSettings(rows) {
+  (rows || []).forEach(({ key, value }) => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return;
+    if (key.startsWith('weekly_fee__')) {
+      const label = key.slice('weekly_fee__'.length);
+      if (label in REPORT_CATEGORY_WEEKLY_FEE) REPORT_CATEGORY_WEEKLY_FEE[label] = num;
+    } else if (key.startsWith('goal__')) {
+      const label = key.slice('goal__'.length);
+      if (label in REPORT_CATEGORY_GOALS) REPORT_CATEGORY_GOALS[label] = num;
+    } else if (key.startsWith('beginner_fee__')) {
+      const label = key.slice('beginner_fee__'.length);
+      if (label in BEGINNER_PACKAGE_FEE) BEGINNER_PACKAGE_FEE[label] = num;
+    } else if (key.startsWith('beginner_rollover__')) {
+      const label = key.slice('beginner_rollover__'.length);
+      if (label in BEGINNER_PACKAGE_ROLLOVER_FEE) BEGINNER_PACKAGE_ROLLOVER_FEE[label] = num;
+    } else if (key.startsWith('beginner_goal__')) {
+      const label = key.slice('beginner_goal__'.length);
+      if (label in BEGINNER_PACKAGE_GOALS) BEGINNER_PACKAGE_GOALS[label] = num;
+    }
+  });
+}
+
+/**
+ * Pricing Settings: two editable tables with live "revenue at goal", one
+ * save bar for every pending change, and per-row reset to defaults.
+ * Nothing is written to Supabase until "Save changes".
+ */
+function getPricingSections() {
+  return [
+    {
+      id: 'membership',
+      title: 'Membership categories',
+      hint: 'Weekly fee per member and the headcount you are aiming for.',
+      rows: CURRENT_REPORT_ROW_LABELS.map(label => ({ label, name: REPORT_DISPLAY_LABELS[label] || label })),
+      fields: [
+        { prefix: 'weekly_fee__', title: 'Weekly fee', money: true, current: REPORT_CATEGORY_WEEKLY_FEE, defaults: DEFAULT_REPORT_CATEGORY_WEEKLY_FEE },
+        { prefix: 'goal__', title: 'Headcount goal', current: REPORT_CATEGORY_GOALS, defaults: DEFAULT_REPORT_CATEGORY_GOALS }
+      ],
+      derived: { title: 'Weekly revenue at goal', calc: v => v.weekly_fee__ * v.goal__ }
+    },
+    {
+      id: 'beginner',
+      title: 'Beginner packages',
+      hint: 'One-off package price, the weekly fee once it rolls over, and the enrolment goal.',
+      rows: BEGINNER_PACKAGE_LABELS.map(label => ({ label, name: BEGINNER_PACKAGE_DISPLAY[label] || label })),
+      fields: [
+        { prefix: 'beginner_fee__', title: 'Package fee', money: true, current: BEGINNER_PACKAGE_FEE, defaults: DEFAULT_BEGINNER_PACKAGE_FEE },
+        { prefix: 'beginner_rollover__', title: 'Rollover fee', money: true, current: BEGINNER_PACKAGE_ROLLOVER_FEE, defaults: DEFAULT_BEGINNER_PACKAGE_ROLLOVER_FEE },
+        { prefix: 'beginner_goal__', title: 'Goal', current: BEGINNER_PACKAGE_GOALS, defaults: DEFAULT_BEGINNER_PACKAGE_GOALS }
+      ],
+      derived: { title: 'Package revenue at goal', calc: v => v.beginner_fee__ * v.beginner_goal__ }
+    }
+  ];
+}
+
+const formatPricingMoney = value => '$' + Number(value || 0).toLocaleString('en-AU', { maximumFractionDigits: 2 });
+
+function renderPricingSettingsTab() {
+  const container = document.getElementById('pricingSettings-content');
+  if (!container) return;
+
+  const sections = getPricingSections().map(section => {
+    const head = section.fields.map(f => `<th scope="col" class="num">${escapeHtml(f.title)}</th>`).join('');
+    const body = section.rows.map(row => {
+      const inputs = section.fields.map(f => {
+        const value = f.current[row.label];
+        const def = f.defaults[row.label];
+        return `<td class="num" data-label="${escapeHtml(f.title)}">
+          <label class="pricing-cell${f.money ? ' is-money' : ''}">
+            <span class="sr-only">${escapeHtml(f.title)} for ${escapeHtml(row.name)}</span>
+            <input type="number" inputmode="decimal" min="0" step="${f.money ? '0.01' : '1'}"
+              class="pricing-input" value="${escapeHtml(String(value))}"
+              data-pricing-key="${escapeHtml(f.prefix + row.label)}" data-field="${f.prefix}"
+              data-saved="${escapeHtml(String(value))}" data-default="${escapeHtml(String(def))}">
+          </label>
+          <span class="pricing-default" data-default-note>Default ${f.money ? formatPricingMoney(def) : escapeHtml(String(def))}</span>
+        </td>`;
+      }).join('');
+      return `<tr data-pricing-row>
+        <th scope="row" data-label="">${escapeHtml(row.name)}</th>
+        ${inputs}
+        <td class="num pricing-derived" data-label="${escapeHtml(section.derived.title)}" data-derived></td>
+        <td class="pricing-row-actions" data-label=""><button type="button" class="link-button" data-pricing-reset>Reset to default</button></td>
+      </tr>`;
+    }).join('');
+
+    return `<section class="card pricing-section" data-section="${section.id}" aria-labelledby="pricing-${section.id}">
+      <div class="card-heading-row"><h2 id="pricing-${section.id}">${escapeHtml(section.title)}</h2></div>
+      <p class="pricing-section-hint">${escapeHtml(section.hint)}</p>
+      <div class="table-wrap">
+        <table class="stack pricing-table">
+          <thead><tr><th scope="col">Category</th>${head}<th scope="col" class="num">${escapeHtml(section.derived.title)}</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>${body}</tbody>
+          <tfoot><tr><th scope="row">Total</th>${section.fields.map(() => '<td></td>').join('')}<td class="num" data-total></td><td></td></tr></tfoot>
+        </table>
+      </div>
+    </section>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="pricing-settings-page">
+      <p class="page-lede">These figures drive the revenue and goal columns in This Week's and Last Week's reports. Edit any cell, then save once.</p>
+      ${sections}
+      <div class="pricing-save-bar" id="pricingSaveBar" hidden>
+        <span id="pricingDirtyCount" role="status" aria-live="polite"></span>
+        <div class="pricing-save-actions">
+          <button type="button" class="sop-action-button secondary" id="pricingDiscardBtn">Discard</button>
+          <button type="button" class="sop-action-button primary" id="pricingSaveBtn">Save changes</button>
+        </div>
+      </div>
+      <p id="pricingStatusBar" class="pricing-status" role="status" aria-live="polite"></p>
+    </div>`;
+
+  initPricingSettingsTab();
+}
+
+function showPricingStatusBar(message, isError = false) {
+  const bar = document.getElementById('pricingStatusBar');
+  if (!bar) return;
+  bar.textContent = message;
+  bar.classList.toggle('is-error', isError);
+}
+
+function pricingInputValid(input) {
+  return input.value.trim() !== '' && Number.isFinite(Number(input.value)) && Number(input.value) >= 0;
+}
+
+function refreshPricingTable() {
+  const container = document.getElementById('pricingSettings-content');
+  if (!container) return;
+  const sections = getPricingSections();
+  let dirty = 0;
+
+  container.querySelectorAll('.pricing-section').forEach(sectionEl => {
+    const section = sections.find(s => s.id === sectionEl.dataset.section);
+    let total = 0;
+    sectionEl.querySelectorAll('[data-pricing-row]').forEach(rowEl => {
+      const values = {};
+      let rowAtDefault = true;
+      rowEl.querySelectorAll('.pricing-input').forEach(input => {
+        const changed = input.value !== input.dataset.saved;
+        const valid = pricingInputValid(input);
+        const atDefault = Number(input.value) === Number(input.dataset.default);
+        input.classList.toggle('is-dirty', changed);
+        input.setAttribute('aria-invalid', String(!valid));
+        input.closest('td').querySelector('[data-default-note]').hidden = atDefault;
+        if (changed) dirty += 1;
+        if (!atDefault) rowAtDefault = false;
+        values[input.dataset.field] = valid ? Number(input.value) : 0;
+      });
+      const derived = section.derived.calc(values);
+      total += derived;
+      rowEl.querySelector('[data-derived]').textContent = formatPricingMoney(derived);
+      rowEl.querySelector('[data-pricing-reset]').disabled = rowAtDefault;
+    });
+    sectionEl.querySelector('[data-total]').textContent = formatPricingMoney(total);
+  });
+
+  const bar = document.getElementById('pricingSaveBar');
+  if (bar) bar.hidden = dirty === 0;
+  const count = document.getElementById('pricingDirtyCount');
+  if (count) count.textContent = dirty === 1 ? '1 unsaved change' : `${dirty} unsaved changes`;
+  return dirty;
+}
+
+async function savePricingChanges() {
+  const container = document.getElementById('pricingSettings-content');
+  const saveBtn = document.getElementById('pricingSaveBtn');
+  const changed = [...container.querySelectorAll('.pricing-input.is-dirty')];
+  if (!changed.length) return;
+
+  const invalid = changed.find(input => !pricingInputValid(input));
+  if (invalid) {
+    showPricingStatusBar('Each value must be a number of 0 or more.', true);
+    invalid.focus();
+    return;
+  }
+
+  // A value equal to its default removes the override; anything else is upserted.
+  const toDelete = changed.filter(input => Number(input.value) === Number(input.dataset.default)).map(input => input.dataset.pricingKey);
+  const toUpsert = changed.filter(input => Number(input.value) !== Number(input.dataset.default))
+    .map(input => ({ key: input.dataset.pricingKey, value: Number(input.value), updated_at: new Date().toISOString() }));
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+  try {
+    const client = await ensureSupabaseDataClient();
+    if (toUpsert.length) {
+      const { error } = await client.from(PRICING_TABLE).upsert(toUpsert, { onConflict: 'key' });
+      if (error) throw error;
+    }
+    if (toDelete.length) {
+      const { error } = await client.from(PRICING_TABLE).delete().in('key', toDelete);
+      if (error) throw error;
+    }
+
+    applyPricingSettings(changed.map(input => ({ key: input.dataset.pricingKey, value: Number(input.value) })));
+    changed.forEach(input => { input.dataset.saved = input.value; });
+    delete loadedTabs['current_mondayReport'];
+    delete loadedTabs['last_mondayReport'];
+    refreshPricingTable();
+    showPricingStatusBar(`Saved ${changed.length} ${changed.length === 1 ? 'change' : 'changes'}. The weekly reports recalculate next time you open them.`);
+  } catch (err) {
+    showPricingStatusBar('Could not save: ' + (err.message || 'unknown error') + '. Your edits are still here; try again.', true);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save changes';
+  }
+}
+
+function initPricingSettingsTab() {
+  const container = document.getElementById('pricingSettings-content');
+  if (!container) return;
+
+  container.addEventListener('input', event => {
+    if (event.target.matches('.pricing-input')) {
+      refreshPricingTable();
+      showPricingStatusBar('');
+    }
+  });
+
+  container.addEventListener('click', event => {
+    const reset = event.target.closest('[data-pricing-reset]');
+    if (reset) {
+      reset.closest('[data-pricing-row]').querySelectorAll('.pricing-input').forEach(input => { input.value = input.dataset.default; });
+      refreshPricingTable();
+      showPricingStatusBar('Defaults filled in. Save changes to keep them.');
+    }
+  });
+
+  document.getElementById('pricingSaveBtn')?.addEventListener('click', savePricingChanges);
+  document.getElementById('pricingDiscardBtn')?.addEventListener('click', () => {
+    container.querySelectorAll('.pricing-input').forEach(input => { input.value = input.dataset.saved; });
+    refreshPricingTable();
+    showPricingStatusBar('Changes discarded.');
+  });
+
+  window.addEventListener('beforeunload', event => {
+    if (container.querySelector('.pricing-input.is-dirty')) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  });
+
+  refreshPricingTable();
+}
+
+// ─── Tab dispatcher ───────────────────────────────────────────────────────────
+
+const loadedTabs = {};
+function loadMondayTab(key) {
+  if (loadedTabs[key]) return;
+  loadedTabs[key] = true;
+  if (key === 'overview') {
+     loadOverviewFromWeeklyLog()
+       .catch(() => {
+         return fetchMondayBoardDashboard().then(renderMondayBoardCharts).catch(error => {
+           document.querySelectorAll('.chart-card .loading').forEach(loading => {
+             loading.textContent = error.message;
+             loading.classList.add('error');
+           });
+         });
+       });
+  } else if (key === 'current_mondayReport') {
+    loadCurrentMondayReportSummary();
+  } else if (key === 'last_mondayReport') {
+    loadLastMondayReportSummary();
+  } else if (key === 'current_memberList') {
+    loadSupabaseMemberList(key);
+  } else if (key === 'memberHistoryLog') {
+    loadMemberHistoryLog();
+  } else if (key === 'pricingSettings') {
+    renderPricingSettingsTab();
+  } else {
+    loadMondayPage(key);
+  }
+}
+
+function initMondayBoardPage() {
+    if (!document.getElementById('membersTrendChart')) return;
+
+    const updatedLine = document.getElementById('updatedLine');
+    if (updatedLine) {
+      const now = new Date();
+      updatedLine.textContent = 'Last updated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+    }
+
+    initCsvUploadControls();
+
+    const navButtons = document.querySelectorAll('nav.site-nav button');
+    navButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            navButtons.forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            loadMondayTab(btn.dataset.tab);
+        });
+    });
+
+    // Load pricing from Supabase early so report tabs use correct values
+    loadPricingSettings().then(() => {
+      loadMondayTab('overview');
+      loadSupabaseMemberListHistory();
+      loadMemberHistoryLog();
+    });
+}
+
+initMondayBoardPage();

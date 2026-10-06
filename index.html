@@ -5,38 +5,67 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Newcastle Aikido - Home</title>
 <link rel="stylesheet" href="css/styles.css">
+<script src="js/auth.js"></script>
 </head>
-<body>
+<body class="home-page">
 
-<header>
-  <button id="menuToggle" class="menu-toggle" aria-label="Open site menu">☰</button>
-  <img class="site-logo" src="imgs/aikido-logo.png" alt="Newcastle Aikido logo">
-  <h1>Newcastle Aikido</h1>
-  <p>Welcome to the club site. Use the menu to access the grading report.</p>
+<header data-title="Studio Operations">
+  <p>Reports and procedures for running the dojo.</p>
 </header>
 
-<div class="page-drawer" id="pageDrawer" aria-hidden="true">
-  <div class="drawer-header">
-    <strong>Pages</strong>
-    <button class="drawer-close" aria-label="Close menu">×</button>
-  </div>
-  <nav class="drawer-nav">
-    <a href="index.html" class="active">Home</a>
-    <a href="pages/GradingReport.html">Grading Report</a>
-  </nav>
-</div>
-<div class="drawer-overlay" id="pageOverlay"></div>
-
 <main class="home-main">
-  <section class="hero-card">
-    <h2>Welcome to Newcastle Aikido</h2>
-    <p>Use the menu in the top-left to navigate the site, or jump straight to the grading report.</p>
-    <a class="primary-button" href="pages/GradingReport.html">Go to Grading Report</a>
+  <section class="home-start" aria-labelledby="startTitle">
+    <h2 id="startTitle">Start here</h2>
+    <div class="start-grid">
+      <a class="start-tile start-tile-lead" href="pages/REPORTs/MondayBoardReport.html">
+        <span class="start-tile-name">Monday Board Report</span>
+        <span class="start-tile-desc">This week's membership numbers, trends by membership type and the current member list.</span>
+        <span class="start-tile-go" aria-hidden="true">Open report</span>
+      </a>
+      <a class="start-tile" href="pages/REPORTs/PastDueMembers.html">
+        <span class="start-tile-name">Past Due Members</span>
+        <span class="start-tile-desc">Overdue balances to chase, plus cleared and cancelled accounts.</span>
+        <span class="start-tile-go" aria-hidden="true">Open report</span>
+      </a>
+      <a class="start-tile" href="pages/SOPs/SOPDocuments.html?sop=billing-account-query">
+        <span class="start-tile-name">SOP Library</span>
+        <span class="start-tile-desc">Step-by-step procedures for front-desk and admin tasks.</span>
+        <span class="start-tile-go" aria-hidden="true">Open library</span>
+      </a>
+    </div>
   </section>
+
+  <div class="home-index">
+    <section class="home-section" aria-labelledby="reportsTitle">
+      <h2 id="reportsTitle">Reports</h2>
+      <ul class="index-list">
+        <li><a href="pages/REPORTs/MondayBoardReport.html"><strong>Monday Board Report</strong><span>Weekly membership snapshot for the board meeting</span></a></li>
+        <li><a href="pages/REPORTs/PastDueMembers.html"><strong>Past Due Members</strong><span>Accounts receivable from each CSV import</span></a></li>
+        <li><a href="pages/REPORTs/GradingReport.html"><strong>Grading Report</strong><span>Attendance since last test against hours needed</span></a></li>
+        <li><a href="pages/REPORTs/AttendanceReport.html"><strong>Attendance Report</strong><span>Class attendance by member, program and date</span></a></li>
+      </ul>
+    </section>
+
+    <section class="home-section" aria-labelledby="sopTitle">
+      <h2 id="sopTitle">SOP Library</h2>
+      <ul class="index-list index-list-compact">
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=billing-account-query"><strong>Billing &amp; Payments</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=membership-adjust-start-date"><strong>Membership</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=contacts-merge-duplicates"><strong>Contacts &amp; CRM</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=invoicing-engage-gen"><strong>Invoicing</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=enquiries-emails-jr"><strong>Enquiries &amp; Leads</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=email-action-saving"><strong>Email &amp; Inbox Admin</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=grading-member-hour-report"><strong>Grading &amp; Attendance</strong></a></li>
+        <li><a href="pages/SOPs/SOPDocuments.html?sop=phones-diverting-calls"><strong>Phones</strong></a></li>
+      </ul>
+    </section>
+  </div>
 </main>
 
-<footer>Newcastle Aikido</footer>
+<footer></footer>
 
-<script src="js/gradingScripts.js"></script>
+  <script src="js/siteHeader.js"></script>
+  <script src="js/siteMenu.js"></script>
+  <script src="js/footer.js"></script>
 </body>
 </html>

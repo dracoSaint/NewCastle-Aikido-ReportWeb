@@ -1,0 +1,116 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node -e \"const j=require\\(process.argv[1]\\);console.log\\(j.plugins.length+' plugins: '+j.plugins.map\\(p=>p.name\\).join\\(', '\\)\\)\" \"$env:USERPROFILE\\\\.claude\\\\plugins\\\\marketplaces\\\\claude-plugins-official\\\\.claude-plugin\\\\marketplace.json\")",
+      "PowerShell(\\(Get-Command typescript-language-server -ErrorAction SilentlyContinue\\).Source; if \\(-not $?\\) {'missing'})",
+      "PowerShell(git status --short; git ls-files | Where-Object { $_ -notmatch '^graphify-out' }; Get-Content netlify.toml -ErrorAction SilentlyContinue)",
+      "PowerShell(graphify query \"overall architecture: pages, navigation, auth, supabase data flow\")",
+      "PowerShell(git ls-files | Where-Object { $_ -notmatch '^\\(graphify-out|node_modules\\)/' }; \"---\"; Get-Content package.json, .gitignore; \"---\"; git ls-files node_modules | Measure-Object | Select-Object -ExpandProperty Count)",
+      "PowerShell(Get-ChildItem css,js,pages,index.html -Recurse -File | ForEach-Object { \"{0,6} {1}\" -f \\(Get-Content $_.FullName | Measure-Object -Line\\).Lines, $_.FullName.Substring\\($PWD.Path.Length+1\\) }; git diff --stat -- css js pages index.html supabase)",
+      "PowerShell(npx live-server --port=8000 --no-browser)",
+      "PowerShell($e = @\\(\"${env:ProgramFiles\\(x86\\)}\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\",\"$env:ProgramFiles\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\",\"$env:ProgramFiles\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe\"\\) | Where-Object { Test-Path $_ }; $e)",
+      "PowerShell(Add-Content .gitignore 'node_modules/'; git rm -r --cached -q node_modules; git status --short | Select-String -NotMatch '^D  node_modules' | Select-String -NotMatch 'graphify-out'; \"node_modules files untracked: \" + \\(git status --short | Select-String '^D  node_modules'\\).Count; graphify update . | Select-Object -Last 1)",
+      "WebFetch(domain:impeccable.style)",
+      "PowerShell(npm i -g typescript typescript-language-server 2>&1 | Select-Object -Last 3; \\(Get-Command typescript-language-server -ErrorAction SilentlyContinue\\).Source)",
+      "Read(//c/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/**)",
+      "PowerShell(git --no-pager diff -U2 -- js pages index.html supabase)",
+      "PowerShell($env:WAIT='5000'; node .claude/preview-shots.mjs .claude/shots/base 1440 900; node .claude/preview-shots.mjs .claude/shots/base 390 844)",
+      "PowerShell(& \"C:/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/scripts/impeccable.cmd\" context)",
+      "Read(//c/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/reference/**)",
+      "PowerShell(& \"C:/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/scripts/impeccable.cmd\" concept-seed --scope direction --mode operate)",
+      "PowerShell(& \"C:/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/scripts/impeccable.cmd\" serve-question --schema)",
+      "PowerShell(& \"C:/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/scripts/impeccable.cmd\" serve-question --start --payload \"C:\\\\Users\\\\DRAHCI~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Draco-Files-NCA-Projects-WrkPod-Project-WrkPod-Projects\\\\4bee7292-46ad-4a5a-b82b-23b6c3204a63\\\\scratchpad\\\\direction.json\")",
+      "PowerShell(Start-Process \"http://127.0.0.1:57782/\")",
+      "PowerShell(& \"C:/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/scripts/impeccable.cmd\" serve-question --wait --key 6007718e; \"EXIT $LASTEXITCODE\")",
+      "PowerShell(& \"C:/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/scripts/impeccable.cmd\" detect --json index.html pages/login.html pages/reset-password.html pages/register-error.html pages/profile.html pages/REPORTs/PastDueMembers.html pages/REPORTs/MondayBoardReport.html pages/REPORTs/GradingReport.html pages/REPORTs/AttendanceReport.html pages/SOPs/SOPDocuments.html css/styles.css 2>&1)",
+      "PowerShell(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(s.slice\\(s.indexOf\\('['\\)>-1&&s.indexOf\\('['\\)<s.indexOf\\('{'\\)?s.indexOf\\('['\\):s.indexOf\\('{'\\)\\)\\);const arr=Array.isArray\\(j\\)?j:\\(j.findings||j.results||[]\\);const by={};for\\(const f of arr\\){const k=\\(f.rule||f.id||f.type\\)+' | '+\\(f.file||''\\)+' | '+\\(f.detail||f.value||f.message||''\\).toString\\(\\).slice\\(0,90\\);by[k]=\\(by[k]||0\\)+1}console.log\\(arr.length+' findings'\\);for\\(const[k,v]of Object.entries\\(by\\).slice\\(0,40\\)\\)console.log\\(v+'x '+k\\)}catch\\(e\\){console.log\\(s.slice\\(0,3000\\)\\)}}\\)\")",
+      "PowerShell($o = & \"C:/Users/Drahcir Santos/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/scripts/impeccable.cmd\" detect --json index.html css/styles.css pages/REPORTs/MondayBoardReport.html 2>&1 | Out-String; $o.Substring\\(0, [Math]::Min\\(3500, $o.Length\\)\\))",
+      "PowerShell($env:WAIT='4000'; $env:EVAL=''; $env:ONLY='login'; $env:FULL='0'; node .claude/preview-shots.mjs .claude/shots/r2b 390 844 | Select-String -NotMatch '^EVAL')",
+      "Bash(python -c ' *)",
+      "Bash(grep -n \"▲\\\\|▼\\\\|▾\\\\|▴\\\\|&#9650;\\\\|&#9660;\\\\|\\\\\\\\\\\\\\\\25B\" js/mondayBoardScripts.js js/siteMenu.js js/sopReader.js js/pastDueMembers.js js/gradingScripts.js js/attendanceReportScripts.js css/styles.css)",
+      "Bash(node -e ' *)",
+      "Bash(pwd -W)",
+      "Bash(node \"C:/Users/Drahcir Santos/AppData/Local/Temp/claude/d--Draco-Files-NCA-Projects-WrkPod-Project-WrkPod-Projects/4bee7292-46ad-4a5a-b82b-23b6c3204a63/scratchpad/side.js\")",
+      "Read(//c/Users/Drahcir Santos/AppData/Local/Temp/claude/d--Draco-Files-NCA-Projects-WrkPod-Project-WrkPod-Projects/4bee7292-46ad-4a5a-b82b-23b6c3204a63/scratchpad/**)",
+      "Bash(node -e 'const fs=require\\(\"fs\"\\);let s=fs.readFileSync\\(\"side.js\",\"utf8\"\\);fs.writeFileSync\\(\"side.js\",s.replace\\(\".slice\\(2, 4\\)\",\".slice\\(2, 5\\)\"\\)\\)')",
+      "Bash(node side.js)",
+      "Bash(node -e 'JSON.parse\\(require\\(\"fs\"\\).readFileSync\\(\"D:/Draco Files/NCA Projects/WrkPod Project/WrkPod-Projects/.impeccable/design.json\",\"utf8\"\\)\\);console.log\\(\"valid\"\\)')",
+      "Bash(node -e 'const fs=require\\(\"fs\"\\);let s=fs.readFileSync\\(\"DESIGN.md\",\"utf8\"\\);const a=\"and dividers are stitched, not ruled.\";if\\(!s.includes\\(a\\)\\)throw \"miss\";fs.writeFileSync\\(\"DESIGN.md\",s.replace\\(a,\"and section dividers are stitched, not ruled.\"\\)\\)')",
+      "PowerShell(graphify update . 2>&1 | Select-Object -Last 2; git status --short | Where-Object { $_ -notmatch 'node_modules|graphify-out' })",
+      "PowerShell($out = \"$env:TEMP\\\\na-site.png\"; & 'C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1440,1800 --virtual-time-budget=9000 \"--screenshot=$out\" https://www.newcastleaikido.com/ 2>$null; Start-Sleep -Milliseconds 500; Copy-Item $out .claude/shots/na-site.png -Force; \\(Get-Item .claude/shots/na-site.png\\).Length)",
+      "PowerShell($out = \\(Join-Path \\(Resolve-Path .claude/shots\\) 'na-site.png'\\); Start-Process -Wait -FilePath 'C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe' -ArgumentList '--headless=new','--disable-gpu','--hide-scrollbars','--window-size=1440,1800','--virtual-time-budget=10000',\"--screenshot=$out\",'--user-data-dir=' + \"$env:TEMP\\\\na-shot\",'https://www.newcastleaikido.com/'; \\(Get-Item $out\\).Length)",
+      "Bash(ONLY=pastdue WAIT=6000 node .claude/preview-shots.mjs .claude/shots/pd1 1440 900)",
+      "Bash(ONLY=pastdue WAIT=6000 PRE=\"document.querySelector\\('[data-tab=pastDue]'\\).click\\(\\); document.querySelector\\('#pastDueTable .toggle-btn'\\)?.click\\(\\);\" PREWAIT=800 EVAL=\"document.querySelector\\('#pastDueTable .pd-notice, #pastDueTable .pd-note-form'\\) ? \\(document.querySelector\\('#pastDueTable .pd-notice'\\) ? 'notes table missing' : 'notes ready'\\) : 'no rows'\" node .claude/preview-shots.mjs .claude/shots/pd2 1440 900)",
+      "Bash(ONLY=pastdue WAIT=6000 PRE=\"document.querySelector\\('[data-tab=pastDue]'\\).click\\(\\); document.querySelector\\('#pastDueTable .toggle-btn'\\)?.click\\(\\);\" PREWAIT=800 node .claude/preview-shots.mjs .claude/shots/pd2 390 844)",
+      "Bash(node --check js/pastDueMembers.js)",
+      "Bash(graphify update *)",
+      "Bash(ONLY=pastdue WAIT=6000 PRE=\"document.querySelector\\('[data-tab=exempted]'\\).click\\(\\); document.querySelector\\('[data-action=exempt-select]'\\)?.click\\(\\);\" PREWAIT=600 node .claude/preview-shots.mjs .claude/shots/pd3 1440 900)",
+      "Bash(ONLY=pastdue WAIT=6000 FULL=0 PRE=\"document.querySelector\\('[data-tab=exempted]'\\).click\\(\\); const s=document.getElementById\\('exemptMembershipFilter'\\); s.value=s.options[1]?.value; s.dispatchEvent\\(new Event\\('input',{bubbles:true}\\)\\); document.getElementById\\('exemptSearch'\\).scrollIntoView\\(\\);\" PREWAIT=600 EVAL=\"document.getElementById\\('exemptCount'\\).textContent + ' | ' + [...document.getElementById\\('exemptMembershipFilter'\\).options].map\\(o=>o.text\\).join\\(','\\)\" node .claude/preview-shots.mjs .claude/shots/pd4 1440 900)",
+      "Bash(ONLY=pastdue WAIT=5000 FULL=0 PRE=\"document.querySelector\\('[data-tab=pastDue]'\\).click\\(\\)\" PREWAIT=300 EVAL=\"\\(\\(\\)=>{const r=e=>{const b=e.getBoundingClientRect\\(\\);const s=getComputedStyle\\(e\\);return e.id+e.className+':'+Math.round\\(b.left\\)+','+Math.round\\(b.top\\)+','+Math.round\\(b.height\\)+' m='+s.margin+' p='+s.padding}; const t=document.querySelector\\('#tab-pastDue .member-toolbar'\\); return [t,...t.querySelectorAll\\('label,input,select'\\)].map\\(r\\).join\\(' | '\\) + ' || TD2 ' + \\(\\(\\)=>{const td=document.querySelector\\('#pastDueTable td:nth-child\\(2\\)'\\);const s=getComputedStyle\\(td\\);return s.borderRight+' '+s.position+' '+s.boxShadow}\\)\\(\\) + ' || logH ' + \\(\\(\\)=>{const h=document.querySelector\\('.past-due-log-group-header'\\);const s=getComputedStyle\\(h\\);return s.display+' '+s.justifyContent}\\)\\(\\)+ ' || idf '+getComputedStyle\\(document.querySelector\\('.import-date-field'\\)\\).border}\\)\\(\\)\" node .claude/preview-shots.mjs .claude/shots/tmp 1440 900)"
+    ],
+    "additionalDirectories": [
+      "D:\\Draco Files\\NCA Projects\\WrkPod Project\\WrkPod-Projects\\.claude",
+      "C:\\Users\\Drahcir Santos\\AppData\\Local\\Temp\\claude\\d--Draco-Files-NCA-Projects-WrkPod-Project-WrkPod-Projects\\4bee7292-46ad-4a5a-b82b-23b6c3204a63\\scratchpad"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/Users/Drahcir Santos/AppData/Local/Programs/Python/Python312/Scripts/graphify.EXE\" hook-guard search",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/Users/Drahcir Santos/AppData/Local/Programs/Python/Python312/Scripts/graphify.EXE\" hook-guard read",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true,
+    "caveman@caveman": true,
+    "agent-skills@addy-agent-skills": true,
+    "supabase@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "impeccable@impeccable": true
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    },
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    },
+    "addy-agent-skills": {
+      "source": {
+        "source": "github",
+        "repo": "addyosmani/agent-skills"
+      }
+    },
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
+    }
+  }
+}

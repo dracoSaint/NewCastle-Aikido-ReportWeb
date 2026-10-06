@@ -1,0 +1,107 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-10-05T23:29:42.736Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/login.html"
+        ],
+        "createdAt": "2026-10-05T23:29:42.787Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/reset-password.html"
+        ],
+        "createdAt": "2026-10-05T23:29:42.833Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/register-error.html"
+        ],
+        "createdAt": "2026-10-05T23:29:42.883Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/profile.html"
+        ],
+        "createdAt": "2026-10-05T23:29:42.960Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/PastDueMembers.html"
+        ],
+        "createdAt": "2026-10-05T23:29:43.014Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/MondayBoardReport.html"
+        ],
+        "createdAt": "2026-10-05T23:29:43.068Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/GradingReport.html"
+        ],
+        "createdAt": "2026-10-05T23:29:43.120Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/AttendanceReport.html"
+        ],
+        "createdAt": "2026-10-05T23:29:43.170Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "pages/SOPs/SOPDocuments.html"
+        ],
+        "createdAt": "2026-10-05T23:29:43.231Z",
+        "reason": "Design decision: the sashiko running stitch is the Keikogi Indigo direction contract's signature move (seed 24384bdd), chosen by the user on the decision page"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "roboto",
+        "files": [
+          "css/styles.css"
+        ],
+        "createdAt": "2026-10-06T00:46:30.254Z",
+        "reason": "Legacy base-layer body stack (line ~56), overridden by the brand layer's Arimo; not rendered"
+      }
+    ]
+  }
+}

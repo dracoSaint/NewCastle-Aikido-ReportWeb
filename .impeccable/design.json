@@ -1,0 +1,563 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-06T00:19:29.776Z",
+  "title": "Design System: Newcastle Aikido Studio Operations",
+  "extensions": {
+    "world": "Keikogi Indigo",
+    "seedKey": "24384bdd",
+    "colorMeta": {
+      "ai-900": {
+        "role": "primary",
+        "displayName": "Night Indigo",
+        "tonalRamp": [
+          "#1f2124",
+          "#2f3237",
+          "#3d4146",
+          "#7c2d2e",
+          "#82a5e0",
+          "#c3d3f0",
+          "#dce5f7",
+          "#eaf0fb"
+        ]
+      },
+      "ai-800": {
+        "role": "primary",
+        "displayName": "Kachi Indigo",
+        "tonalRamp": [
+          "#1f2124",
+          "#2f3237",
+          "#3d4146",
+          "#7c2d2e",
+          "#82a5e0",
+          "#c3d3f0",
+          "#dce5f7",
+          "#eaf0fb"
+        ]
+      },
+      "ai-700": {
+        "role": "primary",
+        "displayName": "Deep Indigo",
+        "tonalRamp": [
+          "#1f2124",
+          "#2f3237",
+          "#3d4146",
+          "#7c2d2e",
+          "#82a5e0",
+          "#c3d3f0",
+          "#dce5f7",
+          "#eaf0fb"
+        ]
+      },
+      "ai-600": {
+        "role": "primary",
+        "displayName": "Hanada",
+        "tonalRamp": [
+          "#1f2124",
+          "#2f3237",
+          "#3d4146",
+          "#7c2d2e",
+          "#82a5e0",
+          "#c3d3f0",
+          "#dce5f7",
+          "#eaf0fb"
+        ]
+      },
+      "ai-400": {
+        "role": "secondary",
+        "displayName": "Indigo Mist",
+        "tonalRamp": [
+          "#1f2124",
+          "#2f3237",
+          "#3d4146",
+          "#7c2d2e",
+          "#82a5e0",
+          "#c3d3f0",
+          "#dce5f7",
+          "#eaf0fb"
+        ]
+      },
+      "ai-200": {
+        "role": "secondary",
+        "displayName": "Asagi",
+        "tonalRamp": [
+          "#1f2124",
+          "#2f3237",
+          "#3d4146",
+          "#7c2d2e",
+          "#82a5e0",
+          "#c3d3f0",
+          "#dce5f7",
+          "#eaf0fb"
+        ]
+      },
+      "ai-100": {
+        "role": "secondary",
+        "displayName": "Pale Asagi",
+        "tonalRamp": [
+          "#1f2124",
+          "#2f3237",
+          "#3d4146",
+          "#7c2d2e",
+          "#82a5e0",
+          "#c3d3f0",
+          "#dce5f7",
+          "#eaf0fb"
+        ]
+      },
+      "ai-50": {
+        "role": "secondary",
+        "displayName": "Indigo Wash",
+        "tonalRamp": [
+          "#1f2124",
+          "#2f3237",
+          "#3d4146",
+          "#7c2d2e",
+          "#82a5e0",
+          "#c3d3f0",
+          "#dce5f7",
+          "#eaf0fb"
+        ]
+      },
+      "beni": {
+        "role": "tertiary",
+        "displayName": "Beni Vermilion",
+        "tonalRamp": [
+          "oklch(15% 0.077 31)",
+          "oklch(26% 0.089 31)",
+          "oklch(38% 0.101 31)",
+          "oklch(49% 0.114 31)",
+          "oklch(61% 0.114 31)",
+          "oklch(72% 0.101 31)",
+          "oklch(84% 0.089 31)",
+          "oklch(95% 0.077 31)"
+        ]
+      },
+      "beni-50": {
+        "role": "tertiary",
+        "displayName": "Beni Wash",
+        "tonalRamp": [
+          "oklch(15% 0.010 32)",
+          "oklch(26% 0.012 32)",
+          "oklch(38% 0.013 32)",
+          "oklch(49% 0.015 32)",
+          "oklch(61% 0.015 32)",
+          "oklch(72% 0.013 32)",
+          "oklch(84% 0.012 32)",
+          "oklch(95% 0.010 32)"
+        ]
+      },
+      "moss": {
+        "role": "tertiary",
+        "displayName": "Moss",
+        "tonalRamp": [
+          "oklch(15% 0.053 157)",
+          "oklch(26% 0.062 157)",
+          "oklch(38% 0.070 157)",
+          "oklch(49% 0.079 157)",
+          "oklch(61% 0.079 157)",
+          "oklch(72% 0.070 157)",
+          "oklch(84% 0.062 157)",
+          "oklch(95% 0.053 157)"
+        ]
+      },
+      "moss-50": {
+        "role": "tertiary",
+        "displayName": "Moss Wash",
+        "tonalRamp": [
+          "oklch(15% 0.008 160)",
+          "oklch(26% 0.010 160)",
+          "oklch(38% 0.011 160)",
+          "oklch(49% 0.013 160)",
+          "oklch(61% 0.013 160)",
+          "oklch(72% 0.011 160)",
+          "oklch(84% 0.010 160)",
+          "oklch(95% 0.008 160)"
+        ]
+      },
+      "kin": {
+        "role": "tertiary",
+        "displayName": "Kin Amber",
+        "tonalRamp": [
+          "oklch(15% 0.067 75)",
+          "oklch(26% 0.078 75)",
+          "oklch(38% 0.088 75)",
+          "oklch(49% 0.099 75)",
+          "oklch(61% 0.099 75)",
+          "oklch(72% 0.088 75)",
+          "oklch(84% 0.078 75)",
+          "oklch(95% 0.067 75)"
+        ]
+      },
+      "kin-50": {
+        "role": "tertiary",
+        "displayName": "Kin Wash",
+        "tonalRamp": [
+          "oklch(15% 0.017 86)",
+          "oklch(26% 0.020 86)",
+          "oklch(38% 0.023 86)",
+          "oklch(49% 0.025 86)",
+          "oklch(61% 0.025 86)",
+          "oklch(72% 0.023 86)",
+          "oklch(84% 0.020 86)",
+          "oklch(95% 0.017 86)"
+        ]
+      },
+      "cotton": {
+        "role": "neutral",
+        "displayName": "Bleached Cotton",
+        "tonalRamp": [
+          "oklch(15% 0.003 258)",
+          "oklch(26% 0.003 258)",
+          "oklch(38% 0.004 258)",
+          "oklch(49% 0.004 258)",
+          "oklch(61% 0.004 258)",
+          "oklch(72% 0.004 258)",
+          "oklch(84% 0.003 258)",
+          "oklch(95% 0.003 258)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "tonalRamp": [
+          "oklch(15% 0.000 90)",
+          "oklch(26% 0.000 90)",
+          "oklch(38% 0.000 90)",
+          "oklch(49% 0.000 90)",
+          "oklch(61% 0.000 90)",
+          "oklch(72% 0.000 90)",
+          "oklch(84% 0.000 90)",
+          "oklch(95% 0.000 90)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.034 264)",
+          "oklch(26% 0.039 264)",
+          "oklch(38% 0.044 264)",
+          "oklch(49% 0.050 264)",
+          "oklch(61% 0.050 264)",
+          "oklch(72% 0.044 264)",
+          "oklch(84% 0.039 264)",
+          "oklch(95% 0.034 264)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "tonalRamp": [
+          "oklch(15% 0.029 263)",
+          "oklch(26% 0.034 263)",
+          "oklch(38% 0.038 263)",
+          "oklch(49% 0.043 263)",
+          "oklch(61% 0.043 263)",
+          "oklch(72% 0.038 263)",
+          "oklch(84% 0.034 263)",
+          "oklch(95% 0.029 263)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "tonalRamp": [
+          "oklch(15% 0.026 264)",
+          "oklch(26% 0.031 264)",
+          "oklch(38% 0.035 264)",
+          "oklch(49% 0.039 264)",
+          "oklch(61% 0.039 264)",
+          "oklch(72% 0.035 264)",
+          "oklch(84% 0.031 264)",
+          "oklch(95% 0.026 264)"
+        ]
+      },
+      "on-ai-2": {
+        "role": "neutral",
+        "displayName": "Faded Indigo Text",
+        "tonalRamp": [
+          "oklch(15% 0.020 261)",
+          "oklch(26% 0.023 261)",
+          "oklch(38% 0.026 261)",
+          "oklch(49% 0.029 261)",
+          "oklch(61% 0.029 261)",
+          "oklch(72% 0.026 261)",
+          "oklch(84% 0.023 261)",
+          "oklch(95% 0.020 261)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "tonalRamp": [
+          "oklch(15% 0.011 259)",
+          "oklch(26% 0.012 259)",
+          "oklch(38% 0.014 259)",
+          "oklch(49% 0.016 259)",
+          "oklch(61% 0.016 259)",
+          "oklch(72% 0.014 259)",
+          "oklch(84% 0.012 259)",
+          "oklch(95% 0.011 259)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Line Strong",
+        "tonalRamp": [
+          "oklch(15% 0.016 258)",
+          "oklch(26% 0.019 258)",
+          "oklch(38% 0.021 258)",
+          "oklch(49% 0.024 258)",
+          "oklch(61% 0.024 258)",
+          "oklch(72% 0.021 258)",
+          "oklch(84% 0.019 258)",
+          "oklch(95% 0.016 258)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The one key figure on the indigo plate; one per view."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page title in the indigo page-head."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Secondary key figures beside the plate."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card, dialog and section headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text; ledes cap at 70ch."
+      },
+      "body-table": {
+        "displayName": "Body Table",
+        "purpose": "Table cells, tabular numerals."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Form and metric labels, sentence case."
+      },
+      "column-head": {
+        "displayName": "Column Head",
+        "purpose": "Uppercase table column heads and stacked-record labels only."
+      }
+    },
+    "stitch": {
+      "value": "repeating-linear-gradient(90deg, var(--stitch-color) 0 9px, transparent 9px 15px)",
+      "meterValue": "repeating-linear-gradient(90deg, <color> 0 6px, transparent 6px 10px)",
+      "purpose": "The sashiko running stitch: every section divider (2px) and every measure (3px meter). Default colour ai-200; ai-100 in menus and the SOP rail; 16% white on the top bar; solid white for the active tab."
+    },
+    "shadows": [
+      {
+        "name": "rest",
+        "value": "0 1px 2px rgba(15, 24, 48, 0.06), 0 1px 1px rgba(15, 24, 48, 0.04)",
+        "purpose": "Cards and SOP panels at rest; unchanged on hover."
+      },
+      {
+        "name": "float",
+        "value": "0 12px 32px rgba(15, 24, 48, 0.16), 0 2px 6px rgba(15, 24, 48, 0.08)",
+        "purpose": "Dialogs, quick switcher, profile menu, toast."
+      },
+      {
+        "name": "drawer",
+        "value": "16px 0 40px rgba(15, 24, 48, 0.22)",
+        "purpose": "Open side drawer."
+      },
+      {
+        "name": "login-card",
+        "value": "0 24px 60px rgba(5, 10, 24, 0.35)",
+        "purpose": "Paper login card on the indigo field."
+      },
+      {
+        "name": "focus-halo",
+        "value": "0 0 0 3px rgba(44, 74, 124, 0.18)",
+        "purpose": "Input focus, with a hanada border."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Stitch draw-ins, quick switcher entry, toast, chevron rotation."
+      },
+      {
+        "name": "state",
+        "value": "0.15s ease",
+        "purpose": "Hover fills, borders and colour."
+      },
+      {
+        "name": "tab-stitch",
+        "value": "opacity 0.2s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Active tab stitch draws in from the left."
+      },
+      {
+        "name": "meter-draw",
+        "value": "0.7s cubic-bezier(0.16, 1, 0.3, 1), once",
+        "purpose": "Stitch meter fills left to right on render."
+      },
+      {
+        "name": "loading-stitch",
+        "value": "0.9s linear infinite",
+        "purpose": "Loading state: a stitch runs along above the message."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "durations collapse to 0.01ms",
+        "purpose": "All motion honours prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack-records",
+        "value": "640px"
+      },
+      {
+        "name": "single-column",
+        "value": "760px"
+      },
+      {
+        "name": "rails-stack",
+        "value": "1080px"
+      },
+      {
+        "name": "shell-max",
+        "value": "1320px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Deep indigo action; the main command on a card or dialog.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Save prices</button>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 16px;border:1px solid transparent;border-radius:var(--radius-sm);font:600 0.9rem/1.2 var(--font-ui);cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease}.ds-btn:focus-visible{outline:2px solid var(--ai-600);outline-offset:2px}.ds-btn-primary{background:var(--ai-700);color:#fff}.ds-btn-primary:hover{background:var(--ai-800)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Paper button with a strong line border for supporting actions.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">Choose CSV</button>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 16px;border:1px solid transparent;border-radius:var(--radius-sm);font:600 0.9rem/1.2 var(--font-ui);cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease}.ds-btn:focus-visible{outline:2px solid var(--ai-600);outline-offset:2px}.ds-btn-secondary{background:var(--paper);border-color:var(--line-strong);color:var(--ink)}.ds-btn-secondary:hover{background:var(--ai-50);border-color:var(--ai-400)}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Ordinary delete: beni outline on paper; solid beni is reserved.",
+      "html": "<button class=\"ds-btn ds-btn-danger\">Delete SOP</button>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 16px;border:1px solid transparent;border-radius:var(--radius-sm);font:600 0.9rem/1.2 var(--font-ui);cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease}.ds-btn:focus-visible{outline:2px solid var(--ai-600);outline-offset:2px}.ds-btn-danger{background:var(--paper);border-color:var(--beni);color:var(--beni)}.ds-btn-danger:hover{background:var(--beni-50)}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Paper field with a label above and a hanada focus halo.",
+      "html": "<label class=\"ds-field\"><span>Member name</span><input type=\"text\" placeholder=\"Search by name\"></label>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-field{display:block;font-family:var(--font-ui)}.ds-field span{display:block;margin-bottom:6px;color:var(--ink-2);font-size:.85rem;font-weight:600}.ds-field input{box-sizing:border-box;width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--paper);color:var(--ink);font:inherit;font-size:.92rem;transition:border-color .15s ease,box-shadow .15s ease}.ds-field input::placeholder{color:var(--ink-3)}.ds-field input:focus{outline:none;border-color:var(--ai-600);box-shadow:0 0 0 3px rgba(44,74,124,.18)}"
+    },
+    {
+      "name": "Indigo Shell with Tabs",
+      "kind": "nav",
+      "refersTo": "top-bar",
+      "description": "64px indigo top bar, page title, and the tab strip with a white running-stitch underline on the active tab.",
+      "html": "<header class=\"ds-shell\"><div class=\"ds-bar\"><span class=\"ds-name\">Newcastle Aikido</span><button class=\"ds-find\">Find a page <kbd>Ctrl K</kbd></button></div><h1>Past Due Members</h1><nav class=\"ds-tabs\"><button class=\"active\">Dashboard</button><button>Past Due Members</button><button>Cleared Members</button></nav></header>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-shell{background:var(--ai-800);color:#fff;padding:0 20px;font-family:var(--font-ui)}.ds-bar{display:flex;align-items:center;min-height:64px;background:var(--stitch) no-repeat left bottom/100% 2px;--stitch-color:rgba(255,255,255,.16)}.ds-name{font:700 1.05rem var(--font-head)}.ds-find{margin-left:auto;height:40px;padding:0 12px;border:1px solid rgba(255,255,255,.22);border-radius:var(--radius-sm);background:rgba(255,255,255,.07);color:var(--on-ai-2);font:inherit;font-size:.9rem;cursor:pointer}.ds-find:hover{background:rgba(255,255,255,.12);color:#fff}.ds-find:focus-visible{outline:2px solid #fff;outline-offset:2px}.ds-find kbd{font-size:.72rem;border:1px solid currentColor;border-radius:5px;padding:2px 6px;margin-left:8px}.ds-shell h1{margin:0;padding:30px 0 22px;font:700 clamp(1.65rem,1.2rem + 1.5vw,2.4rem)/1.1 var(--font-head);letter-spacing:-.01em}.ds-tabs{display:flex;gap:2px;border-top:1px solid rgba(255,255,255,.1);overflow-x:auto}.ds-tabs button{position:relative;padding:14px 14px 16px;border:0;background:transparent;color:var(--on-ai-2);font:600 .92rem var(--font-ui);white-space:nowrap;cursor:pointer;transition:color .15s ease}.ds-tabs button:hover,.ds-tabs button.active{color:#fff}.ds-tabs button:focus-visible{outline:2px solid #fff;outline-offset:2px}.ds-tabs button::after{content:\"\";position:absolute;left:14px;right:14px;bottom:0;height:3px;opacity:0;background-image:repeating-linear-gradient(90deg,#fff 0 9px,transparent 9px 15px);transform:scaleX(.4);transform-origin:left center;transition:opacity .2s ease,transform .35s var(--ease-out)}.ds-tabs button.active::after{opacity:1;transform:scaleX(1)}"
+    },
+    {
+      "name": "Stitched Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Paper panel on cotton with a stitched rule under its heading.",
+      "html": "<section class=\"ds-card\"><h2>Longest overdue members</h2><p>Rows sit here.</p></section>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);box-shadow:0 1px 2px rgba(15,24,48,.06),0 1px 1px rgba(15,24,48,.04);overflow:hidden;font-family:var(--font-ui);color:var(--ink)}.ds-card h2{margin:0;padding:16px 20px 14px;font:700 1.1rem var(--font-head);background:var(--stitch) no-repeat 20px bottom/calc(100% - 40px) 2px}.ds-card p{margin:0;padding:16px 20px 20px;color:var(--ink-3)}"
+    },
+    {
+      "name": "Key-Figure Strip",
+      "kind": "custom",
+      "refersTo": "key-plate",
+      "description": "One display figure on an indigo plate, then smaller figures on white; labels sit beneath.",
+      "html": "<div class=\"ds-strip\"><div class=\"ds-fig ds-key\"><strong>$751.00</strong><span>Total overdue</span></div><div class=\"ds-fig\"><strong>8</strong><span>Active past due</span></div><div class=\"ds-fig\"><strong>20 / 3</strong><span>Cleared / cancelled</span></div></div>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-strip{display:grid;grid-template-columns:1.5fr repeat(2,minmax(0,1fr));gap:14px;font-family:var(--font-ui)}.ds-fig{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper)}.ds-fig strong{color:var(--ink);font:700 1.75rem/1.1 var(--font-head);font-variant-numeric:tabular-nums}.ds-fig span{color:var(--ink-3);font-size:.85rem;font-weight:600}.ds-key{background:var(--ai-800);border-color:var(--ai-800)}.ds-key strong{color:#fff;font-size:clamp(2rem,1.4rem + 1.6vw,2.75rem)}.ds-key span{color:var(--on-ai-2)}"
+    },
+    {
+      "name": "Stitch Meter",
+      "kind": "custom",
+      "refersTo": "key-figure",
+      "description": "Progress or debt as a run of stitches under a right-aligned figure; moss when done, beni when late.",
+      "html": "<div class=\"ds-meters\"><div class=\"ds-num\">32 days<span class=\"ds-meter late\" style=\"--p:.9\"></span></div><div class=\"ds-num\">17 days<span class=\"ds-meter\" style=\"--p:.45\"></span></div><div class=\"ds-num\">25 / 25 hrs<span class=\"ds-meter done\" style=\"--p:1\"></span></div></div>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-meters{display:grid;gap:14px;width:160px;font:.875rem var(--font-ui);color:var(--ink);font-variant-numeric:tabular-nums}.ds-num{text-align:right}.ds-meter{position:relative;display:block;width:96px;height:3px;margin:6px 0 0 auto;background-image:repeating-linear-gradient(90deg,var(--ai-100) 0 6px,transparent 6px 10px)}.ds-meter::after{content:\"\";position:absolute;inset:0 auto 0 0;width:calc(var(--p,0) * 100%);background-image:repeating-linear-gradient(90deg,var(--ai-600) 0 6px,transparent 6px 10px);transform-origin:left center;animation:ds-draw .7s var(--ease-out) both}.ds-meter.done::after{background-image:repeating-linear-gradient(90deg,var(--moss) 0 6px,transparent 6px 10px)}.ds-meter.late::after{background-image:repeating-linear-gradient(90deg,var(--beni) 0 6px,transparent 6px 10px)}@keyframes ds-draw{from{transform:scaleX(0)}}@media (prefers-reduced-motion:reduce){.ds-meter::after{animation:none}}"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "status-late",
+      "description": "Pill status: beni for past due, moss for cleared, indigo wash for cancelled.",
+      "html": "<span class=\"ds-badge late\">PAST DUE</span> <span class=\"ds-badge ok\">CLEARED</span> <span class=\"ds-badge off\">CANCELLED</span>",
+      "css": ":host{--ai-900:#0f1830;--ai-800:#16223f;--ai-700:#1f3260;--ai-600:#2c4a7c;--ai-400:#5e7ba8;--ai-200:#b9c8dd;--ai-100:#dfe6f0;--ai-50:#eef2f7;--cotton:#f3f5f8;--paper:#fff;--ink:#14203a;--ink-2:#3d4a63;--ink-3:#56627a;--on-ai-2:#c3cfe3;--line:#dce3ee;--line-strong:#c4cfdf;--beni:#b83a28;--beni-50:#fbedea;--moss:#2f6b4a;--moss-50:#e7f1eb;--radius:12px;--radius-sm:8px;--font-ui:\"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;--font-head:\"Zen Kaku Gothic New\",\"Segoe UI\",system-ui,sans-serif;--stitch-color:var(--ai-200);--stitch:repeating-linear-gradient(90deg,var(--stitch-color) 0 9px,transparent 9px 15px);--ease-out:cubic-bezier(0.16,1,0.3,1)} .ds-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font:700 .75rem var(--font-ui);letter-spacing:.04em}.ds-badge.late{background:var(--beni-50);color:var(--beni)}.ds-badge.ok{background:var(--moss-50);color:var(--moss)}.ds-badge.off{background:var(--ai-50);color:var(--ink-2)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Dojo's Own Cloth",
+    "overview": "The portal is cut from a keikogi: a deep kachi-indigo shell worn over bleached cotton, with a white sashiko running stitch as the only thread that divides or measures. Indigo owns whole regions (the top bar, the page-head, the tab strip, the home welcome band, the key-figure plate, the login field) rather than appearing as a lone accent on grey. Work happens on white paper panels resting on a cool cotton ground.\n\nDensity is calm, built for mid-task use: one number that matters reads first on a reversed indigo plate, then rows that scan quickly with right-aligned tabular figures and a short stitch run showing how far along or how overdue each person is. Colour carries meaning only at the edges: beni vermilion for overdue and error, moss for cleared and ok, kin amber for a pending notice. Everything else is indigo and its tints.\n\nThe system rejects the grey SaaS admin with one blue accent and a row of identical KPI cards. The figure strip is deliberately unequal (a wide indigo plate, then smaller white figures), and section dividers are stitched, not ruled.",
+    "keyCharacteristics": [
+      "Indigo owns regions; cotton and paper carry the work.",
+      "The sashiko running stitch (9px stitch, 6px gap) is the divider and the measure.",
+      "Rank by scale contrast: one display-size key figure, then smaller figures.",
+      "Figures are tabular and right-aligned.",
+      "On phones, one work area owns the viewport; table rows become stacked records."
+    ],
+    "rules": [
+      {
+        "name": "The Indigo Owns Regions Rule",
+        "body": "Indigo is a field, not a highlight. It fills whole bands (shell, plate, welcome band, active row); it is never sprinkled as a thin accent stripe on a grey surface.",
+        "section": "colors"
+      },
+      {
+        "name": "The Signal Reserve Rule",
+        "body": "Beni means overdue or error, moss means cleared or ok. Neither is decoration, and beni appears as a solid fill only for overdue figures and an irreversible confirm. Ordinary delete is a beni outline on paper.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Figure Rule",
+        "body": "Every number that can be compared (money, counts, days, hours) is set in tabular numerals and right-aligned in its column.",
+        "section": "typography"
+      },
+      {
+        "name": "The Scale Ranks Rule",
+        "body": "Importance is shown by size contrast between one display figure and the rest, never by colouring a card or adding a label above it.",
+        "section": "typography"
+      },
+      {
+        "name": "The Still Surface Rule",
+        "body": "Panels do not lift, scale or glow on hover; hover changes fill or border only.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do fill whole regions with kachi indigo (top bar, page-head, tabs, key plate, welcome band) and keep work surfaces paper on cotton.",
+      "Do draw every divider and measure as the running stitch (9px stitch, 6px gap; 6px / 4px inside the stitch meter).",
+      "Do lead each report with one display figure on the indigo plate, then smaller figures beside it on white.",
+      "Do set comparable numbers in tabular numerals and right-align them.",
+      "Do keep beni for overdue and error and moss for cleared and ok.",
+      "Do turn wide tables into stacked records at 640px, deciding figures first.",
+      "Do honour reduced motion; the stitch draw-in, tab underline and toasts collapse to instant."
+    ],
+    "donts": [
+      "Don't build a row of identical KPI cards; the strip is always one plate plus smaller figures.",
+      "Don't use beni or moss as decoration, or give an ordinary delete a solid beni fill.",
+      "Don't divide headed sections, index lists or menus with solid rules; the stitch does that. Table rows keep their 1px pale asagi rule and cards their 1px line border.",
+      "Don't lift, scale or glow panels on hover.",
+      "Don't put a small label, category or kicker line above a page title, card title or key figure; metadata sits beneath it."
+    ]
+  }
+}

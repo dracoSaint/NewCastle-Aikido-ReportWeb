@@ -4,14 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Newcastle Aikido - Grading Report</title>
-<link rel="stylesheet" href="../css/styles.css">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../js/auth.js"></script>
 </head>
+
 <body>
 
 <header>
-  <button id="menuToggle" class="menu-toggle" aria-label="Open site menu">☰</button>
-  <img class="site-logo" src="../imgs/aikido-logo.png" alt="Newcastle Aikido logo">
-  <h1 id="pageHeading">Newcastle Aikido - Grading Report</h1>
   <p id="updatedLine">Loading...</p>
   <button id="openSpreadsheet" onclick="window.open('https://docs.google.com/spreadsheets/d/1EmS3-3mxova9vQSavu-bYR05sGyve-q5CE2Xq12FLis/edit?gid=680756908#gid=680756908', '_blank')">Open Spreadsheet</button>
   <nav class="site-nav">
@@ -23,21 +22,10 @@
   <input type="search" id="filterInput" placeholder="Search by name...">
 </header>
 
-<div class="page-drawer" id="pageDrawer" aria-hidden="true">
-  <div class="drawer-header">
-    <strong>Pages</strong>
-    <button class="drawer-close" aria-label="Close menu">×</button>
-  </div>
-  <nav class="drawer-nav">
-    <a href="../index.html">Home</a>
-    <a href="GradingReport.html" class="active">Grading Report</a>
-  </nav>
-</div>
-<div class="drawer-overlay" id="pageOverlay"></div>
-
 <main>
 
   <section class="tab-panel active" id="tab-home">
+    <div class="past-due-metrics key-strip" id="gradingKeyFigure" aria-live="polite"></div>
     <div class="groups two-col">
       <div class="card">
         <h2>Regular Adults</h2>
@@ -73,8 +61,13 @@
 
 </main>
 
-<footer>Newcastle Aikido - Grading Report</footer>
+<footer></footer>
 
-<script src="../js/gradingScripts.js"></script>
+<script src="../../js/siteHeader.js"></script>
+<script src="../../js/siteMenu.js"></script>
+<script src="../../js/config.js"></script>
+<script src="../../js/gradingScripts.js"></script>
 </body>
+
+<script src="../../js/footer.js"></script>
 </html>

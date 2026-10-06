@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Newcastle Aikido - Past Due Members</title>
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+
+<body class="past-due-page">
+  <header>
+    <p id="updatedLine">Loading…</p>
+    <nav class="site-nav">
+      <button data-tab="dashboard" class="active">Dashboard</button>
+      <button data-tab="pastDue">Past Due</button>
+      <button data-tab="cleared">Cleared</button>
+      <button data-tab="cancelled">Cancelled</button>
+      <button data-tab="log">Import Log</button>
+      <button data-tab="exempted">Exempted</button>
+      <button data-tab="export">Import &amp; Export</button>
+    </nav>
+  </header>
+
+  <main class="past-due-main">
+    <section class="tab-panel active" id="tab-dashboard">
+      <div class="past-due-metrics" id="pastDueMetrics"></div>
+
+      <div class="card">
+        <h2>Ageing</h2>
+        <p class="pd-card-lede">Balance by how long each member's oldest bill has been overdue.</p>
+        <div class="pd-ageing" id="pastDueAgeing"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Longest overdue</h2>
+          <button type="button" class="sop-action-button secondary pd-small" data-show-tab="pastDue">View all past due</button>
+        </div>
+        <div class="table-wrap" id="dashboardTable">
+          <div class="loading">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-pastDue">
+      <div class="past-due-tab-metrics" id="pastDueTabMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Past due members</h2>
+          <span class="member-count" id="pastDueCount" role="status" aria-live="polite"></span>
+        </div>
+        <div class="member-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search past due members</span>
+            <input id="nameSearchPastDue" type="search" placeholder="Search name or bill #" autocomplete="off">
+          </label>
+          <label>
+            <span class="sr-only">Filter by stage</span>
+            <select id="pastDueStageFilter"><option value="">All stages</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Sort members</span>
+            <select id="pastDueSort">
+              <option value="days">Oldest first</option>
+              <option value="amount">Highest balance</option>
+              <option value="note">Least recently noted</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap" id="pastDueTable">
+          <div class="loading">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-cleared">
+      <div class="past-due-tab-metrics" id="clearedTabMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Cleared members</h2>
+          <span class="member-count" id="clearedCount" role="status" aria-live="polite"></span>
+        </div>
+        <div class="member-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search cleared members</span>
+            <input id="nameSearchCleared" type="search" placeholder="Search name or bill #" autocomplete="off">
+          </label>
+        </div>
+        <div class="table-wrap" id="clearedTable">
+          <div class="loading">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-cancelled">
+      <div class="past-due-tab-metrics" id="cancelledTabMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Cancelled members</h2>
+          <span class="member-count" id="cancelledCount" role="status" aria-live="polite"></span>
+        </div>
+        <div class="member-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search cancelled members</span>
+            <input id="nameSearchCancelled" type="search" placeholder="Search name or bill #" autocomplete="off">
+          </label>
+        </div>
+        <div class="table-wrap" id="cancelledTable">
+          <div class="loading">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-log">
+      <div class="card">
+        <h2>Import log</h2>
+        <p class="pd-card-lede">Every bill, grouped by the CSV import it arrived in. Exempted members are included here.</p>
+        <div class="member-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search the import log</span>
+            <input id="nameSearchLog" type="search" placeholder="Search name or bill #" autocomplete="off">
+          </label>
+          <label>
+            <span class="sr-only">Filter by import date</span>
+            <input id="logDateFilter" type="date">
+          </label>
+        </div>
+        <div class="table-wrap" id="logTable">
+          <div class="loading">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-exempted">
+      <div class="card">
+        <h2>Exempted members</h2>
+        <p class="pd-card-lede">Members on this list stay in the import log but are left out of the dashboard and the
+          past due, cleared and cancelled lists. Matched by number or full name.</p>
+        <div class="pd-tool-body">
+          <form class="pd-inline-form" id="exemptedManualForm">
+            <label>
+              <span>Member name</span>
+              <input id="exemptedMemberNameInput" type="text" autocomplete="off">
+            </label>
+            <label>
+              <span>Number <small>(optional)</small></span>
+              <input id="exemptedMemberNumberInput" type="text" autocomplete="off">
+            </label>
+            <button type="submit" class="sop-action-button primary">Add to list</button>
+          </form>
+          <div class="pd-inline-form">
+            <input id="exemptedCsvInput" type="file" accept=".csv,text/csv" hidden>
+            <button type="button" class="sop-action-button secondary" data-pick="exemptedCsvInput">Choose CSV</button>
+            <button type="button" class="sop-action-button primary" id="confirmExemptedUploadBtn" disabled>Import</button>
+            <button type="button" class="sop-action-button secondary" id="removeExemptedFileBtn" disabled>Remove file</button>
+            <button type="button" class="sop-action-button secondary pd-push" id="downloadExemptedCsvBtn">Export CSV</button>
+          </div>
+          <p id="exemptedStatus" class="csv-upload-status" role="status">No file selected</p>
+        </div>
+        <div class="member-toolbar pd-exempt-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search exempted members</span>
+            <input id="exemptSearch" type="search" placeholder="Search name or number" autocomplete="off">
+          </label>
+          <label>
+            <span class="sr-only">Filter by membership</span>
+            <select id="exemptMembershipFilter"><option value="">All memberships</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Filter by status</span>
+            <select id="exemptStatusFilter"><option value="">All statuses</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Filter by autopay</span>
+            <select id="exemptAutopayFilter"><option value="">Any autopay</option></select>
+          </label>
+          <span class="member-count pd-push" id="exemptCount" role="status" aria-live="polite"></span>
+        </div>
+        <div class="pd-bulk-bar">
+          <span id="exemptSelectedCount" role="status" aria-live="polite">Tick members to remove them from the list.</span>
+          <button type="button" class="sop-action-button danger pd-small" id="removeExemptedBtn" disabled>Remove selected</button>
+        </div>
+        <div class="table-wrap" id="exemptedTable">
+          <div class="loading">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-export">
+      <div class="pd-tools">
+        <div class="card">
+          <h2>Import billing CSV</h2>
+          <div class="pd-tool-body">
+            <p class="pd-help">Bills already on file (same bill number) are skipped, so re-importing a report is safe.</p>
+            <label class="import-date-field">
+              <span>Import date</span>
+              <input id="pastDueImportDate" type="date" required>
+            </label>
+            <div class="pd-inline-form">
+              <input id="pastDueCsvInput" type="file" accept=".csv,text/csv" hidden>
+              <button type="button" class="sop-action-button secondary" data-pick="pastDueCsvInput">Choose CSV</button>
+              <button type="button" class="sop-action-button primary" id="confirmPastDueUploadBtn" disabled>Import</button>
+              <button type="button" class="sop-action-button secondary" id="removePastDueFileBtn" disabled>Remove file</button>
+            </div>
+            <p id="pastDueImportStatus" class="csv-upload-status" role="status">No file selected</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Export</h2>
+          <div class="pd-tool-body">
+            <p class="pd-help">Download a spreadsheet copy of the bill log or of every member note.</p>
+            <div class="pd-inline-form">
+              <button type="button" class="sop-action-button secondary" id="downloadPastDueCsvBtn">Bill log CSV</button>
+              <button type="button" class="sop-action-button secondary" id="downloadNotesCsvBtn">Member notes CSV</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-heading-row">
+            <h2>Failure reasons</h2>
+            <button type="button" class="sop-action-button secondary pd-small" id="addFailureReasonBtn">Add reason</button>
+          </div>
+          <div class="pd-tool-body">
+            <p class="pd-help">Options in each bill's failure reason list.</p>
+            <ul class="pd-chips" id="failureReasonList"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <p class="pd-toast" id="pastDueToast" role="status" aria-live="polite" hidden></p>
+
+  <div class="past-due-modal hidden" id="failureReasonModal" role="dialog" aria-modal="true"
+    aria-labelledby="failureReasonModalTitle">
+    <div class="past-due-modal-dialog">
+      <div class="past-due-modal-header">
+        <h3 id="failureReasonModalTitle">Add failure reason</h3>
+        <button type="button" class="past-due-modal-close" id="failureReasonModalClose"
+          aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="past-due-modal-body">
+        <label class="past-due-modal-field" for="failureReasonInput">
+          <span>New failure reason</span>
+          <input type="text" id="failureReasonInput" placeholder="e.g. Card expired" maxlength="120" autocomplete="off">
+        </label>
+        <p class="past-due-modal-hint" id="failureReasonHint">Added to the failure reason list on every bill.</p>
+      </div>
+      <div class="past-due-modal-actions">
+        <button type="button" class="sop-action-button secondary" id="failureReasonCancelBtn">Cancel</button>
+        <button type="button" class="sop-action-button primary" id="failureReasonApproveBtn">Add reason</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="past-due-modal hidden" id="cancelMembershipModal" role="dialog" aria-modal="true"
+    aria-labelledby="cancelMembershipModalTitle">
+    <div class="past-due-modal-dialog">
+      <div class="past-due-modal-header">
+        <h3 id="cancelMembershipModalTitle">Cancel membership</h3>
+      </div>
+      <div class="past-due-modal-body">
+        <p class="past-due-modal-hint" id="cancelMembershipSummary"></p>
+        <label class="past-due-modal-field" for="cancellationReasonInput">
+          <span>Cancellation reason</span>
+          <input type="text" id="cancellationReasonInput" placeholder="e.g. Member requested cancellation" autocomplete="off">
+        </label>
+        <p class="past-due-modal-hint is-error" id="cancellationReasonHint" role="alert"></p>
+      </div>
+      <div class="past-due-modal-actions">
+        <button type="button" id="cancelMembershipCloseBtn" class="sop-action-button secondary">Keep membership</button>
+        <button type="button" id="approveCancellationBtn" class="sop-action-button danger">Cancel membership</button>
+      </div>
+    </div>
+  </div>
+
+  <footer></footer>
+
+  <script src="../../js/config.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/siteHeader.js"></script>
+  <script src="../../js/siteMenu.js"></script>
+  <script src="../../js/pastDueMembers.js"></script>
+  <script src="../../js/footer.js"></script>
+</body>
+
+</html>

@@ -1,5 +1,4 @@
 /* ============ CONFIG - edit these to match your sheet ============ */
-const SPREADSHEET_ID = '1EmS3-3mxova9vQSavu-bYR05sGyve-q5CE2Xq12FLis';
 
 // Home page: one sheet, two column-blocks side by side
 const HOME_SHEET_NAME = 'ELIGIBLE MEMBERS'; // <-- confirm this matches your actual tab name
@@ -77,7 +76,7 @@ function fetchSheetRaw(sheetName) {
       }
     };
 
-    const url = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID +
+    const url = 'https://docs.google.com/spreadsheets/d/' + config.gradingSpreadsheetId +
       '/gviz/tq?tqx=out:json;responseHandler:' + cbName +
       '&sheet=' + encodeURIComponent(sheetName) +
       '&headers=0';
@@ -128,14 +127,26 @@ function renderTable(container, block) {
     container.innerHTML = '<div class="empty">No data found.</div>';
     return;
   }
-  let html = '<table class="filterable"><thead><tr>';
-  block.headers.forEach(h => { html += '<th>' + escapeHtml(h) + '</th>'; });
+  // Attendance since the last test is drawn as a stitch run toward the hours needed.
+  const sinceIdx = block.headers.findIndex(h => /since test/i.test(h));
+  const neededIdx = block.headers.findIndex(h => /hours needed/i.test(h));
+  const numCols = numericColumns(block);
+  let html = '<table class="filterable stack"><thead><tr>';
+  block.headers.forEach((h, c) => { html += '<th' + (numCols[c] ? ' class="num"' : '') + '>' + escapeHtml(h) + '</th>'; });
   html += '</tr></thead><tbody>';
   block.rows.forEach(row => {
     html += '<tr>';
     row.forEach((cell, c) => {
-      const cls = classify(String(block.headers[c] || '').toLowerCase(), String(cell).toLowerCase());
-      html += '<td class="' + cls + '">' + escapeHtml(cell) + '</td>';
+      const cls = classify(String(block.headers[c] || '').toLowerCase(), String(cell).toLowerCase()) + (numCols[c] ? ' num' : '');
+      const label = ' data-label="' + escapeHtml(block.headers[c] || '') + '"';
+      const needed = neededIdx >= 0 ? parseFloat(row[neededIdx]) : NaN;
+      if (c === sinceIdx && needed > 0 && !isNaN(parseFloat(cell))) {
+        const p = Math.min(parseFloat(cell) / needed, 1);
+        html += '<td class="measure ' + cls + '"' + label + '>' + escapeHtml(cell) +
+          '<span class="stitch-meter' + (p >= 1 ? ' done' : '') + '" style="--p:' + p.toFixed(2) + '" aria-hidden="true"></span></td>';
+        return;
+      }
+      html += '<td class="' + cls + '"' + label + '>' + escapeHtml(cell) + '</td>';
     });
     html += '</tr>';
   });
@@ -147,12 +158,34 @@ function escapeHtml(v) {
   return String(v)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// A column is numeric when every non-empty cell is a plain number.
+function numericColumns(block) {
+  const isNum = v => /^-?\d+(\.\d+)?$/.test(String(v).trim());
+  return block.headers.map((_, c) => {
+    const values = block.rows.map(r => r[c]).filter(v => String(v).trim() !== '');
+    return values.length > 0 && values.every(isNum);
+  });
+}
+
+// The overview sheet is the ELIGIBLE MEMBERS list, so its rows are the count.
+function renderGradingKeyFigure(adults, juniors) {
+  const el = document.getElementById('gradingKeyFigure');
+  if (!el) return;
+  const a = adults.rows.length;
+  const j = juniors.rows.length;
+  el.innerHTML = '<div class="past-due-metric key"><span>Eligible to grade</span><strong>' + (a + j) + '</strong></div>' +
+    '<div class="past-due-metric"><span>Regular adults</span><strong>' + a + '</strong></div>' +
+    '<div class="past-due-metric"><span>Juniors</span><strong>' + j + '</strong></div>';
 }
 
 function setUpdatedNow() {
-  document.getElementById('updatedLine').textContent =
-    'Last updated: ' + new Date().toLocaleString();
+  const now = new Date();
+  document.getElementById('updatedLine').textContent = 'Last updated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
 }
 
 function loadHome() {
@@ -161,6 +194,7 @@ function loadHome() {
     const juniors = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_JUNIORS_COLS.start, HOME_JUNIORS_COLS.end, 'homeJuniors');
     renderTable(document.getElementById('home-adults-wrap'), adults);
     renderTable(document.getElementById('home-juniors-wrap'), juniors);
+    renderGradingKeyFigure(adults, juniors);
   }).catch(err => {
     showError('home-adults-wrap', err);
     showError('home-juniors-wrap', err);
@@ -190,27 +224,9 @@ function loadTab(key) {
   else loadPage(key);
 }
 
-function initDrawer() {
-  const menuToggle = document.getElementById('menuToggle');
-  const drawer = document.getElementById('pageDrawer');
-  const overlay = document.getElementById('pageOverlay');
-  const closeBtn = document.querySelector('.drawer-close');
-  if (!menuToggle || !drawer || !overlay) return;
-
-  const toggleDrawer = open => {
-    drawer.classList.toggle('open', open);
-    overlay.classList.toggle('open', open);
-    drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
-  };
-
-  menuToggle.addEventListener('click', () => toggleDrawer(true));
-  overlay.addEventListener('click', () => toggleDrawer(false));
-  if (closeBtn) closeBtn.addEventListener('click', () => toggleDrawer(false));
-}
-
 function initGradingPage() {
   const navButtons = document.querySelectorAll('nav.site-nav button');
-  if (!navButtons.length) return;
+  if (!navButtons.length || !document.querySelector('.tab-panel')) return;
 
   navButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -238,5 +254,4 @@ function initGradingPage() {
   loadTab('home');
 }
 
-initDrawer();
 initGradingPage();
