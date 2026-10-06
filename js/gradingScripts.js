@@ -127,14 +127,26 @@ function renderTable(container, block) {
     container.innerHTML = '<div class="empty">No data found.</div>';
     return;
   }
-  let html = '<table class="filterable"><thead><tr>';
-  block.headers.forEach(h => { html += '<th>' + escapeHtml(h) + '</th>'; });
+  // Attendance since the last test is drawn as a stitch run toward the hours needed.
+  const sinceIdx = block.headers.findIndex(h => /since test/i.test(h));
+  const neededIdx = block.headers.findIndex(h => /hours needed/i.test(h));
+  const numCols = numericColumns(block);
+  let html = '<table class="filterable stack"><thead><tr>';
+  block.headers.forEach((h, c) => { html += '<th' + (numCols[c] ? ' class="num"' : '') + '>' + escapeHtml(h) + '</th>'; });
   html += '</tr></thead><tbody>';
   block.rows.forEach(row => {
     html += '<tr>';
     row.forEach((cell, c) => {
-      const cls = classify(String(block.headers[c] || '').toLowerCase(), String(cell).toLowerCase());
-      html += '<td class="' + cls + '">' + escapeHtml(cell) + '</td>';
+      const cls = classify(String(block.headers[c] || '').toLowerCase(), String(cell).toLowerCase()) + (numCols[c] ? ' num' : '');
+      const label = ' data-label="' + escapeHtml(block.headers[c] || '') + '"';
+      const needed = neededIdx >= 0 ? parseFloat(row[neededIdx]) : NaN;
+      if (c === sinceIdx && needed > 0 && !isNaN(parseFloat(cell))) {
+        const p = Math.min(parseFloat(cell) / needed, 1);
+        html += '<td class="measure ' + cls + '"' + label + '>' + escapeHtml(cell) +
+          '<span class="stitch-meter' + (p >= 1 ? ' done' : '') + '" style="--p:' + p.toFixed(2) + '" aria-hidden="true"></span></td>';
+        return;
+      }
+      html += '<td class="' + cls + '"' + label + '>' + escapeHtml(cell) + '</td>';
     });
     html += '</tr>';
   });
@@ -146,7 +158,29 @@ function escapeHtml(v) {
   return String(v)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// A column is numeric when every non-empty cell is a plain number.
+function numericColumns(block) {
+  const isNum = v => /^-?\d+(\.\d+)?$/.test(String(v).trim());
+  return block.headers.map((_, c) => {
+    const values = block.rows.map(r => r[c]).filter(v => String(v).trim() !== '');
+    return values.length > 0 && values.every(isNum);
+  });
+}
+
+// The overview sheet is the ELIGIBLE MEMBERS list, so its rows are the count.
+function renderGradingKeyFigure(adults, juniors) {
+  const el = document.getElementById('gradingKeyFigure');
+  if (!el) return;
+  const a = adults.rows.length;
+  const j = juniors.rows.length;
+  el.innerHTML = '<div class="past-due-metric key"><span>Eligible to grade</span><strong>' + (a + j) + '</strong></div>' +
+    '<div class="past-due-metric"><span>Regular adults</span><strong>' + a + '</strong></div>' +
+    '<div class="past-due-metric"><span>Juniors</span><strong>' + j + '</strong></div>';
 }
 
 function setUpdatedNow() {
@@ -160,6 +194,7 @@ function loadHome() {
     const juniors = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_JUNIORS_COLS.start, HOME_JUNIORS_COLS.end, 'homeJuniors');
     renderTable(document.getElementById('home-adults-wrap'), adults);
     renderTable(document.getElementById('home-juniors-wrap'), juniors);
+    renderGradingKeyFigure(adults, juniors);
   }).catch(err => {
     showError('home-adults-wrap', err);
     showError('home-juniors-wrap', err);

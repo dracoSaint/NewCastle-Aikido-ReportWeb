@@ -617,7 +617,7 @@ function renderSopAccordion(selectedId) {
       <div class="sop-accordion-group${isCategoryActive ? ' open' : ''}">
         <button type="button" class="sop-accordion-toggle" aria-expanded="${isCategoryActive}">
           <span>${escapeSopHtml(category.category)}</span>
-          <span class="sop-chevron">▾</span>
+          <span class="sop-chevron" aria-hidden="true"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
         </button>
         <div class="sop-accordion-content">
           <div class="sop-menu-items">

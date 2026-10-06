@@ -199,15 +199,20 @@ document.querySelectorAll('.profile-pw-toggle').forEach(btn => {
     const input = document.getElementById(targetId);
     const isText = input.type === 'text';
     input.type = isText ? 'password' : 'text';
-    btn.textContent = isText ? '👁' : '🙈';
+    btn.setAttribute('aria-pressed', String(!isText));
     });
 });
 
 // ── Shared helpers ─────────────────────────────────────────────────────
+const ALERT_ICONS = {
+    success: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+    error: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.5h.01"/></svg>'
+};
+
 function showAlert(prefix, type, message) {
     const alertDiv = document.getElementById(prefix + 'Alert');
     alertDiv.className = `profile-alert ${type}`;
-    alertDiv.querySelector('.alert-icon').textContent = type === 'success' ? '✓' : '⚠️';
+    alertDiv.querySelector('.alert-icon').innerHTML = type === 'success' ? ALERT_ICONS.success : ALERT_ICONS.error;
     alertDiv.querySelector('.alert-text').textContent = message;
     alertDiv.hidden = false;
 }
