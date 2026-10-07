@@ -1,0 +1,68 @@
+# Every night at 11:59 pm Newcastle time: pulls Zen Planner's "Red/Orange Attendance (30 Days Count)"
+# report and the membership status export, and saves the Red / Orange Follow-Up report to the portal.
+# Runs on GitHub, not Netlify: no build credits are used and nothing is deployed.
+name: Zen Planner follow-up report
+
+on:
+  schedule:
+    # GitHub cron is UTC. 11:59 pm Sydney is 12:59 UTC in daylight saving (AEDT)
+    # and 13:59 UTC otherwise (AEST). The job runs both and skips the wrong one.
+    - cron: '59 12 * * *'
+    - cron: '59 13 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Run now, outside the 11:59 pm window (adds a new report)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zenplanner-followup
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check the report rules
+        run: node automation/followup-core.check.mjs
+
+      - name: Install browser and Supabase client
+        run: |
+          npm install --no-save --no-package-lock playwright@1 @supabase/supabase-js@2
+          npx playwright install --with-deps chromium
+
+      - name: Pull Zen Planner report and save to portal
+        env:
+          # Public values (already in js/config.js).
+          SUPABASE_URL: https://knnzybqudpdxhddcaxcv.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_fPh3JNTjI5Loc32jDzhJkw_i5YHeS9l
+          # Private: set under Settings > Secrets and variables > Actions.
+          ZP_USERNAME: ${{ secrets.ZP_USERNAME }}
+          ZP_PASSWORD: ${{ secrets.ZP_PASSWORD }}
+          BOT_EMAIL: ${{ secrets.BOT_EMAIL }}
+          BOT_PASSWORD: ${{ secrets.BOT_PASSWORD }}
+          ZP_REPORT_URL: ${{ vars.ZP_REPORT_URL }}
+          ZP_MEMBERSHIP_URL: ${{ vars.ZP_MEMBERSHIP_URL }}
+          ZP_LOGIN_URL: ${{ vars.ZP_LOGIN_URL }}
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
+        run: node automation/zenplanner-followup.mjs
+
+      # On failure, keep a screenshot of where Zen Planner stopped (no passwords are captured).
+      - name: Keep failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zenplanner-failure
+          path: automation-output/failure.*
+          retention-days: 7

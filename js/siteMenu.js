@@ -17,12 +17,16 @@
             path: 'pages/REPORTs/MondayBoardReport.html'
         },
         { 
-            label: 'Attendance Report',
-            path: 'pages/REPORTs/AttendanceReport.html'
+            label: 'Red / Orange Follow-Up',
+            path: 'pages/REPORTs/FollowUpReport.html'
         },
         {
           label: 'Past Due Members',
           path: 'pages/REPORTs/PastDueMembers.html'
+        },
+        {
+          label: 'Daily Ad Review',
+          path: 'pages/REPORTs/DailyAdReview.html'
         }
       ]
     },

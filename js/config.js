@@ -9,8 +9,6 @@ var config = {
   // Google Sheets - Grading Report
   gradingSpreadsheetId: '1EmS3-3mxova9vQSavu-bYR05sGyve-q5CE2Xq12FLis',
 
-  attendanceSpreadsheetId: '1ULOJ_f5-DpGZfY1raQWfTbFENAtnnvIYPSniUi06D_g',
-
   // Google Sheets - Monday Board Report
   mondayBoardSpreadsheetId: '1E9zvuJDxDCSpA7_zwlTZsKLeeK94K6rl8c77FKalpv8',
   mondayBoard: {
