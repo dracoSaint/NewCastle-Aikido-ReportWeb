@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Newcastle Aikido - Daily Ad Review</title>
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+
+<body class="ad-review-page">
+  <header>
+    <p id="updatedLine">Loading…</p>
+    <nav class="site-nav">
+      <button data-tab="report" class="active">Daily Report</button>
+      <button data-tab="hub">Ad Hub</button>
+      <button data-tab="review">Monthly Review</button>
+      <button data-tab="leads">Leads</button>
+      <button data-tab="import">Import</button>
+      <button data-tab="playbook">Playbook</button>
+    </nav>
+  </header>
+
+  <main class="ad-review-main">
+    <div class="ar-toolbar" id="arToolbar">
+      <label>
+        <span>Report date</span>
+        <select id="arReportDate"><option value="">No reports yet</option></select>
+      </label>
+      <p class="ar-range" id="arRange"></p>
+    </div>
+
+    <!-- Daily Report (sheet: AD REPORT) -->
+    <section class="tab-panel active" id="tab-report">
+      <div class="past-due-metrics" id="arReportMetrics"></div>
+
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Executive summary</h2>
+          <button type="button" class="sop-action-button primary pd-small" id="arCopyBtn">Copy for Slack</button>
+        </div>
+        <dl class="ar-summary" id="arSummary"></dl>
+      </div>
+
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Threshold met</h2>
+          <span class="member-count">1,000+ impressions · ready for a decision</span>
+        </div>
+        <div class="table-wrap" id="arThresholdTable"><div class="loading">Loading…</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Under threshold</h2>
+          <span class="member-count">Testing phase · under 1,000 impressions</span>
+        </div>
+        <div class="table-wrap" id="arUnderTable"><div class="loading">Loading…</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-heading-row">
+          <h2 id="arLeadTitle">Lead log</h2>
+          <span class="member-count">Leads created in this report's date range</span>
+        </div>
+        <div class="table-wrap" id="arLeadTable"><div class="loading">Loading…</div></div>
+      </div>
+
+      <div class="card">
+        <h2>Steps taken</h2>
+        <ol class="ar-steps" id="arSteps"></ol>
+      </div>
+    </section>
+
+    <!-- Ad Hub (sheet: AD LIST) -->
+    <section class="tab-panel" id="tab-hub">
+      <div class="past-due-metrics" id="arHubMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Active ads</h2>
+          <span class="member-count" id="arActiveCount"></span>
+        </div>
+        <div class="table-wrap" id="arActiveTable"><div class="loading">Loading…</div></div>
+      </div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Inactive ads</h2>
+          <span class="member-count" id="arInactiveCount"></span>
+        </div>
+        <div class="table-wrap" id="arInactiveTable"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- Monthly Review (sheets: <MONTH> REVIEW) -->
+    <section class="tab-panel" id="tab-review">
+      <div class="past-due-metrics" id="arMonthMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2 id="arMonthTitle">Monthly review</h2>
+          <label>
+            <span class="sr-only">Month</span>
+            <select id="arMonth"></select>
+          </label>
+        </div>
+        <p class="pd-card-lede">Figures are Meta's rolling last 7 days, as of each report date.</p>
+        <div class="table-wrap ar-grid-wrap" id="arMonthGrid"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- Leads (sheet: LEADS, every lead ever imported) -->
+    <section class="tab-panel" id="tab-leads">
+      <div class="past-due-metrics" id="arLeadMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>All leads</h2>
+          <span class="member-count" id="arLeadCount" role="status" aria-live="polite"></span>
+        </div>
+        <div class="member-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search leads</span>
+            <input id="arLeadSearch" type="search" placeholder="Search name, email or phone" autocomplete="off">
+          </label>
+          <label><span class="sr-only">Month</span><select id="arLeadMonth"><option value="">All months</option></select></label>
+          <label><span class="sr-only">Ad</span><select id="arLeadAd"><option value="">All ads</option></select></label>
+          <label><span class="sr-only">Audience</span><select id="arLeadAudience"><option value="">All audiences</option><option>Retargeting</option><option>Broad</option></select></label>
+          <div class="member-toolbar-actions">
+            <button type="button" class="sop-action-button secondary" id="arLeadExport">Export CSV</button>
+          </div>
+        </div>
+        <div class="table-wrap" id="arLeadHistory"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- Import (sheets: IMPORT, LEADS, DATA LOG) -->
+    <section class="tab-panel ar-stack" id="tab-import">
+      <div class="pd-tools">
+        <div class="card ar-step">
+          <div class="ar-step-head">
+            <span class="ar-step-no" aria-hidden="true">1</span>
+            <div>
+              <h2>Meta ads report</h2>
+              <p class="pd-help">Ads Manager, ads table, last 7 days, exported as CSV.</p>
+            </div>
+          </div>
+          <div class="pd-tool-body">
+            <ul class="ar-checklist">
+              <li>Each ad is matched to the Ad Hub. You check the matches before anything is saved.</li>
+              <li>The report date is the export's "Reporting ends" date. Re-importing a date replaces it.</li>
+            </ul>
+            <input id="arAdsFile" type="file" accept=".csv,text/csv" hidden>
+            <button type="button" class="ar-drop" data-pick="arAdsFile">
+              <strong>Choose ads CSV</strong>
+              <span>or drop the file here</span>
+            </button>
+            <p class="csv-upload-status" id="arAdsStatus" role="status"></p>
+          </div>
+        </div>
+        <div class="card ar-step">
+          <div class="ar-step-head">
+            <span class="ar-step-no" aria-hidden="true">2</span>
+            <div>
+              <h2>Meta leads export</h2>
+              <p class="pd-help">The lead form download, CSV or Meta's tab-separated file.</p>
+            </div>
+          </div>
+          <div class="pd-tool-body">
+            <ul class="ar-checklist">
+              <li>Anyone already on the list (same lead, email or phone) is skipped, never duplicated.</li>
+              <li>They appear in each report's lead log and on the Leads tab.</li>
+            </ul>
+            <input id="arLeadsFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" hidden>
+            <button type="button" class="ar-drop" data-pick="arLeadsFile">
+              <strong>Choose leads file</strong>
+              <span>or drop the file here</span>
+            </button>
+            <p class="csv-upload-status" id="arLeadsStatus" role="status"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card ar-preview" id="arPreviewCard" hidden>
+        <div class="card-heading-row">
+          <h2 id="arPreviewTitle">Check matches</h2>
+          <div class="ar-preview-actions">
+            <button type="button" class="sop-action-button secondary pd-small" id="arPreviewCancel">Cancel</button>
+            <button type="button" class="sop-action-button primary pd-small" id="arPreviewConfirm">Import</button>
+          </div>
+        </div>
+        <p class="pd-card-lede" id="arPreviewLede"></p>
+        <div class="table-wrap" id="arPreviewTable"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Import history</h2>
+          <span class="member-count" id="arLogCount"></span>
+        </div>
+        <div class="table-wrap ar-log" id="arLogTable"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- Playbook (sheet: SOP). Stored in Supabase so staff can update it. -->
+    <section class="tab-panel" id="tab-playbook">
+      <div class="ar-playbook-bar">
+        <p class="ar-range" id="arPlaybookMeta"></p>
+        <div class="ar-preview-actions" id="arPlaybookActions"></div>
+      </div>
+      <div id="arPlaybook"></div>
+    </section>
+  </main>
+
+  <p class="pd-toast" id="arToast" role="status" aria-live="polite" hidden></p>
+
+  <footer></footer>
+
+  <script src="../../js/config.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/siteHeader.js"></script>
+  <script src="../../js/siteMenu.js"></script>
+  <script src="../../js/adReview.js"></script>
+  <script src="../../js/footer.js"></script>
+</body>
+
+</html>

@@ -2,12 +2,12 @@
 version: 1
 slug: "index-html"
 primary_target: "index.html"
-related_targets: ["css/styles.css","pages/REPORTs/MondayBoardReport.html","pages/REPORTs/PastDueMembers.html","pages/SOPs/SOPDocuments.html","pages/REPORTs/GradingReport.html","pages/REPORTs/AttendanceReport.html","pages/profile.html","pages/login.html"]
+related_targets: ["css/styles.css","pages/REPORTs/MondayBoardReport.html","pages/REPORTs/PastDueMembers.html","pages/SOPs/SOPDocuments.html","pages/REPORTs/GradingReport.html","pages/REPORTs/FollowUpReport.html","pages/profile.html","pages/login.html"]
 ---
 
 ## Scope
 
-Whole Studio Operations portal: shared shell (header, drawer, quick switcher, footer), home, login/reset/register-error, Grading, Monday Board, Attendance, Past Due Members, SOP reader, Profile. Mode: Operate. Code-led build (no image generation).
+Whole Studio Operations portal: shared shell (header, drawer, quick switcher, footer), home, login/reset/register-error, Grading, Monday Board, Red / Orange Follow-Up, Past Due Members, SOP reader, Profile. Mode: Operate. Code-led build (no image generation).
 
 ## Audience and task
 

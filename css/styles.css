@@ -6717,29 +6717,9 @@ th[aria-sort="descending"] .sort-mark {
   }
 
   /* Stacked records flow with the page; no scroll box inside the page. */
-  .table-wrap:has(> table.stack):not(#attendance-report-wrap) {
+  .table-wrap:has(> table.stack) {
     max-height: none;
     overflow: visible;
-  }
-
-  /* Attendance is a long log: it keeps its scroll box, and each record is
-     one compact line set (person, then date, time, class, attended, cancelled). */
-  #attendanceTable > tbody > tr {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  #attendanceTable td:is(:nth-child(4), :nth-child(5), :nth-child(6), :nth-child(8), :nth-child(11), :nth-child(12), :nth-child(13)) {
-    display: none;
-  }
-
-  #attendanceTable td:nth-child(3) {
-    grid-column: 1 / -1;
-    order: -1;
-    font-weight: 700;
-  }
-
-  #attendanceTable td:nth-child(3)::before {
-    content: none;
   }
 
   table.stack,
@@ -7290,6 +7270,11 @@ th[aria-sort="descending"] .sort-mark {
   margin: 0;
 }
 
+.pd-tools + .card,
+.card + .pd-tools {
+  margin-top: 20px;
+}
+
 .pd-tool-body {
   display: grid;
   gap: 12px;
@@ -7489,6 +7474,704 @@ th[aria-sort="descending"] .sort-mark {
 
   .sop-reader-actions > [hidden] {
     display: none;
+  }
+}
+
+/* ---------- Daily Ad Review ---------- */
+
+:is(.ad-review-page, .follow-up-page) .table-wrap {
+  max-height: none;
+}
+
+:is(.ad-review-page, .follow-up-page) .table-wrap :is(th, td) {
+  position: static;
+  min-width: 0;
+  box-shadow: none;
+}
+
+:is(.ad-review-page, .follow-up-page) .table-wrap thead th {
+  background: var(--ai-50);
+}
+
+:is(.ad-review-page, .follow-up-page) .card-heading-row {
+  padding-right: 20px;
+  background-image: var(--stitch);
+  background-repeat: no-repeat;
+  background-position: 20px bottom;
+  background-size: calc(100% - 40px) 2px;
+}
+
+:is(.ad-review-page, .follow-up-page) .card-heading-row h2 {
+  background-image: none;
+}
+
+.ar-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 20px;
+  margin-bottom: 20px;
+}
+
+.ar-toolbar[hidden] {
+  display: none;
+}
+
+.ar-toolbar select {
+  min-width: 240px;
+}
+
+.ar-range {
+  margin: 0 0 10px;
+  color: var(--ink-3);
+  font-size: 0.875rem;
+}
+
+.ar-summary {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 16px 20px 20px;
+}
+
+.ar-summary > div {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.ar-summary dt {
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ar-summary dd {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.ar-table td {
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.ar-hub-table td,
+.ar-hub-table th {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.ar-hub-table .ar-verdict {
+  font-size: 0.75rem;
+}
+
+.ar-hub-table td[data-label="Diagnosis"] .pd-sub {
+  font-size: 0.75rem;
+}
+
+.ar-table td.num .stitch-meter {
+  width: 72px;
+  margin-left: auto;
+}
+
+.ar-light {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ar-light::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ar-light.is-green::before { background: var(--moss); }
+.ar-light.is-amber::before { background: #c98a1b; }
+.ar-light.is-red::before { background: var(--beni); }
+
+.ar-lights-table td,
+.ar-lights-table th {
+  padding: 10px 16px;
+}
+
+.ar-verdict {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--ai-50);
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ar-verdict.is-bad {
+  background: var(--beni-50);
+  color: var(--beni);
+}
+
+.ar-verdict.is-good {
+  background: var(--moss-50);
+  color: var(--moss);
+}
+
+.ar-tag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--ai-100);
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ar-action-cell {
+  width: 28%;
+  min-width: 240px;
+}
+
+.ar-table .ar-verdict {
+  max-width: 240px;
+}
+
+.ar-action-cell textarea {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  resize: vertical;
+  font-size: 0.85rem;
+}
+
+.ar-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 20px 20px 44px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.ar-steps .pd-muted {
+  margin-left: -24px;
+  list-style: none;
+  font-family: var(--font-ui);
+}
+
+.ar-hub-table select {
+  min-height: 34px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.ar-hub-table td[data-label="Diagnosis"] {
+  width: 24%;
+  min-width: 200px;
+}
+
+.ar-hub-table > tbody > .child-row > td {
+  padding: 0;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--cotton);
+}
+
+.ar-edit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 16px;
+  padding: 16px 20px 18px 64px;
+}
+
+.ar-edit label input,
+.ar-edit label select,
+.ar-edit label textarea {
+  width: 100%;
+}
+
+.ar-edit-wide,
+.ar-edit-foot {
+  grid-column: 1 / -1;
+}
+
+.ar-edit-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-3);
+}
+
+.ar-grid {
+  min-width: 720px;
+}
+
+.ar-grid th[scope="rowgroup"] {
+  width: 240px;
+  vertical-align: top;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.875rem;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+}
+
+.ar-grid tbody {
+  border-top: 2px solid var(--line-strong);
+}
+
+.ar-grid tbody tr:first-child > * {
+  border-top: 2px solid var(--line-strong);
+}
+
+.ar-grid-metric {
+  color: var(--ink-3);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.ar-preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ar-skipped td {
+  opacity: 0.55;
+}
+
+.ar-skipped td[data-label="Save to"] {
+  opacity: 1;
+}
+
+.ar-workflow {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 20px 0 44px;
+}
+
+.ar-workflow span,
+.ar-rules {
+  display: block;
+  color: var(--ink-2);
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.ar-rules {
+  display: grid;
+  gap: 8px;
+  margin: 16px 20px 20px;
+  padding: 14px 16px 14px 32px;
+  border-radius: var(--radius-sm);
+  background: var(--ai-50);
+}
+
+/* Import tab: one consistent 20px rhythm between every block. */
+.ar-stack.active {
+  display: grid;
+  gap: 20px;
+}
+
+.ar-stack > .card,
+.ar-stack > .pd-tools {
+  margin: 0;
+}
+
+.ar-step-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px 14px;
+  background-image: var(--stitch);
+  background-repeat: no-repeat;
+  background-position: 20px bottom;
+  background-size: calc(100% - 40px) 2px;
+}
+
+.ar-step-head h2 {
+  padding: 0;
+  background: none;
+}
+
+.ar-step-head .pd-help {
+  margin-top: 4px;
+}
+
+.ar-step-no {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--ai-800);
+  color: #fff;
+  font-family: var(--font-head);
+  font-size: 1.2rem;
+}
+
+.ar-checklist {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.ar-drop {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  width: 100%;
+  padding: 22px 16px;
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--cotton);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ar-drop strong {
+  font-family: var(--font-head);
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.ar-drop span {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
+.ar-drop:hover,
+.ar-drop.is-over {
+  border-color: var(--ai-400);
+  background: var(--ai-50);
+}
+
+.ar-drop:focus-visible {
+  outline: 3px solid var(--ai-400);
+  outline-offset: 2px;
+}
+
+.ar-step .csv-upload-status:empty {
+  display: none;
+}
+
+.ar-preview {
+  border-color: var(--ai-400);
+  box-shadow: 0 0 0 1px var(--ai-400);
+}
+
+.ar-log {
+  padding: 4px 0 16px;
+}
+
+.ar-log-group .past-due-log-group-header {
+  flex-wrap: wrap;
+}
+
+.ar-log-group .past-due-log-group-header h3 {
+  font-size: 1.15rem;
+}
+
+.ar-log-meta {
+  flex-basis: 100%;
+  padding-left: 22px;
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.ar-log-group .past-due-log-group-summary > span,
+.ar-drop span {
+  color: var(--ink-2);
+}
+
+.ar-log-group table {
+  border-top: 1px solid var(--line);
+}
+
+.ar-playbook-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 20px;
+}
+
+.ar-playbook-bar .ar-range {
+  margin: 0;
+}
+
+.ar-playbook-bar .ar-preview-actions {
+  align-items: center;
+  gap: 12px;
+}
+
+.ar-rules-edit,
+.pd-tools .ar-edit {
+  padding-left: 20px;
+}
+
+.ar-num-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ar-num-field input {
+  width: 100%;
+}
+
+.ar-num-field small {
+  color: var(--ink-3);
+}
+
+.ar-pb-table td {
+  vertical-align: top;
+}
+
+.ar-pb-table :is(input, textarea) {
+  width: 100%;
+  min-width: 90px;
+  font-size: 0.85rem;
+}
+
+.ar-pb-table textarea {
+  min-width: 260px;
+  resize: vertical;
+}
+
+.ar-pb-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 20px 20px;
+  list-style: none;
+}
+
+.ar-pb-item {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--cotton);
+}
+
+.ar-pb-item :is(input, textarea) {
+  width: 100%;
+}
+
+.ar-pb-item-foot {
+  text-align: right;
+}
+
+.ar-pb-subhead {
+  margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+  .ar-summary > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .ar-toolbar select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ar-toolbar label {
+    flex: 1 1 100%;
+  }
+
+  .ar-edit {
+    padding: 14px;
+  }
+
+  .ar-action-cell {
+    min-width: 0;
+    grid-column: 1 / -1;
+  }
+
+  :is(.ad-review-page, .follow-up-page) .card-heading-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    text-align: left;
+  }
+
+  :is(.ad-review-page, .follow-up-page) .card-heading-row h2 {
+    flex: 1 1 100%;
+    padding-bottom: 4px;
+    text-align: left;
+  }
+
+  :is(.ad-review-page, .follow-up-page) .card-heading-row > :not(h2) {
+    margin: 0 0 14px 20px;
+  }
+
+  :is(.ad-review-page, .follow-up-page) :is(.past-due-metrics) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  :is(.ad-review-page, .follow-up-page) .past-due-metric.key {
+    grid-column: 1 / -1;
+  }
+
+  :is(.ad-review-page, .follow-up-page) .past-due-metric {
+    padding: 12px;
+  }
+
+  .ar-hub-table > tbody > tr.parent-row > td:first-child {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .ar-hub-table > tbody > tr.parent-row > td[data-label="Ad"],
+  .ar-hub-table > tbody > tr.parent-row > td[data-label="Diagnosis"] {
+    grid-column: 1 / -1;
+  }
+
+  .ar-hub-table > tbody > tr.parent-row > td[data-label="Ad"] {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .ar-hub-table > tbody > tr.child-row > td {
+    display: block;
+  }
+}
+
+/* ---------- Red / Orange Follow-Up ---------- */
+
+.follow-up-main > .pd-tools {
+  margin-bottom: 12px;
+}
+
+.fu-hint {
+  margin: 0 0 20px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.fu-toolbar {
+  align-items: flex-end;
+}
+
+.fu-toolbar select {
+  min-width: 300px;
+}
+
+.fu-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.fu-tier .card-heading-row h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fu-tier .card-heading-row h2::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.fu-tier.is-orange .card-heading-row h2::before { background: #c98a1b; }
+.fu-tier.is-red .card-heading-row h2::before { background: var(--beni); }
+
+.fu-metric-orange strong { color: #9a6511; }
+.fu-metric-red strong { color: var(--beni); }
+
+.fu-note {
+  width: 34%;
+  min-width: 220px;
+}
+
+.fu-note input {
+  width: 100%;
+  min-height: 36px;
+  font-size: 0.85rem;
+}
+
+.fu-table td {
+  white-space: normal;
+}
+
+.fu-removed summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.fu-removed summary::-webkit-details-marker {
+  display: none;
+}
+
+.fu-note-groups {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 20px 20px;
+  list-style: none;
+}
+
+.fu-note-groups li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--cotton);
+}
+
+@media (max-width: 760px) {
+  .fu-toolbar select,
+  .fu-toolbar input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .fu-toolbar-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .fu-toolbar-actions .sop-action-button {
+    flex: 1;
+  }
+
+  .fu-note {
+    grid-column: 1 / -1;
+    min-width: 0;
   }
 }
 

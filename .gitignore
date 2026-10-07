@@ -7,3 +7,5 @@ node_modules/
 .claude/settings.json.graphify-bak
 .impeccable/review/
 .impeccable/questions/
+supabase/ad_review_seed.sql
+automation-output/
