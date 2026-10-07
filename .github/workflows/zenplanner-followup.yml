@@ -52,9 +52,6 @@ jobs:
           ZP_PASSWORD: ${{ secrets.ZP_PASSWORD }}
           BOT_EMAIL: ${{ secrets.BOT_EMAIL }}
           BOT_PASSWORD: ${{ secrets.BOT_PASSWORD }}
-          ZP_REPORT_URL: ${{ vars.ZP_REPORT_URL }}
-          ZP_MEMBERSHIP_URL: ${{ vars.ZP_MEMBERSHIP_URL }}
-          ZP_LOGIN_URL: ${{ vars.ZP_LOGIN_URL }}
           FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
         run: node automation/zenplanner-followup.mjs
 

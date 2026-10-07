@@ -1,29 +1,28 @@
-// Nightly job: download two saved Zen Planner reports, the attendance report
-// ("Red/Orange Attendance (30 Days Count)") and the membership status export, and save the
-// next Red / Orange Follow-Up report to the portal. Run by
-// .github/workflows/zenplanner-followup.yml every night at 11:59 pm Newcastle time.
+// Nightly job: export two saved Zen Planner reports, "Red/Orange Attendance (30 Days Count)"
+// and "Membership Report (Current/Hold)", and save the next Red / Orange Follow-Up report to
+// the portal. Run by .github/workflows/zenplanner-followup.yml every night at 11:59 pm Newcastle time.
 //
 // Secrets (GitHub > Settings > Secrets and variables > Actions), never in code:
 //   ZP_USERNAME, ZP_PASSWORD    Zen Planner staff login
 //   BOT_EMAIL, BOT_PASSWORD     a portal (Supabase) user made just for this job
-// Variables (same page, Variables tab):
-//   ZP_REPORT_URL               the attendance report's own address (else the menus are clicked)
-//   ZP_MEMBERSHIP_URL           the membership status report's own address (else the last
-//                               report's membership list is reused)
-//   ZP_LOGIN_URL                Zen Planner login page (optional)
+//
+// Local test (nothing saved, visible browser): copy automation/.env.example to automation/.env, fill it, then
+//   node --env-file=automation/.env automation/zenplanner-followup.mjs
 
 import { createRequire } from 'node:module';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 
 const require = createRequire(import.meta.url);
 const { fuAttendanceFromText, fuMembershipsFromText, fuNextReport, fuBuild } = require('../js/followUpCore.js');
 
-const REPORT_NAME = 'Red/Orange Attendance (30 Days Count)';
-const LOGIN_URL = process.env.ZP_LOGIN_URL || 'https://studio.zenplanner.com/zenplanner/studio/index.html';
+const STUDIO = 'https://studio.zenplanner.com/zenplanner/studio/index.html';
+// Saved reports, opened by category and name exactly as Zen Planner lists them.
+const ATTENDANCE_REPORT = { category: 'Attendance', name: 'RED/ORANGE ATTENDANCE (30 DAYS COUNT)', file: 'attendance' };
+const MEMBERSHIP_REPORT = { category: 'Members', name: 'MEMBERSHIP REPORT (CURRENT/HOLD)', file: 'membership' };
 const OUT = 'automation-output';
-const AUTO_ATTENDANCE = `Zen Planner auto-export (${REPORT_NAME})`;
+const AUTO_ATTENDANCE = 'Zen Planner auto-export (Red/Orange Attendance (30 Days Count))';
 const AUTO_MEMBERSHIP = 'Zen Planner auto-export (membership status)';
 
 const env = name => {
@@ -49,57 +48,54 @@ function sydneyReportDate() {
 }
 
 async function signIn(page) {
-  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
-  await page.locator('input[type="email"], input[name*="user" i], input[id*="user" i], input[name*="login" i]').first().fill(env('ZP_USERNAME'));
-  await page.locator('input[type="password"]').first().fill(env('ZP_PASSWORD'));
-  await Promise.all([
-    page.waitForLoadState('networkidle').catch(() => {}),
-    page.locator('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in")').first().click()
-  ]);
-  if (await page.locator('input[type="password"]').first().isVisible().catch(() => false)) {
+  await page.goto(STUDIO, { waitUntil: 'domcontentloaded' });
+  // The login form only reads typed keys (fill() leaves it empty), so type the values.
+  await page.locator('input[type="email"], input[name*="user" i], input[id*="user" i], input[name*="login" i]').first().pressSequentially(env('ZP_USERNAME'));
+  const password = page.locator('input[type="password"]').first();
+  await password.pressSequentially(env('ZP_PASSWORD'));
+  await password.press('Enter');
+  if (!await password.waitFor({ state: 'hidden', timeout: 30000 }).then(() => true, () => false)) {
     throw new Error('Still on the login page after signing in: check ZP_USERNAME / ZP_PASSWORD (or a captcha / 2-step check).');
   }
 }
 
-// Open a saved report (by its address, or the staff route through the menus) and export it as CSV text.
-async function exportReport(page, { url, category, name, file }) {
-  if (url) {
-    await page.goto(url, { waitUntil: 'networkidle' });
-  } else {
-    await page.getByText('Dashboard', { exact: true }).first().click().catch(() => {});
-    await page.getByText(category, { exact: true }).first().click();
-    await page.getByText(name, { exact: true }).first().click();
-    await page.waitForLoadState('networkidle');
+// Zen Planner pages load in an inner frame (beside a support-chat frame); wait for the one we want.
+async function studioFrame(page, test) {
+  for (let i = 0; i < 120; i++) {
+    const frame = page.frames().find(f => f !== page.mainFrame() && f.url().startsWith('https://studio.zenplanner.com/') && test(f.url()));
+    if (frame) return frame;
+    await page.waitForTimeout(500);
   }
-  await page.getByText(/\d+\s*[–-]\s*\d+\s+of\s+\d+/).first().waitFor({ timeout: 60000 }); // "1 – 202 of 202"
+  throw new Error('page did not load');
+}
 
-  // The download icon sits top right, next to the "1 – 202 of 202" counter.
-  const [download] = await Promise.all([
-    page.waitForEvent('download', { timeout: 60000 }),
-    page.locator('[title*="download" i], [aria-label*="download" i], [title*="export" i], [aria-label*="export" i], .fa-download, [class*="download" i]').first().click()
-  ]);
-  const suggested = download.suggestedFilename() || `${file}.csv`;
-  if (!/\.(csv|tsv|txt)$/i.test(suggested)) {
-    throw new Error(`Zen Planner sent "${suggested}" for the ${name}. The job reads CSV only; choose CSV in the export options.`);
-  }
-  const path = `${OUT}/${file}-${suggested}`;
-  await download.saveAs(path);
-  return readFile(path, 'utf8');
+// Open a saved report from its category list and fetch its CSV export: the address behind the
+// report's download icon > "CSV" link, requested with the signed-in session.
+async function exportReport(page, { category, name, file }) {
+  await page.goto(`${STUDIO}#/main/iframe/zenplanner/studio/welcome/index-reports.cfm?Category=${category}`);
+  const list = await studioFrame(page, url => url.includes('/welcome/index-reports.cfm'));
+  await list.getByText(name, { exact: true }).first().click({ timeout: 60000 });
+
+  const report = await studioFrame(page, url => !url.includes('/welcome/index-reports.cfm'));
+  const link = report.locator('a[href*="export=CSV"]').first();
+  await link.waitFor({ state: 'attached', timeout: 60000 });
+  const response = await page.context().request.get(new URL(await link.getAttribute('href'), report.url()).href);
+  const text = await response.text();
+  if (!response.ok() || !text.includes('","')) throw new Error(`CSV export failed (HTTP ${response.status()})`);
+  await writeFile(`${OUT}/${file}.csv`, text);
+  return text;
 }
 
 async function downloadReports() {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ headless: !process.env.HEADED });
   const page = await browser.newPage({ acceptDownloads: true, timezoneId: 'Australia/Sydney', locale: 'en-AU' });
   let step = 'signing in';
   try {
     await signIn(page);
-    step = 'attendance report';
-    const attendanceText = await exportReport(page, { url: process.env.ZP_REPORT_URL, category: 'Attendance', name: REPORT_NAME, file: 'attendance' });
-    let membershipText = null;
-    if (process.env.ZP_MEMBERSHIP_URL) {
-      step = 'membership status export';
-      membershipText = await exportReport(page, { url: process.env.ZP_MEMBERSHIP_URL, name: 'membership status export', file: 'membership' });
-    }
+    step = ATTENDANCE_REPORT.name;
+    const attendanceText = await exportReport(page, ATTENDANCE_REPORT);
+    step = MEMBERSHIP_REPORT.name;
+    const membershipText = await exportReport(page, MEMBERSHIP_REPORT);
     return { attendanceText, membershipText };
   } catch (error) {
     // Leave a screenshot and the page for the workflow artifacts, so selectors can be fixed.
@@ -122,7 +118,7 @@ async function main() {
   }
 
   const supabase = createClient(env('SUPABASE_URL'), env('SUPABASE_ANON_KEY'), { auth: { persistSession: false } });
-  const { error: signInError } = await supabase.auth.signInWithPassword({ email: env('BOT_EMAIL'), password: env('BOT_PASSWORD') });
+  const { error: signInError } = await supabase.auth.signInWithPassword({ email: env('BOT_EMAIL').trim(), password: env('BOT_PASSWORD') });
   if (signInError) throw new Error(`Portal sign-in failed for BOT_EMAIL: ${signInError.message}`);
 
   const { data: already } = await supabase.from('follow_up_reports').select('id')
@@ -134,28 +130,25 @@ async function main() {
 
   const { attendanceText, membershipText } = await downloadReports();
   const attendance = fuAttendanceFromText(attendanceText);
-  const memberships = membershipText ? fuMembershipsFromText(membershipText) : null;
+  const memberships = fuMembershipsFromText(membershipText);
 
-  // Without ZP_MEMBERSHIP_URL, Gratis / HOLD come from the latest report's membership list.
+  // The latest report supplies the notes to carry over.
   const { data: latest, error: latestError } = await supabase.from('follow_up_reports').select('*')
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (latestError) throw latestError;
-  if (!memberships && !latest?.memberships) {
-    throw new Error('No membership list yet. Set ZP_MEMBERSHIP_URL, or upload the membership status export on the portal once.');
-  }
 
   const next = fuNextReport(latest, {
-    attendance,
-    attendance_file: AUTO_ATTENDANCE,
-    report_date: reportDate,
-    ...(memberships && { memberships, membership_file: AUTO_MEMBERSHIP })
+    attendance, memberships, report_date: reportDate,
+    attendance_file: AUTO_ATTENDANCE, membership_file: AUTO_MEMBERSHIP
   });
-  const { data, error } = await supabase.from('follow_up_reports').insert(next).select('id').single();
-  if (error) throw error;
-
   const result = fuBuild(next);
-  console.log(`Saved report ${data.id} for ${reportDate}: ${attendance.length} attendance rows, `
-    + `${memberships ? `${memberships.length} membership records` : 'membership list reused'}; `
+  let id = 'not saved (DRY_RUN)';
+  if (!process.env.DRY_RUN) {
+    const { data, error } = await supabase.from('follow_up_reports').insert(next).select('id').single();
+    if (error) throw error;
+    id = data.id;
+  }
+  console.log(`Report ${id} for ${reportDate}: ${attendance.length} attendance rows, ${memberships.length} membership records; `
     + `orange ${result.orange.length}, red ${result.red.length}, no record ${result.none.length}, `
     + `excluded ${result.excluded.length}; ${Object.keys(next.notes).length} notes carried over.`);
 }
