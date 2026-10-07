@@ -11,66 +11,145 @@
 <body class="follow-up-page">
   <header>
     <p id="updatedLine">Loading…</p>
+    <nav class="site-nav">
+      <button data-tab="report" class="active">Follow-up</button>
+      <button data-tab="log">Contact log</button>
+      <button data-tab="upload">Upload</button>
+    </nav>
   </header>
 
   <main class="follow-up-main">
-    <div class="pd-tools">
-      <div class="card ar-step">
-        <div class="ar-step-head">
-          <span class="ar-step-no" aria-hidden="true">1</span>
-          <div>
-            <h2>Attendance export</h2>
-            <p class="pd-help">One row per member with Name, Phone and Last Att. Date.</p>
-          </div>
-        </div>
-        <div class="pd-tool-body">
-          <input id="fuAttendanceFile" type="file" accept=".csv,text/csv" hidden>
-          <button type="button" class="ar-drop" data-pick="fuAttendanceFile">
-            <strong>Choose attendance CSV</strong>
-            <span>or drop the file here</span>
-          </button>
-          <p class="csv-upload-status" id="fuAttendanceStatus" role="status"></p>
-        </div>
-      </div>
-      <div class="card ar-step">
-        <div class="ar-step-head">
-          <span class="ar-step-no" aria-hidden="true">2</span>
-          <div>
-            <h2>Membership status export</h2>
-            <p class="pd-help">All membership rows. The latest record per person decides Gratis and HOLD.</p>
-          </div>
-        </div>
-        <div class="pd-tool-body">
-          <input id="fuMembershipFile" type="file" accept=".csv,text/csv" hidden>
-          <button type="button" class="ar-drop" data-pick="fuMembershipFile">
-            <strong>Choose membership CSV</strong>
-            <span>or drop the file here</span>
-          </button>
-          <p class="csv-upload-status" id="fuMembershipStatus" role="status"></p>
-        </div>
+    <!-- PDF only: the report's title block. -->
+    <div class="fu-print-head" aria-hidden="true">
+      <img src="../../imgs/aikido-logo.png" alt="">
+      <div>
+        <strong>Red / Orange Follow-Up</strong>
+        <span id="fuPrintMeta"></span>
       </div>
     </div>
 
-    <p class="fu-hint" id="fuHint">Upload a new file on its own to re-run the report against the other file already
-      on record. Notes from the previous report carry over to anyone still on the list.</p>
-
-    <div class="ar-toolbar fu-toolbar" id="fuToolbar" hidden>
-      <label>
-        <span>Report</span>
-        <select id="fuHistory"></select>
-      </label>
-      <label>
-        <span>Report date</span>
-        <input type="date" id="fuReportDate">
-      </label>
-      <div class="fu-toolbar-actions">
-        <button type="button" class="sop-action-button secondary" id="fuDownload">Download .md</button>
-        <button type="button" class="sop-action-button primary" id="fuCopy">Copy report</button>
+    <section class="tab-panel active" id="tab-report">
+      <div class="ar-toolbar fu-toolbar" id="fuToolbar" hidden>
+        <label>
+          <span>Report</span>
+          <select id="fuHistory"></select>
+        </label>
+        <label>
+          <span>Report date</span>
+          <input type="date" id="fuReportDate">
+        </label>
+        <div class="fu-toolbar-actions">
+          <button type="button" class="sop-action-button secondary" id="fuCopy">Copy</button>
+          <button type="button" class="sop-action-button secondary" id="fuDownload">.md</button>
+          <button type="button" class="sop-action-button primary" id="fuPdf">Download PDF</button>
+        </div>
       </div>
-    </div>
 
-    <div id="fuReport"></div>
+      <div class="member-toolbar fu-filters" id="fuFilters" hidden>
+        <label class="member-search">
+          <span class="sr-only">Search members</span>
+          <input id="fuSearch" type="search" placeholder="Search name or phone" autocomplete="off">
+        </label>
+        <div class="fu-segment" role="group" aria-label="Show">
+          <button type="button" data-show="all" aria-pressed="true">All</button>
+          <button type="button" data-show="todo" aria-pressed="false">Not contacted</button>
+          <button type="button" data-show="done" aria-pressed="false">Contacted</button>
+        </div>
+      </div>
+
+      <div id="fuReport"></div>
+    </section>
+
+    <section class="tab-panel" id="tab-log">
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Contact log</h2>
+          <span class="member-count" id="fuLogCount" role="status" aria-live="polite"></span>
+        </div>
+        <div class="member-toolbar">
+          <label class="member-search">
+            <span class="sr-only">Search the contact log</span>
+            <input id="fuLogSearch" type="search" placeholder="Search name, note or staff" autocomplete="off">
+          </label>
+          <label>
+            <span class="sr-only">Outcome</span>
+            <select id="fuLogOutcome"><option value="">All outcomes</option></select>
+          </label>
+          <label class="fu-date">
+            <span>From</span>
+            <input id="fuLogFrom" type="date">
+          </label>
+          <label class="fu-date">
+            <span>To</span>
+            <input id="fuLogTo" type="date">
+          </label>
+        </div>
+        <div class="table-wrap" id="fuLogTable"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-upload">
+      <p class="fu-hint">The report builds itself every night at 11:59 pm from Zen Planner. Upload here only to
+        re-run it by hand: a new file on its own is run against the other file already on record, and notes
+        carry over to anyone still on the list.</p>
+      <div class="pd-tools">
+        <div class="card ar-step">
+          <div class="ar-step-head">
+            <span class="ar-step-no" aria-hidden="true">1</span>
+            <div>
+              <h2>Attendance export</h2>
+              <p class="pd-help">One row per member with Name, Phone and Last Att. Date.</p>
+            </div>
+          </div>
+          <div class="pd-tool-body">
+            <input id="fuAttendanceFile" type="file" accept=".csv,text/csv" hidden>
+            <button type="button" class="ar-drop" data-pick="fuAttendanceFile">
+              <strong>Choose attendance CSV</strong>
+              <span>or drop the file here</span>
+            </button>
+            <p class="csv-upload-status" id="fuAttendanceStatus" role="status"></p>
+          </div>
+        </div>
+        <div class="card ar-step">
+          <div class="ar-step-head">
+            <span class="ar-step-no" aria-hidden="true">2</span>
+            <div>
+              <h2>Membership status export</h2>
+              <p class="pd-help">All membership rows. The latest record per person decides Gratis and HOLD.</p>
+            </div>
+          </div>
+          <div class="pd-tool-body">
+            <input id="fuMembershipFile" type="file" accept=".csv,text/csv" hidden>
+            <button type="button" class="ar-drop" data-pick="fuMembershipFile">
+              <strong>Choose membership CSV</strong>
+              <span>or drop the file here</span>
+            </button>
+            <p class="csv-upload-status" id="fuMembershipStatus" role="status"></p>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <dialog class="fu-dialog" id="fuContactDialog" aria-labelledby="fuContactTitle">
+    <form method="dialog" id="fuContactForm">
+      <h2 id="fuContactTitle">Log contact</h2>
+      <p class="fu-dialog-sub" id="fuContactWho"></p>
+      <section class="fu-history" id="fuContactHistory" aria-label="Contact history"></section>
+      <fieldset class="fu-outcomes">
+        <legend>Outcome</legend>
+        <div id="fuOutcomeChoices"></div>
+      </fieldset>
+      <label class="fu-dialog-note">
+        <span>Note <small>(optional)</small></span>
+        <textarea id="fuContactNote" rows="3" maxlength="500" placeholder="e.g. Back next Tuesday, injured knee"></textarea>
+      </label>
+      <div class="fu-dialog-actions">
+        <button type="button" class="sop-action-button secondary" value="cancel" id="fuContactCancel">Cancel</button>
+        <button type="submit" class="sop-action-button primary" value="save">Save contact</button>
+      </div>
+    </form>
+  </dialog>
 
   <p class="pd-toast" id="fuToast" role="status" aria-live="polite" hidden></p>
 

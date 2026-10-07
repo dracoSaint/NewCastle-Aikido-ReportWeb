@@ -8175,6 +8175,326 @@ th[aria-sort="descending"] .sort-mark {
   }
 }
 
+/* Follow-up: filters, contact status, contact dialog, log sheet. */
+
+.fu-filters {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+@media (min-width: 1100px) {
+  .fu-metrics {
+    grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr));
+  }
+}
+
+.fu-segment {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+.fu-segment button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 0.85rem var(--font-ui);
+  cursor: pointer;
+}
+
+.fu-segment button[aria-pressed="true"] {
+  background: var(--ai-800);
+  color: var(--on-ai);
+}
+
+.fu-metric-progress strong small {
+  color: var(--ink-3);
+  font-size: 0.55em;
+  font-weight: 600;
+}
+
+.fu-progress {
+  display: block;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.fu-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--moss);
+}
+
+.fu-table tr.is-contacted,
+.fu-table tr.is-contacted td {
+  background: color-mix(in srgb, var(--moss-50) 55%, transparent);
+}
+
+.fu-chip {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font: 600 0.75rem/1.3 var(--font-ui);
+  white-space: nowrap;
+}
+
+.fu-chip.is-todo { background: var(--cotton); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.fu-chip.is-done { background: var(--moss-50); color: var(--moss); }
+.fu-chip.is-tried { background: var(--kin-50); color: var(--kin); }
+
+.fu-contact {
+  min-width: 150px;
+}
+
+.fu-undo {
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+
+.fu-history h3 {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font: 600 0.875rem var(--font-ui);
+}
+
+.fu-history ol {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.fu-history li {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--cotton);
+}
+
+.fu-history-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.fu-history li p {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+}
+
+.fu-history-empty {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.875rem;
+}
+
+.fu-phone {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fu-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.fu-actions .fu-log-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+}
+
+.fu-actions .pd-link {
+  margin-left: 6px;
+}
+
+.fu-tier-tag {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fu-tier-tag.is-orange { color: #9a6511; }
+.fu-tier-tag.is-red { color: var(--beni); }
+
+.fu-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.fu-print-only,
+.fu-print-head {
+  display: none;
+}
+
+.fu-dialog {
+  width: min(460px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+}
+
+.fu-dialog::backdrop {
+  background: rgba(31, 33, 36, 0.45);
+}
+
+.fu-dialog form {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.fu-dialog h2 {
+  margin: 0;
+}
+
+.fu-dialog-sub {
+  margin: -8px 0 0;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.fu-outcomes {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fu-outcomes legend,
+.fu-dialog-note > span {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.fu-outcomes > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fu-outcome input {
+  position: absolute;
+  opacity: 0;
+}
+
+.fu-outcome span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.fu-outcome input:checked + span {
+  border-color: var(--ai-800);
+  background: var(--ai-800);
+  color: var(--on-ai);
+}
+
+.fu-outcome input:focus-visible + span {
+  outline: 2px solid var(--ai-600);
+  outline-offset: 2px;
+}
+
+.fu-dialog-note {
+  display: grid;
+}
+
+.fu-dialog-note small {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.fu-dialog-note textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.fu-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .fu-segment {
+    width: 100%;
+  }
+
+  .fu-segment button {
+    flex: 1;
+    padding: 0 6px;
+  }
+
+  table.stack > tbody > tr > td.fu-actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+  }
+
+  .fu-actions .fu-log-btn {
+    flex: 1;
+    max-width: 220px;
+  }
+
+  table.stack > tbody > tr > td.fu-contact {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+  }
+
+  table.stack td.fu-note input {
+    width: 100%;
+  }
+
+  .member-toolbar label:has(> #fuLogOutcome),
+  #fuLogOutcome {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .member-toolbar .fu-date {
+    flex: 1 1 0;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .fu-date input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  table.stack > tbody > tr > td:has(> .fu-chip),
+  .fu-log td[data-label=""] {
+    align-items: flex-start;
+  }
+}
+
 /* Alignment: undo legacy rules that knocked these lists out of line. */
 
 .member-toolbar input[type="search"] {
@@ -8340,7 +8660,114 @@ th[aria-sort="descending"] .sort-mark {
     display: none;
   }
 
+  html,
   body {
     background: #fff;
+  }
+}
+
+/* Follow-up PDF (browser print > Save as PDF): the report as it looks on screen, minus controls. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  .follow-up-page {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .follow-up-page :is(.fu-toolbar, .fu-filters, .fu-actions, .fu-actions-col, .fu-removed, .fu-note-card, .fu-warning, .pd-toast, .fu-dialog),
+  .follow-up-page .fu-note input,
+  .follow-up-page .tab-panel:not(#tab-report) {
+    display: none !important;
+  }
+
+  .follow-up-page #tab-report {
+    display: block !important;
+  }
+
+  .follow-up-page .follow-up-main {
+    padding: 0;
+  }
+
+  .follow-up-page .fu-print-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--ai-800);
+  }
+
+  .follow-up-page .fu-print-head img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .follow-up-page .fu-print-head strong {
+    display: block;
+    font: 1.6rem var(--font-head);
+    letter-spacing: 0.02em;
+  }
+
+  .follow-up-page .fu-print-head span {
+    color: var(--ink-2);
+    font-size: 0.8rem;
+  }
+
+  .follow-up-page .fu-print-only {
+    display: inline;
+  }
+
+  .follow-up-page .card {
+    box-shadow: none;
+    break-inside: auto;
+    overflow: hidden;
+  }
+
+  .follow-up-page .card-heading-row {
+    break-after: avoid;
+  }
+
+  .follow-up-page tr {
+    break-inside: avoid;
+  }
+
+  .follow-up-page thead {
+    display: table-header-group;
+  }
+
+  .follow-up-page .fu-metrics {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .follow-up-page .fu-metrics .past-due-metric {
+    grid-column: auto;
+  }
+
+  .follow-up-page :is(main, .follow-up-main) {
+    min-height: 0;
+    background: #fff;
+  }
+
+  .follow-up-page table {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .follow-up-page .fu-note {
+    width: auto;
+    min-width: 0;
+  }
+
+  .follow-up-page .table-wrap {
+    overflow: visible;
+  }
+
+  .follow-up-page a[href^="tel:"] {
+    color: inherit;
+    text-decoration: none;
   }
 }
