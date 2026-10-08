@@ -10,25 +10,17 @@
 //   node --env-file=automation/.env automation/zenplanner-followup.mjs
 
 import { createRequire } from 'node:module';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
+import { STUDIO, env, studioFrame, exportCsv, withZenPlanner } from './zenplanner.mjs';
 
 const require = createRequire(import.meta.url);
 const { fuAttendanceFromText, fuMembershipsFromText, fuNextReport, fuBuild } = require('../js/followUpCore.js');
 
-const STUDIO = 'https://studio.zenplanner.com/zenplanner/studio/index.html';
 // Saved reports, opened by category and name exactly as Zen Planner lists them.
 const ATTENDANCE_REPORT = { category: 'Attendance', name: 'RED/ORANGE ATTENDANCE (30 DAYS COUNT)', file: 'attendance' };
 const MEMBERSHIP_REPORT = { category: 'Members', name: 'MEMBERSHIP REPORT (CURRENT/HOLD)', file: 'membership' };
-const OUT = 'automation-output';
 const AUTO_ATTENDANCE = 'Zen Planner auto-export (Red/Orange Attendance (30 Days Count))';
 const AUTO_MEMBERSHIP = 'Zen Planner auto-export (membership status)';
-
-const env = name => {
-  if (!process.env[name]) throw new Error(`Missing ${name}. Add it under GitHub repository secrets.`);
-  return process.env[name];
-};
 
 // Runs at 11:59 pm Sydney. The schedule fires twice (daylight saving) and GitHub can run late,
 // so accept 11 pm to 3 am Sydney time, and date the report the evening it covers.
@@ -47,68 +39,23 @@ function sydneyReportDate() {
   return null;
 }
 
-async function signIn(page) {
-  await page.goto(STUDIO, { waitUntil: 'domcontentloaded' });
-  // The login form only reads typed keys (fill() leaves it empty), so type the values.
-  await page.locator('input[type="email"], input[name*="user" i], input[id*="user" i], input[name*="login" i]').first().pressSequentially(env('ZP_USERNAME'));
-  const password = page.locator('input[type="password"]').first();
-  await password.pressSequentially(env('ZP_PASSWORD'));
-  await password.press('Enter');
-  if (!await password.waitFor({ state: 'hidden', timeout: 30000 }).then(() => true, () => false)) {
-    throw new Error('Still on the login page after signing in: check ZP_USERNAME / ZP_PASSWORD (or a captcha / 2-step check).');
-  }
-}
-
-// Zen Planner pages load in an inner frame (beside a support-chat frame); wait for the one we want.
-async function studioFrame(page, test) {
-  for (let i = 0; i < 120; i++) {
-    const frame = page.frames().find(f => f !== page.mainFrame() && f.url().startsWith('https://studio.zenplanner.com/') && test(f.url()));
-    if (frame) return frame;
-    await page.waitForTimeout(500);
-  }
-  throw new Error('page did not load');
-}
-
-// Open a saved report from its category list and fetch its CSV export: the address behind the
-// report's download icon > "CSV" link, requested with the signed-in session.
+// Open a saved report from its category list and fetch its CSV export.
 async function exportReport(page, { category, name, file }) {
   await page.goto(`${STUDIO}#/main/iframe/zenplanner/studio/welcome/index-reports.cfm?Category=${category}`);
   const list = await studioFrame(page, url => url.includes('/welcome/index-reports.cfm'));
   await list.getByText(name, { exact: true }).first().click({ timeout: 60000 });
-
-  const report = await studioFrame(page, url => !url.includes('/welcome/index-reports.cfm'));
-  const link = report.locator('a[href*="export=CSV"]').first();
-  await link.waitFor({ state: 'attached', timeout: 60000 });
-  const response = await page.context().request.get(new URL(await link.getAttribute('href'), report.url()).href);
-  const text = await response.text();
-  if (!response.ok() || !text.includes('","')) throw new Error(`CSV export failed (HTTP ${response.status()})`);
-  await writeFile(`${OUT}/${file}.csv`, text);
-  return text;
+  return exportCsv(page, await studioFrame(page, url => !url.includes('/welcome/index-reports.cfm')), file);
 }
 
-async function downloadReports() {
-  const browser = await chromium.launch({ headless: !process.env.HEADED });
-  const page = await browser.newPage({ acceptDownloads: true, timezoneId: 'Australia/Sydney', locale: 'en-AU' });
-  let step = 'signing in';
-  try {
-    await signIn(page);
-    step = ATTENDANCE_REPORT.name;
-    const attendanceText = await exportReport(page, ATTENDANCE_REPORT);
-    step = MEMBERSHIP_REPORT.name;
-    const membershipText = await exportReport(page, MEMBERSHIP_REPORT);
-    return { attendanceText, membershipText };
-  } catch (error) {
-    // Leave a screenshot and the page for the workflow artifacts, so selectors can be fixed.
-    await page.screenshot({ path: `${OUT}/failure.png`, fullPage: true }).catch(() => {});
-    await writeFile(`${OUT}/failure.html`, await page.content().catch(() => '')).catch(() => {});
-    throw new Error(`Zen Planner, ${step}: ${error.message}`);
-  } finally {
-    await browser.close();
-  }
-}
+const downloadReports = () => withZenPlanner(async (page, step) => {
+  step(ATTENDANCE_REPORT.name);
+  const attendanceText = await exportReport(page, ATTENDANCE_REPORT);
+  step(MEMBERSHIP_REPORT.name);
+  const membershipText = await exportReport(page, MEMBERSHIP_REPORT);
+  return { attendanceText, membershipText };
+});
 
 async function main() {
-  await mkdir(OUT, { recursive: true });
   const reportDate = process.env.FORCE_RUN === 'true'
     ? new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' })
     : sydneyReportDate();

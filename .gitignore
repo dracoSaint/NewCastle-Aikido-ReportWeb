@@ -10,3 +10,4 @@ node_modules/
 supabase/ad_review_seed.sql
 automation-output/
 automation/.env
+supabase/.temp/

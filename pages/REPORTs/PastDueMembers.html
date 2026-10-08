@@ -191,6 +191,16 @@
     <section class="tab-panel" id="tab-export">
       <div class="pd-tools">
         <div class="card">
+          <h2>Sync from Zen Planner</h2>
+          <div class="pd-tool-body">
+            <p class="pd-help">Unpaid bills due today or earlier are pulled from Zen Planner every morning at 7am. New bills are added; bills already on file are left as they are.</p>
+            <div class="pd-inline-form">
+              <button type="button" class="sop-action-button primary" id="zenSyncBtn">Sync now</button>
+            </div>
+            <p id="zenSyncStatus" class="csv-upload-status" role="status"></p>
+          </div>
+        </div>
+        <div class="card">
           <h2>Import billing CSV</h2>
           <div class="pd-tool-body">
             <p class="pd-help">Bills already on file (same bill number) are skipped, so re-importing a report is safe.</p>
@@ -284,6 +294,7 @@
   <script src="../../js/auth.js"></script>
   <script src="../../js/siteHeader.js"></script>
   <script src="../../js/siteMenu.js"></script>
+  <script src="../../js/pastDueCore.js"></script>
   <script src="../../js/pastDueMembers.js"></script>
   <script src="../../js/footer.js"></script>
 </body>

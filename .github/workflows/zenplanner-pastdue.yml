@@ -1,0 +1,61 @@
+# Every morning at 7 am Newcastle time: pulls Zen Planner's unpaid bills (due today or earlier) and
+# adds new ones to the Past Due report. Also started by the Past Due page's "Sync now" button
+# (supabase/functions/run-pastdue-sync). Runs on GitHub, not Netlify: no build credits are used.
+name: Zen Planner past due sync
+
+on:
+  schedule:
+    # GitHub cron is UTC. 7 am Sydney is 20:00 UTC in daylight saving (AEDT)
+    # and 21:00 UTC otherwise (AEST). The job runs both and skips the wrong one.
+    - cron: '0 20 * * *'
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zenplanner-pastdue
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the import rules
+        run: node automation/pastdue-core.check.mjs
+
+      - name: Install browser and Supabase client
+        run: |
+          npm install --no-save --no-package-lock playwright@1 @supabase/supabase-js@2
+          npx playwright install --with-deps chromium
+
+      - name: Pull unpaid bills and add to Past Due report
+        env:
+          # Public values (already in js/config.js).
+          SUPABASE_URL: https://knnzybqudpdxhddcaxcv.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_fPh3JNTjI5Loc32jDzhJkw_i5YHeS9l
+          # Private: set under Settings > Secrets and variables > Actions.
+          ZP_USERNAME: ${{ secrets.ZP_USERNAME }}
+          ZP_PASSWORD: ${{ secrets.ZP_PASSWORD }}
+          BOT_EMAIL: ${{ secrets.BOT_EMAIL }}
+          BOT_PASSWORD: ${{ secrets.BOT_PASSWORD }}
+          SCHEDULE: ${{ github.event.schedule }}
+          TZ: Australia/Sydney
+        run: node automation/zenplanner-pastdue.mjs
+
+      # On failure, keep a screenshot of where Zen Planner stopped (no passwords are captured).
+      - name: Keep failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zenplanner-pastdue-failure
+          path: automation-output/failure.*
+          retention-days: 7
