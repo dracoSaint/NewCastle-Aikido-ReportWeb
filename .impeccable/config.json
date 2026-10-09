@@ -101,6 +101,15 @@
         ],
         "createdAt": "2026-10-06T00:46:30.254Z",
         "reason": "Legacy base-layer body stack (line ~56), overridden by the brand layer's Arimo; not rendered"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/PastDueMembers.html"
+        ],
+        "createdAt": "2026-10-09T00:55:39.370Z",
+        "reason": "Claude measured rendered page: .card has no padding by design, children (h2, .pd-card-lede, .pd-tool-body, tables) inset themselves; no text within 8px of any card edge at 1440 and 390 on all tabs"
       }
     ]
   }
