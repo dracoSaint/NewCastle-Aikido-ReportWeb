@@ -28,6 +28,22 @@
 
   <main>
     <section class="tab-panel active" id="tab-overview">
+      <form class="card chart-card-wide member-toolbar overview-filters" id="overviewFilters" aria-label="Filter the dashboard">
+        <label class="overview-date">
+          <span>From</span>
+          <input type="date" id="overviewFrom">
+        </label>
+        <label class="overview-date">
+          <span>To</span>
+          <input type="date" id="overviewTo">
+        </label>
+        <details class="overview-types">
+          <summary>Membership types: <span id="overviewTypesCount">All</span></summary>
+          <div class="overview-types-list" id="overviewTypes"></div>
+        </details>
+        <button type="reset" class="sop-action-button secondary">Reset</button>
+        <span id="overviewFilterStatus" class="overview-filter-status" role="status"></span>
+      </form>
       <div class="past-due-metrics key-strip chart-card-wide" id="mondayKeyFigure" aria-live="polite"></div>
       <div class="card chart-card chart-card-wide">
         <h2>Membership Trend</h2>
@@ -101,7 +117,8 @@
           <div class="member-toolbar-actions">
             <button type="button" class="sop-action-button secondary" id="exportMemberCsvBtn">Export CSV</button>
             <input id="memberCsvInput" type="file" accept=".csv,text/csv" hidden>
-            <button id="importMemberCsvBtn" type="button" class="sop-action-button primary">Upload CSV</button>
+            <button id="importMemberCsvBtn" type="button" class="sop-action-button secondary">Upload CSV</button>
+            <button id="mondaySyncBtn" type="button" class="sop-action-button primary" title="Pulls the membership report from Zen Planner. Runs automatically every Monday at 7am.">Sync data</button>
           </div>
           <span id="csvUploadStatus" class="csv-upload-status" role="status"></span>
         </div>
@@ -182,6 +199,7 @@
   <script src="../../js/siteMenu.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="../../js/config.js"></script>
+  <script src="../../js/mondayImportCore.js"></script>
   <script src="../../js/mondayBoardScripts.js"></script>
 </body>
 

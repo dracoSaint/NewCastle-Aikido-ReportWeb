@@ -13,6 +13,7 @@
     <p id="updatedLine">Loading…</p>
     <nav class="site-nav">
       <button data-tab="report" class="active">Daily Report</button>
+      <button data-tab="trends">Trends</button>
       <button data-tab="hub">Ad Hub</button>
       <button data-tab="review">Monthly Review</button>
       <button data-tab="leads">Leads</button>
@@ -92,6 +93,41 @@
     </section>
 
     <!-- Monthly Review (sheets: <MONTH> REVIEW) -->
+    <!-- Trends: Meta's rolling 7 days on every report date, for all ads or a campaign / ad set / ad -->
+    <section class="tab-panel" id="tab-trends">
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Ad trends</h2>
+          <span class="member-count" id="arTrendScope" role="status" aria-live="polite"></span>
+        </div>
+        <div class="member-toolbar">
+          <label><span class="sr-only">Campaign</span><select id="arTrendCampaign"><option value="">All campaigns</option></select></label>
+          <label><span class="sr-only">Ad set</span><select id="arTrendAdSet"><option value="">All ad sets</option></select></label>
+          <label><span class="sr-only">Ad</span><select id="arTrendAd"><option value="">All ads</option></select></label>
+        </div>
+        <p class="pd-card-lede">Each point is Meta's rolling last 7 days on that report date, for the ads chosen above.</p>
+      </div>
+      <div class="ar-trend-grid">
+        <div class="card">
+          <h2>Spend and leads</h2>
+          <div class="chart-wrap"><canvas role="img" id="arTrendSpend" aria-label="Amount spent and leads by report date"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Cost per lead</h2>
+          <div class="chart-wrap"><canvas role="img" id="arTrendCpl" aria-label="Cost per lead by report date"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Click-through rate</h2>
+          <p class="pd-card-lede">Dashed lines are the CTR targets set in the Playbook.</p>
+          <div class="chart-wrap"><canvas role="img" id="arTrendCtr" aria-label="CTR all and CTR link click-through by report date, with targets"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Leads by ad</h2>
+          <div class="chart-wrap"><canvas role="img" id="arTrendByAd" aria-label="Leads for each ad by report date"></canvas></div>
+        </div>
+      </div>
+    </section>
+
     <section class="tab-panel" id="tab-review">
       <div class="past-due-metrics" id="arMonthMetrics"></div>
       <div class="card">
@@ -217,6 +253,7 @@
   <script src="../../js/auth.js"></script>
   <script src="../../js/siteHeader.js"></script>
   <script src="../../js/siteMenu.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="../../js/adReview.js"></script>
   <script src="../../js/footer.js"></script>
 </body>

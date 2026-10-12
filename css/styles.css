@@ -5930,6 +5930,7 @@ nav.site-nav {
 }
 
 .past-due-metric strong small {
+  margin-left: 8px;
   color: var(--ink-3);
   font-family: var(--font-ui);
   font-size: 0.9rem;
@@ -6979,10 +6980,6 @@ th[aria-sort="descending"] .sort-mark {
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
-}
-
-.past-due-page .past-due-metric strong small {
-  margin-left: 8px;
 }
 
 .pd-flag {
@@ -8770,4 +8767,233 @@ th[aria-sort="descending"] .sort-mark {
     color: inherit;
     text-decoration: none;
   }
+}
+
+/* Monday report tables: fill the card, and both tables share column widths so they line up. */
+.report-summary-table {
+  width: 100%;
+  min-width: 900px;
+  height: auto;
+  table-layout: fixed;
+}
+
+.report-summary-table .report-col-label {
+  width: 20%;
+}
+
+/* Fixed columns: long headings wrap instead of being cut off. */
+.report-summary-table th {
+  white-space: normal;
+  line-height: 1.3;
+}
+
+/* Only the label column stays put when the table scrolls sideways. */
+.report-summary-table th:nth-child(2),
+.report-summary-table td:nth-child(2) {
+  position: static;
+  box-shadow: none;
+}
+
+.report-muted {
+  color: var(--ink-3);
+}
+
+.report-sheet-shell > .report-metadata {
+  display: block;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  color: var(--ink-2);
+  font-size: 0.95rem;
+}
+
+/* Phones: each row becomes a card (see table.stack), its name across the top. */
+@media (max-width: 640px) {
+  .report-card-panel:has(> table.stack) {
+    max-height: none;
+    overflow: visible;
+  }
+
+  table.stack.report-summary-table .report-status {
+    align-self: flex-start;
+  }
+
+  table.stack.report-summary-table > tbody > tr > td:first-child {
+    grid-column: 1 / -1;
+    font-size: 1rem;
+    font-weight: 700;
+    box-shadow: none;
+  }
+}
+
+/* Monday Overview filters: date range + membership types dropdown. */
+#tab-overview > .overview-filters {
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  overflow: visible;
+}
+
+.overview-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.overview-types {
+  position: relative;
+}
+
+.overview-types > summary {
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.9rem;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.overview-types-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(170px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: var(--shadow-1);
+}
+
+.overview-types-list fieldset {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.overview-types-list legend {
+  margin-bottom: 4px;
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.overview-types-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.overview-filter-status {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .overview-date {
+    flex: 1 1 140px;
+  }
+
+  .overview-date input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .overview-types-list {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-filter-status {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+.pd-min-amount input {
+  width: 140px;
+}
+
+/* Daily Ad Review trends: two charts across, one on narrow screens. */
+.ar-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.ar-trend-grid > .card {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .ar-trend-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phones: the per-ad legend wraps onto several rows, so give that chart more room. */
+@media (max-width: 640px) {
+  .chart-wrap:has(> #arTrendByAd) {
+    height: 440px;
+  }
+}
+
+/* Leads "Top ad" tile: the ad name sits in the label on one line; the full name is in the tooltip. */
+.ar-top-ad > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#tab-trends > .card > .pd-card-lede {
+  padding-bottom: 16px;
+}
+
+/* Phones: fade the end of the tab bar so it reads as scrollable. */
+@media (max-width: 600px) {
+  nav.site-nav {
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+  }
+}
+
+/* Follow-up KPIs on phones: key figure across the top, the rest two by two. */
+@media (max-width: 600px) {
+  .follow-up-page .past-due-metrics.fu-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Monday history log: rows read as plain text until Edit turns their inputs on. */
+#memberHistoryLog-wrap tr[data-editable="false"] input:disabled {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  opacity: 1;
+  -webkit-text-fill-color: currentColor;
+  appearance: textfield;
+}
+
+#memberHistoryLog-wrap tr[data-editable="false"] input:disabled::-webkit-calendar-picker-indicator,
+#memberHistoryLog-wrap tr[data-editable="false"] input:disabled::-webkit-inner-spin-button {
+  display: none;
 }

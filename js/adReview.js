@@ -426,7 +426,7 @@ function arHubRowsHtml(ads, date) {
         return `
           <tr class="parent-row${open ? ' is-open' : ''}" data-ad="${ad.id}">
             <td class="pd-toggle-cell"><button type="button" class="toggle-btn" aria-expanded="${open}" aria-controls="arAd-${ad.id}" aria-label="Edit ${arEsc(ad.ad_name)}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button></td>
-            <td data-label="Ad"><strong>${arEsc(ad.ad_name)}</strong><small class="pd-sub">${arEsc(arCampaign(ad) || 'No campaign set')}${weeks !== null ? ` · ${weeks} wk${weeks === 1 ? '' : 's'}` : ''}</small></td>
+            <td data-label="Ad"><strong>${arEsc(ad.ad_name)}</strong><small class="pd-sub">${arEsc(arCampaign(ad) || 'No campaign set')}${weeks !== null ? ` · ${weeks}&nbsp;wk${weeks === 1 ? '' : 's'}` : ''}</small></td>
             <td class="num" data-label="Impressions">${m ? arInt(m.impressions) : '—'}</td>
             <td class="num" data-label="CTR (All)">${m ? arCtr(m.ctr_all, 'all') : '—'}</td>
             <td class="num" data-label="CTR (LCT)">${m ? arCtr(m.ctr_lct, 'lct') : '—'}</td>
@@ -960,7 +960,7 @@ function arRenderLeads() {
     <div class="past-due-metric key"><span>Leads on file</span><strong>${arLeads.length}</strong></div>
     <div class="past-due-metric"><span>This month</span><strong>${arLeads.filter(lead => arLeadMonth(lead) === thisMonth).length}</strong></div>
     <div class="past-due-metric"><span>Retargeting / broad</span><strong>${retargeting} / ${arLeads.length - retargeting}</strong></div>
-    <div class="past-due-metric"><span>Top ad</span><strong>${topAd ? `${arEsc(arShortName(topAd))}<small>${arPlural(topCount, 'lead')}</small>` : '—'}</strong></div>`;
+    <div class="past-due-metric ar-top-ad"><span>Top ad${topAd ? `: <b title="${arEsc(topAd)}">${arEsc(arShortName(topAd))}</b>` : ''}</span><strong>${topAd ? arPlural(topCount, 'lead') : '—'}</strong></div>`;
 
   arFillSelect('arLeadMonth', [...new Set(arLeads.map(arLeadMonth).filter(Boolean))].sort().reverse(), month => arDate(`${month}-01`, { month: 'long', year: 'numeric' }));
   arFillSelect('arLeadAd', [...new Set(arLeads.map(lead => lead.ad_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
@@ -1242,6 +1242,147 @@ function arOnPlaybookClick(event) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+// ── Trends ───────────────────────────────────────────────────────────────────
+
+// Ads matching the Trends filters; each filter narrows the next one's options.
+function arTrendAds() {
+  const campaign = document.getElementById('arTrendCampaign')?.value || '';
+  const sortNames = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+  arFillSelect('arTrendCampaign', [...new Set(arAds.map(ad => ad.campaign).filter(Boolean))].sort(sortNames));
+  const inCampaign = arAds.filter(ad => !campaign || ad.campaign === campaign);
+  arFillSelect('arTrendAdSet', [...new Set(inCampaign.map(ad => ad.ad_set).filter(Boolean))].sort(sortNames));
+  const adSet = document.getElementById('arTrendAdSet')?.value || '';
+  const inAdSet = inCampaign.filter(ad => !adSet || ad.ad_set === adSet);
+  const byName = [...inAdSet].sort((a, b) => sortNames(a.ad_name, b.ad_name));
+  arFillSelect('arTrendAd', byName.map(ad => String(ad.id)), id => byName.find(ad => String(ad.id) === id).ad_name);
+  const adId = document.getElementById('arTrendAd')?.value || '';
+  return inAdSet.filter(ad => !adId || String(ad.id) === adId);
+}
+
+// One point per report date: totals for the ads, CTRs weighted by each ad's impressions.
+function arTrendPoint(snaps) {
+  const day = snaps.map(arMetrics);
+  const sum = key => day.reduce((total, m) => total + m[key], 0);
+  const impressions = sum('impressions');
+  const spent = sum('spent');
+  const leads = sum('leads');
+  const ctr = key => (impressions ? day.reduce((total, m) => total + m[key] * m.impressions, 0) / impressions : 0);
+  return { impressions, spent, leads, cpl: leads ? spent / leads : null, ctr_all: ctr('ctr_all'), ctr_lct: ctr('ctr_lct') };
+}
+
+function arDrawChart(id, config) {
+  const canvas = document.getElementById(id);
+  if (!canvas || typeof Chart === 'undefined') return;
+  Chart.getChart(canvas)?.destroy();
+  new Chart(canvas, config);
+}
+
+function arRenderTrends() {
+  const ads = arTrendAds();
+  const ids = new Set(ads.map(ad => ad.id));
+  const snaps = arSnaps.filter(snap => ids.has(snap.ad_id));
+  const dates = [...new Set(snaps.map(snap => snap.report_date))].sort();
+  const points = dates.map(date => arTrendPoint(snaps.filter(snap => snap.report_date === date)));
+  const scope = document.getElementById('arTrendScope');
+  if (scope) scope.textContent = `${arPlural(ads.length, 'ad')} · ${arPlural(dates.length, 'report')}${dates.length < 2 ? ' · trend lines start after 2 reports' : ''}`;
+
+  const css = getComputedStyle(document.documentElement);
+  const color = token => css.getPropertyValue(token).trim() || '#63666b';
+  // Line colours stay at 3:1 or better on white; the soft blue is only used under the spend line.
+  const spendBlue = '#4f78c4';
+  const palette = [color('--beni'), color('--moss'), color('--kin'), spendBlue, color('--ink-3'), '#3e8e9a', '#a35a4b', color('--ai-800')];
+  const labels = dates.map(date => arDate(date, { day: 'numeric', month: 'short' }));
+  const money = value => `$${Number(value).toLocaleString('en-AU')}`;
+
+  // House chart style (see chartOptions in mondayBoardScripts.js): quiet grid, small solid legend swatches.
+  const x = { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } };
+  const y = (extra = {}) => ({ beginAtZero: true, grace: '10%', grid: { color: color('--line') }, border: { display: false }, ...extra });
+  const legend = {
+    position: 'bottom',
+    labels: {
+      boxWidth: 12, boxHeight: 12, padding: 10, font: { size: 11 },
+      filter: item => !item.text.startsWith('Target'),
+      // Gradient fills can't be drawn as a swatch, so every swatch uses its line colour.
+      generateLabels: chart => Chart.defaults.plugins.legend.labels.generateLabels(chart).map(item => ({ ...item, fillStyle: item.strokeStyle }))
+    }
+  };
+  const base = { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false }, plugins: { legend } };
+  const line = (label, data, lineColor, extra = {}) => ({
+    type: 'line', label, data, borderColor: lineColor, backgroundColor: lineColor, tension: 0.3, cubicInterpolationMode: 'monotone',
+    pointRadius: dates.length > 14 ? 0 : 3, pointHoverRadius: 4, ...extra
+  });
+  // Soft area under a line: its colour fading to clear at the bottom of the chart (8-digit hex = colour + opacity).
+  const fade = (hex, opacity = 0.16) => ({ chart }) => {
+    if (!chart.chartArea) return 'transparent';
+    const gradient = chart.ctx.createLinearGradient(0, chart.chartArea.top, 0, chart.chartArea.bottom);
+    gradient.addColorStop(0, hex + Math.round(opacity * 255).toString(16).padStart(2, '0'));
+    gradient.addColorStop(1, `${hex}00`);
+    return gradient;
+  };
+  const area = (label, data, lineColor, opacity, extra = {}) => line(label, data, lineColor, { fill: 'origin', backgroundColor: fade(lineColor, opacity), pointBackgroundColor: lineColor, ...extra });
+
+  arDrawChart('arTrendSpend', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        area('Amount spent', points.map(p => p.spent), spendBlue, 0.2, { yAxisID: 'money' }),
+        line('Leads', points.map(p => p.leads), color('--moss'), { yAxisID: 'leads' })
+      ]
+    },
+    options: {
+      ...base,
+      scales: {
+        x,
+        money: y({ position: 'left', title: { display: true, text: 'Spent', color: spendBlue }, ticks: { callback: money, color: spendBlue } }),
+        leads: y({ position: 'right', title: { display: true, text: 'Leads', color: color('--moss') }, ticks: { precision: 0, color: color('--moss') }, grid: { drawOnChartArea: false } })
+      },
+      plugins: { ...base.plugins, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.dataset.yAxisID === 'money' ? arMoney(ctx.raw) : ctx.raw}` } } }
+    }
+  });
+
+  arDrawChart('arTrendCpl', {
+    type: 'line',
+    data: { labels, datasets: [area('Cost per lead', points.map(p => p.cpl), color('--beni'), 0.1, { spanGaps: true })] },
+    options: {
+      ...base,
+      scales: { x, y: y({ ticks: { callback: money } }) },
+      plugins: { ...base.plugins, legend: { display: false }, tooltip: { callbacks: { label: ctx => (ctx.raw === null ? 'No leads' : `Cost per lead: ${arMoney(ctx.raw)}`) } } }
+    }
+  });
+
+  const target = (label, value, targetColor) => line(label, dates.map(() => value), targetColor, { borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 0, borderWidth: 1.5 });
+  arDrawChart('arTrendCtr', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        area('CTR (All)', points.map(p => p.ctr_all), color('--ai-800'), 0.08),
+        line('CTR (LCT)', points.map(p => p.ctr_lct), color('--kin')),
+        target('Target CTR (All)', arCtrAll(), color('--ai-800')),
+        target('Target CTR (LCT)', arCtrLct(), color('--kin'))
+      ]
+    },
+    options: {
+      ...base,
+      scales: { x, y: y({ ticks: { callback: value => `${(value * 100).toFixed(1)}%` } }) },
+      plugins: { ...base.plugins, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${arPct(ctx.raw)}` } } }
+    }
+  });
+
+  arDrawChart('arTrendByAd', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: ads.map((ad, index) => line(arShortName(ad.ad_name), dates.map(date => {
+        const snap = snaps.find(item => item.ad_id === ad.id && item.report_date === date);
+        return snap ? Number(snap.leads) || 0 : null;
+      }), palette[index % palette.length], { borderDash: index >= palette.length ? [6, 4] : [] }))
+    },
+    options: { ...base, scales: { x, y: y({ ticks: { precision: 0 } }) } }
+  });
+}
+
 function arRender() {
   const select = document.getElementById('arReportDate');
   const dates = arReportDates();
@@ -1266,6 +1407,7 @@ function arRender() {
     ['arReportMetrics', 'arHubMetrics', 'arSummary', 'arSteps'].forEach(id => { document.getElementById(id).innerHTML = ''; });
   }
   arRenderMonth();
+  arRenderTrends();
   arRenderLog();
   arRenderLeads();
   arRenderPlaybook();
@@ -1354,6 +1496,7 @@ function arInit() {
     });
   });
 
+  ['arTrendCampaign', 'arTrendAdSet', 'arTrendAd'].forEach(id => document.getElementById(id).addEventListener('input', arRenderTrends));
   ['arLeadSearch', 'arLeadMonth', 'arLeadAd', 'arLeadAudience'].forEach(id => document.getElementById(id).addEventListener('input', arRenderLeads));
   document.getElementById('arLeadExport').addEventListener('click', arExportLeads);
   document.getElementById('arPreviewConfirm').addEventListener('click', arConfirmImport);

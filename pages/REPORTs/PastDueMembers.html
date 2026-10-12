@@ -33,6 +33,22 @@
       </div>
 
       <div class="card">
+        <h2>Weekly trend</h2>
+        <p class="pd-card-lede">Bills grouped by the week they fell due, and where each one stands now.</p>
+        <div class="chart-wrap">
+          <canvas id="pastDueTrendChart" aria-label="Past due amount by the week it fell due, split into still owing, paid and cancelled"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Failure reasons</h2>
+        <p class="pd-card-lede">Why bills failed, across every bill on file.</p>
+        <div class="chart-wrap">
+          <canvas id="pastDueReasonChart" aria-label="Number of bills by failure reason"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-heading-row">
           <h2>Longest overdue</h2>
           <button type="button" class="sop-action-button secondary pd-small" data-show-tab="pastDue">View all past due</button>
@@ -58,6 +74,27 @@
           <label>
             <span class="sr-only">Filter by stage</span>
             <select id="pastDueStageFilter"><option value="">All stages</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Filter by failure reason</span>
+            <select id="pastDueReasonFilter"><option value="">All reasons</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Filter by autopay</span>
+            <select id="pastDueAutopayFilter"><option value="">Any autopay</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Filter by days overdue</span>
+            <select id="pastDueDaysFilter">
+              <option value="0">Any days late</option>
+              <option value="7">7+ days late</option>
+              <option value="14">14+ days late</option>
+              <option value="30">30+ days late</option>
+            </select>
+          </label>
+          <label class="pd-min-amount">
+            <span class="sr-only">Minimum balance in dollars</span>
+            <input id="pastDueMinAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="Min balance $">
           </label>
           <label>
             <span class="sr-only">Sort members</span>
@@ -294,6 +331,7 @@
   <script src="../../js/auth.js"></script>
   <script src="../../js/siteHeader.js"></script>
   <script src="../../js/siteMenu.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="../../js/pastDueCore.js"></script>
   <script src="../../js/pastDueMembers.js"></script>
   <script src="../../js/footer.js"></script>

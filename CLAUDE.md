@@ -27,9 +27,9 @@ Always on: ponytail `full` (minimal code), caveman (terse replies), security-gui
    | UI (`pages/`, `css/styles.css`, `index.html`) | `/impeccable shape` (plan) → build → `/impeccable polish` |
    | Slow page / query | agent-skills `performance-optimization` |
 3. **Preview locally** — `npm start` (http://127.0.0.1:8000), then
-   `node .claude/preview-shots.mjs .claude/shots 1440 900` and `... 390 844`: view the PNGs, fix any
-   console errors or horizontal overflow it prints. Screenshots are layout only (no real login) —
-   ask the user to check data-backed pages in their logged-in browser.
+   `ONLY=<page> node .claude/preview-shots.mjs .claude/shots 1440 900`; fix any console errors or
+   horizontal overflow it prints. Logs in for real (live data, view only) via `.claude/preview.env`. Save tokens: iterate on one page, one width, viewport shots (the default);
+   run `... 390 844` and `FULL=1` only for the final check. Ask the user to click through data pages too.
 4. **Review the diff** — `/caveman-review` (bugs), `/ponytail-review` (bloat);
    + `/impeccable audit <page>` if UI changed; + `/security-review` if auth, RLS or input handling changed.
    Fix findings, repeat step 3 for anything visual.

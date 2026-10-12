@@ -9,21 +9,11 @@
 
 import { createRequire } from 'node:module';
 import { createClient } from '@supabase/supabase-js';
-import { STUDIO, env, studioFrame, exportCsv, withZenPlanner } from './zenplanner.mjs';
+import { STUDIO, env, studioFrame, exportCsv, withZenPlanner, wrongDaylightSavingRun } from './zenplanner.mjs';
 
 const { pastDueImportBatch, pastDueIdentity } = createRequire(import.meta.url)('../js/pastDueCore.js');
 
 const BILLS = 'zenplanner/studio/bill/index.cfm?StatusNot=PAID&dueMax=today&BillType=Bill';
-
-// The schedule fires at 20:00 and 21:00 UTC (7 am in daylight saving and outside it);
-// keep only the run that is 7 am in Sydney.
-function wrongDaylightSavingRun() {
-  if (!process.env.SCHEDULE) return false;
-  const offset = 31 - Number(process.env.SCHEDULE.split(' ')[1]); // 20 -> +11, 21 -> +10
-  const zone = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', timeZoneName: 'shortOffset' })
-    .formatToParts(new Date()).find(part => part.type === 'timeZoneName').value;
-  return zone !== `GMT+${offset}`;
-}
 
 async function main() {
   if (wrongDaylightSavingRun()) {
@@ -75,6 +65,9 @@ async function main() {
     })));
     if (noteError) console.error(`Bills cleared, but notes not saved: ${noteError.message}`);
   }
+  const { error: runError } = await supabase.from('past_due_import_runs')
+    .insert({ source: 'zen planner', bills_found: batch.length, bills_added: data.length, bills_cleared: paid.length });
+  if (runError) console.error(`Import run not logged: ${runError.message}`);
   console.log(`${importDate}: ${batch.length} unpaid bills in Zen Planner; ${data.length} new, `
     + `${batch.length - data.length} already on file; ${paid.length} cleared.`);
 }

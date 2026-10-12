@@ -18,7 +18,7 @@ function fuIso(value) {
 }
 
 const fuDmy = iso => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
-const fuLongDate = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' });
+const fuLongDate = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const fuDaysBetween = (fromIso, toIso) => Math.round((Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86400000);
 
 // Step 5: tidy phone numbers from spreadsheet exports.
