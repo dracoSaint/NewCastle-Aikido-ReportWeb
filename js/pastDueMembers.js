@@ -2,6 +2,7 @@ const PAST_DUE_LOG_TABLE = 'past_due_member_log';
 const PAST_DUE_EXEMPT_TABLE = 'past_due_exempted_members';
 const PAST_DUE_FAILURE_REASON_TABLE = 'past_due_failure_reason';
 const PAST_DUE_NOTES_TABLE = 'past_due_member_notes';
+const PAST_DUE_RUNS_TABLE = 'past_due_import_runs';
 const PAST_DUE_STAGES = [
   'Pending Retry',
   'Stage 1 (5-7 days)',
@@ -606,17 +607,21 @@ async function pastDueApproveCancellation() {
 
 // ── Page render ──────────────────────────────────────────────────────────────
 
-function pastDueRenderMetrics(elementId, members, amountLabel) {
+// Escalated by the flag or by the stage, so the count matches what the rows show.
+const pastDueIsEscalated = bill => bill.escalated_to_darius || bill.stage === 'Escalated';
+
+// Escalated / class blocked only mean something while bills are still open.
+function pastDueRenderMetrics(elementId, members, amountLabel, open = false) {
   const container = document.getElementById(elementId);
   if (!container) return;
   const bills = members.flatMap(member => member.bills);
-  const escalated = members.filter(member => member.bills.some(bill => bill.escalated_to_darius)).length;
+  const escalated = members.filter(member => member.bills.some(pastDueIsEscalated)).length;
   const blocked = members.filter(member => member.bills.some(bill => bill.class_blocked)).length;
   container.innerHTML = `
     <div class="past-due-metric key"><span>${escapeHtml(amountLabel)}</span><strong>${pastDueMoney(pastDueTotal(bills))}</strong></div>
     <div class="past-due-metric"><span>Members</span><strong>${members.length}<small>${pastDuePlural(bills.length, 'bill')}</small></strong></div>
-    <div class="past-due-metric"><span>Escalated</span><strong>${escalated}</strong></div>
-    <div class="past-due-metric"><span>Class blocked</span><strong>${blocked}</strong></div>`;
+    ${open ? `<div class="past-due-metric"><span>Escalated</span><strong>${escalated}</strong></div>
+    <div class="past-due-metric"><span>Class blocked</span><strong>${blocked}</strong></div>` : ''}`;
 }
 
 function pastDueRenderAgeing(members) {
@@ -679,7 +684,7 @@ function pastDueRender() {
     metrics.innerHTML = `
       <div class="past-due-metric key"><span>Total overdue</span><strong>${pastDueMoney(pastDueTotal(openBills))}</strong></div>
       <div class="past-due-metric"><span>Members past due</span><strong>${openMembers.length}<small>${pastDuePlural(openBills.length, 'bill')}</small></strong></div>
-      <div class="past-due-metric"><span>Escalated</span><strong>${openMembers.filter(member => member.bills.some(bill => bill.escalated_to_darius)).length}</strong></div>
+      <div class="past-due-metric"><span>Escalated</span><strong>${openMembers.filter(member => member.bills.some(pastDueIsEscalated)).length}</strong></div>
       <div class="past-due-metric"><span>Cleared / cancelled</span><strong>${clearedMembers.length} / ${cancelledMembers.length}</strong></div>`;
   }
   pastDueRenderAgeing(openMembers);
@@ -687,11 +692,20 @@ function pastDueRender() {
   const byDays = [...openMembers].sort(PAST_DUE_SORTS.days);
   pastDueRenderTable('dashboardTable', byDays.slice(0, 5), 'open', 'Nobody is past due.');
 
-  const stage = document.getElementById('pastDueStageFilter')?.value || '';
-  const sort = PAST_DUE_SORTS[document.getElementById('pastDueSort')?.value] || PAST_DUE_SORTS.days;
+  pastDueRenderTrends(members.flatMap(member => member.bills));
+
+  // Bill filters keep a member when any of their open bills matches; days and balance use the member's oldest bill and total.
+  const value = id => document.getElementById(id)?.value || '';
+  pastDueFillOptions('pastDueReasonFilter', openBills.map(bill => bill.failure_reason));
+  pastDueFillOptions('pastDueAutopayFilter', openBills.map(bill => bill.autopay));
+  const billFilters = { stage: value('pastDueStageFilter'), failure_reason: value('pastDueReasonFilter'), autopay: value('pastDueAutopayFilter') };
+  const minDays = Number(value('pastDueDaysFilter')) || 0;
+  const minAmount = Number(value('pastDueMinAmount')) || 0;
+  const sort = PAST_DUE_SORTS[value('pastDueSort')] || PAST_DUE_SORTS.days;
   const pastDueList = openMembers
     .filter(member => pastDueMatches(member, pastDueQuery('nameSearchPastDue')))
-    .filter(member => !stage || member.bills.some(bill => (bill.stage || '') === stage))
+    .filter(member => member.bills.some(bill => Object.entries(billFilters).every(([field, wanted]) => !wanted || (bill[field] || '') === wanted)))
+    .filter(member => pastDueOldest(member.bills) >= minDays && pastDueTotal(member.bills) >= minAmount)
     .sort(sort);
   pastDueSetCount('pastDueCount', pastDueList);
   pastDueRenderTable('pastDueTable', pastDueList, 'open', openMembers.length ? 'No past due members match these filters.' : 'Nobody is past due.');
@@ -704,7 +718,7 @@ function pastDueRender() {
   pastDueSetCount('cancelledCount', cancelledList);
   pastDueRenderTable('cancelledTable', cancelledList, 'closed');
 
-  pastDueRenderMetrics('pastDueTabMetrics', openMembers, 'Total overdue');
+  pastDueRenderMetrics('pastDueTabMetrics', openMembers, 'Total overdue', true);
   pastDueRenderMetrics('clearedTabMetrics', clearedMembers, 'Total cleared');
   pastDueRenderMetrics('cancelledTabMetrics', cancelledMembers, 'Balance on cancelled');
 
@@ -717,6 +731,72 @@ function pastDueRender() {
     if (textarea) textarea.value = value;
   });
   if (focusId) pastDueFocusTarget(focusId)?.focus();
+}
+
+// Dropdown options come from the open bills; a choice that no longer exists falls back to "All".
+function pastDueFillOptions(id, values) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  const current = select.value;
+  const options = [...new Set(values.filter(Boolean))].sort();
+  select.length = 1;
+  select.insertAdjacentHTML('beforeend', pastDueOptionList(options, current));
+  select.value = options.includes(current) ? current : '';
+}
+
+// ── Dashboard trends ─────────────────────────────────────────────────────────
+
+// Monday of the week an ISO date falls in.
+function pastDueWeekStart(iso) {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7);
+  return date.toISOString().slice(0, 10);
+}
+
+const PAST_DUE_TREND_SERIES = [['PAST DUE', 'Still owing', '--beni'], ['CLEARED', 'Paid', '--moss'], ['CANCELLED', 'Cancelled', '--ink-3']];
+
+function pastDueDrawChart(id, config) {
+  const canvas = document.getElementById(id);
+  if (!canvas || typeof Chart === 'undefined') return;
+  Chart.getChart(canvas)?.destroy();
+  new Chart(canvas, config);
+}
+
+// bills: every non-exempt bill on file, any status.
+function pastDueRenderTrends(bills) {
+  const css = getComputedStyle(document.documentElement);
+  const color = token => css.getPropertyValue(token).trim() || '#63666b';
+  const base = { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: 'bottom' } } };
+
+  const dated = bills.filter(bill => pastDueDateValue(bill.due_date)).map(bill => ({ bill, week: pastDueWeekStart(pastDueDateValue(bill.due_date)) }));
+  const weeks = [...new Set(dated.map(item => item.week))].sort();
+  pastDueDrawChart('pastDueTrendChart', {
+    type: 'bar',
+    data: {
+      labels: weeks.map(week => new Date(`${week}T00:00:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })),
+      datasets: PAST_DUE_TREND_SERIES.map(([status, label, token]) => {
+        const perWeek = weeks.map(week => dated.filter(item => item.week === week && item.bill.status === status).map(item => item.bill));
+        return { label, data: perWeek.map(pastDueTotal), counts: perWeek.map(list => list.length), backgroundColor: color(token) };
+      })
+    },
+    options: {
+      ...base,
+      scales: { x: { stacked: true, title: { display: true, text: 'Week due' } }, y: { stacked: true, ticks: { callback: value => pastDueMoney(value) } } },
+      plugins: { ...base.plugins, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${pastDueMoney(ctx.raw)} (${pastDuePlural(ctx.dataset.counts[ctx.dataIndex], 'bill')})` } } }
+    }
+  });
+
+  const reasons = Object.entries(bills.reduce((counts, bill) => {
+    const reason = bill.failure_reason || 'Not recorded';
+    counts[reason] = (counts[reason] || 0) + 1;
+    return counts;
+  }, {})).sort((a, b) => b[1] - a[1]);
+  pastDueDrawChart('pastDueReasonChart', {
+    type: 'bar',
+    // Long reasons wrap onto lines of about 20 characters so they fit beside the bars on phones.
+    data: { labels: reasons.map(([reason]) => reason.match(/.{1,20}(\s|$)/g)?.map(line => line.trim()) || reason), datasets: [{ label: 'Bills', data: reasons.map(([, count]) => count), backgroundColor: color('--ai-800') }] },
+    options: { ...base, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { precision: 0 } } } }
+  });
 }
 
 function pastDueFocusTarget(id) {
@@ -780,12 +860,13 @@ function pastDueRenderLogGroups() {
 async function pastDueLoad() {
   const client = await pastDueClient();
 
-  const [, log, exemptions, notes, session] = await Promise.all([
+  const [, log, exemptions, notes, session, lastRun] = await Promise.all([
     loadPastDueFailureReasons(),
     client.from(PAST_DUE_LOG_TABLE).select('*').order('imported_at', { ascending: false }),
     client.from(PAST_DUE_EXEMPT_TABLE).select('*').order('created_at', { ascending: false }),
     client.from(PAST_DUE_NOTES_TABLE).select('*').order('created_at', { ascending: false }),
-    client.auth.getSession()
+    client.auth.getSession(),
+    client.from(PAST_DUE_RUNS_TABLE).select('ran_at, source').order('ran_at', { ascending: false }).limit(1).maybeSingle()
   ]);
   if (log.error) throw log.error;
   if (exemptions.error) throw exemptions.error;
@@ -800,8 +881,12 @@ async function pastDueLoad() {
 
   const updatedLine = document.getElementById('updatedLine');
   if (updatedLine) {
-    const latest = pastDueRows[0]?.imported_at;
-    updatedLine.textContent = latest ? `Latest import ${pastDueShortDate(latest)}` : 'No imports yet';
+    // The newest bill's date is the fallback until supabase/past_due_import_runs.sql has been run.
+    const run = lastRun.error ? null : lastRun.data;
+    const latest = run?.ran_at || pastDueRows[0]?.imported_at;
+    updatedLine.textContent = !latest ? 'No imports yet'
+      : run ? `Last import ${new Date(latest).toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })} (${run.source === 'csv' ? 'CSV' : 'Zen Planner'})`
+      : `Latest import ${pastDueShortDate(latest)}`;
   }
 }
 
@@ -994,16 +1079,19 @@ async function pastDueImport(file, importDateValue) {
   if (!cleanBatch.length) {
     throw new Error('No rows with both a bill number and a member name were found in this CSV.');
   }
-  const before = pastDueRows.length;
   const client = await pastDueClient();
 
-  const { error } = await client
+  const { data, error } = await client
     .from(PAST_DUE_LOG_TABLE)
-    .upsert(cleanBatch, { onConflict: 'member_key', ignoreDuplicates: true });
+    .upsert(cleanBatch, { onConflict: 'member_key', ignoreDuplicates: true })
+    .select('id');
   if (error) throw error;
+  const added = data.length;
+  const { error: runError } = await client.from(PAST_DUE_RUNS_TABLE)
+    .insert({ source: 'csv', bills_found: cleanBatch.length, bills_added: added });
+  if (runError) console.warn('Import run not logged:', runError.message);
 
   await pastDueLoad();
-  const added = pastDueRows.length - before;
   return `Imported ${file.name}: ${pastDuePlural(added, 'new bill')}, ${cleanBatch.length - added} already on file and skipped.`;
 }
 
@@ -1115,7 +1203,7 @@ function initPastDuePage() {
   const stageFilter = document.getElementById('pastDueStageFilter');
   if (stageFilter) stageFilter.insertAdjacentHTML('beforeend', pastDueOptionList(PAST_DUE_STAGES));
 
-  ['nameSearchPastDue', 'nameSearchCleared', 'nameSearchCancelled', 'pastDueStageFilter', 'pastDueSort']
+  ['nameSearchPastDue', 'nameSearchCleared', 'nameSearchCancelled', 'pastDueStageFilter', 'pastDueReasonFilter', 'pastDueAutopayFilter', 'pastDueDaysFilter', 'pastDueMinAmount', 'pastDueSort']
     .forEach(id => document.getElementById(id)?.addEventListener('input', pastDueRender));
   ['exemptSearch', ...Object.keys(PAST_DUE_EXEMPT_FILTERS)]
     .forEach(id => document.getElementById(id)?.addEventListener('input', pastDueRenderExemptions));

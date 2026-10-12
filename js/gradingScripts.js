@@ -19,8 +19,8 @@ let jsonpCounter = 0;
 const sheetCache = {};
 
 const HEADER_FALLBACKS = {
-  homeAdults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
-  homeJuniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  homeAdults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Eligibility'],
+  homeJuniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Eligibility'],
   adults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
   juniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
   members: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Enough Att. For Rank?', 'Last Test Date']
@@ -146,12 +146,20 @@ function renderTable(container, block) {
           '<span class="stitch-meter' + (p >= 1 ? ' done' : '') + '" style="--p:' + p.toFixed(2) + '" aria-hidden="true"></span></td>';
         return;
       }
-      html += '<td class="' + cls + '"' + label + '>' + escapeHtml(cell) + '</td>';
+      html += '<td class="' + cls + '"' + label + '>' + escapeHtml(gradingCell(block.headers[c], cell)) + '</td>';
     });
     html += '</tr>';
   });
   html += '</tbody></table>';
   container.innerHTML = html;
+}
+
+// Blank cells show a dash; sheet dates (d/m/yyyy text) are padded to 06/12/2025 so the column lines up.
+function gradingCell(header, cell) {
+  const value = String(cell ?? '').trim();
+  if (!value) return '—';
+  if (!/date/i.test(header || '')) return value;
+  return value.replace(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, (_, d, m, y) => `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`);
 }
 
 function escapeHtml(v) {
@@ -185,13 +193,15 @@ function renderGradingKeyFigure(adults, juniors) {
 
 function setUpdatedNow() {
   const now = new Date();
-  document.getElementById('updatedLine').textContent = 'Last updated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+  document.getElementById('updatedLine').textContent = 'Last updated: ' + now.toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function loadHome() {
   fetchSheetRaw(HOME_SHEET_NAME).then(rawRows => {
     const adults = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_ADULTS_COLS.start, HOME_ADULTS_COLS.end, 'homeAdults');
     const juniors = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_JUNIORS_COLS.start, HOME_JUNIORS_COLS.end, 'homeJuniors');
+    // The sheet labels the last overview column "Weekly Hour Goal", but it holds Eligible / Not eligible.
+    [adults, juniors].forEach(block => { block.headers = block.headers.map(h => (/weekly hour goal/i.test(h) ? 'Eligibility' : h)); });
     renderTable(document.getElementById('home-adults-wrap'), adults);
     renderTable(document.getElementById('home-juniors-wrap'), juniors);
     renderGradingKeyFigure(adults, juniors);

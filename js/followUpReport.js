@@ -21,6 +21,11 @@ let fuDialogRow = null;  // the member the contact dialog is open for
 
 // ── Small helpers ────────────────────────────────────────────────────────────
 
+// Phones show as 0412 345 678 whether stored as +61412345678 or 0412345678; tel: links keep the raw number.
+const fuPhoneText = phone => {
+  const digits = String(phone || '').replace(/\D/g, '').replace(/^61(?=4\d{8}$)/, '0');
+  return /^04\d{8}$/.test(digits) ? `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}` : String(phone || '');
+};
 const fuEsc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 const fuSydneyDay = stamp => new Date(stamp).toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
 const fuWhen = stamp => new Date(stamp).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Sydney' });
@@ -70,7 +75,7 @@ function fuTierCard(title, owner, tone, rows, total, withDays) {
         <tbody>${rows.map(row => `
           <tr data-key="${fuEsc(row.key)}"${fuContactsFor(row).length ? ' class="is-contacted"' : ''}>
             <td data-label="Member"><strong>${fuEsc(row.name)}</strong>${row.membership?.label ? `<small class="pd-sub">${fuEsc(row.membership.label)}</small>` : ''}</td>
-            <td data-label="Phone">${row.phone ? `<a class="fu-phone" href="tel:${fuEsc(row.phone.replace(/\s/g, ''))}">${fuEsc(row.phone)}</a>` : '—'}</td>
+            <td data-label="Phone">${row.phone ? `<a class="fu-phone" href="tel:${fuEsc(row.phone.replace(/\s/g, ''))}">${fuEsc(fuPhoneText(row.phone))}</a>` : '—'}</td>
             ${withDays ? `<td data-label="Last class">${fuDmy(row.lastAtt)}</td><td class="num" data-label="Days"><strong>${row.days}</strong></td>` : ''}
             <td data-label="Contact" class="fu-contact">${fuContactCell(row)}</td>
             <td data-label="Note" class="fu-note">
@@ -131,7 +136,7 @@ function fuRender() {
   container.innerHTML = `
     <div class="past-due-metrics fu-metrics">
       <div class="past-due-metric key"><span>To follow up</span><strong>${open.length}</strong></div>
-      <div class="past-due-metric fu-metric-progress"><span>Contacted</span><strong>${contacted}<small> of ${open.length}</small></strong>
+      <div class="past-due-metric fu-metric-progress"><span>Contacted</span><strong>${contacted}<small>of ${open.length}</small></strong>
         <span class="fu-progress" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100" aria-label="Contacted"><span style="width:${percent}%"></span></span></div>
       <div class="past-due-metric fu-metric-orange"><span>Orange · ${FU_ORANGE.from}–${FU_ORANGE.to} days</span><strong>${result.orange.length}</strong></div>
       <div class="past-due-metric fu-metric-red"><span>Red · ${FU_RED.from}+ days</span><strong>${result.red.length}</strong></div>
@@ -204,7 +209,7 @@ function fuRenderLog() {
         <tbody>${rows.map(contact => `
           <tr>
             <td data-label="When">${fuWhen(contact.contacted_at)}</td>
-            <td data-label="Member"><strong>${fuEsc(contact.member_name)}</strong>${contact.phone ? `<small class="pd-sub">${fuEsc(contact.phone)}</small>` : ''}</td>
+            <td data-label="Member"><strong>${fuEsc(contact.member_name)}</strong>${contact.phone ? `<small class="pd-sub">${fuEsc(fuPhoneText(contact.phone))}</small>` : ''}</td>
             <td data-label="Tier">${contact.tier ? `<span class="fu-tier-tag is-${fuEsc(contact.tier)}">${FU_TIER_NAMES[contact.tier] || fuEsc(contact.tier)}${contact.days != null ? ` · ${contact.days} d` : ''}</span>` : '—'}</td>
             <td data-label="Outcome"><span class="fu-chip is-${contact.outcome === 'spoke' ? 'done' : 'tried'}">${fuEsc(FU_OUTCOMES[contact.outcome] || contact.outcome)}</span></td>
             <td data-label="Note">${fuEsc(contact.note || '—')}</td>
@@ -312,7 +317,7 @@ function fuOpenContact(key) {
   const history = fuContacts.filter(contact => contact.member_key === key);
   document.getElementById('fuContactTitle').textContent = `Log contact · ${fuDialogRow.name}`;
   document.getElementById('fuContactWho').innerHTML = [
-    fuDialogRow.phone ? `<a class="fu-phone" href="tel:${fuEsc(fuDialogRow.phone.replace(/\s/g, ''))}">Call ${fuEsc(fuDialogRow.phone)}</a>` : 'No phone number on file',
+    fuDialogRow.phone ? `<a class="fu-phone" href="tel:${fuEsc(fuDialogRow.phone.replace(/\s/g, ''))}">Call ${fuEsc(fuPhoneText(fuDialogRow.phone))}</a>` : 'No phone number on file',
     fuDialogRow.days != null ? `${fuDialogRow.days} days since last class` : 'No attendance record'
   ].join(' · ');
   document.getElementById('fuContactHistory').innerHTML = `

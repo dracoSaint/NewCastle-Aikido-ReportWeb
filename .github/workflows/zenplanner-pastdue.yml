@@ -51,11 +51,11 @@ jobs:
           TZ: Australia/Sydney
         run: node automation/zenplanner-pastdue.mjs
 
-      # On failure, keep a screenshot of where Zen Planner stopped (no passwords are captured).
+      # On failure, keep a screenshot of where Zen Planner stopped (visible screen only, kept 1 day).
       - name: Keep failure screenshot
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: zenplanner-pastdue-failure
-          path: automation-output/failure.*
-          retention-days: 7
+          path: automation-output/failure.png
+          retention-days: 1

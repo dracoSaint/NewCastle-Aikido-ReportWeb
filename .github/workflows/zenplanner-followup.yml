@@ -55,11 +55,11 @@ jobs:
           FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
         run: node automation/zenplanner-followup.mjs
 
-      # On failure, keep a screenshot of where Zen Planner stopped (no passwords are captured).
+      # On failure, keep a screenshot of where Zen Planner stopped (visible screen only, kept 1 day).
       - name: Keep failure screenshot
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: zenplanner-failure
-          path: automation-output/failure.*
-          retention-days: 7
+          path: automation-output/failure.png
+          retention-days: 1

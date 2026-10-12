@@ -22,6 +22,18 @@ async function signIn(page) {
   }
 }
 
+// 7 am jobs are scheduled at 20:00 and 21:00 UTC (7 am Sydney in daylight saving and outside it);
+// true for the scheduled run that is not 7 am in Sydney. Manual runs (no SCHEDULE) always go.
+export function wrongDaylightSavingRun() {
+  if (!process.env.SCHEDULE) return false;
+  const offset = 31 - Number(process.env.SCHEDULE.split(' ')[1]); // 20 -> +11, 21 -> +10
+  const zone = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', timeZoneName: 'shortOffset' })
+    .formatToParts(new Date()).find(part => part.type === 'timeZoneName').value;
+  return zone !== `GMT+${offset}`;
+}
+
+export const sydneyToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
+
 // Zen Planner pages load in an inner frame (beside a support-chat frame); wait for the one we want.
 export async function studioFrame(page, test) {
   for (let i = 0; i < 120; i++) {
@@ -44,8 +56,19 @@ export async function exportCsv(page, frame, file) {
   return text;
 }
 
-// Sign in, then run work(page, setStep). On failure, leave a screenshot and the page for the
-// workflow artifacts (no passwords are captured), so selectors can be fixed.
+// Open a saved report from its category list (HOME > category) and fetch its CSV export.
+export async function exportSavedReport(page, { category, name, file }) {
+  await page.goto(`${STUDIO}#/main/iframe/zenplanner/studio/welcome/index-reports.cfm?Category=${category}`);
+  const list = await studioFrame(page, url => url.includes('/welcome/index-reports.cfm'));
+  await list.getByText(name, { exact: true }).first().click({ timeout: 60000 });
+  return exportCsv(page, await studioFrame(page, url => !url.includes('/welcome/index-reports.cfm')), file);
+}
+
+// Saved "Members > MEMBERSHIP REPORT (CURRENT/HOLD)", used by the follow-up and Monday report jobs.
+export const MEMBERSHIP_REPORT = { category: 'Members', name: 'MEMBERSHIP REPORT (CURRENT/HOLD)', file: 'membership' };
+
+// Sign in, then run work(page, setStep). On failure, leave a screenshot of the visible screen only
+// for the workflow artifacts, so selectors can be fixed. No page HTML: it would hold member data.
 export async function withZenPlanner(work) {
   await mkdir(OUT, { recursive: true });
   const browser = await chromium.launch({ headless: !process.env.HEADED });
@@ -55,8 +78,7 @@ export async function withZenPlanner(work) {
     await signIn(page);
     return await work(page, name => { step = name; });
   } catch (error) {
-    await page.screenshot({ path: `${OUT}/failure.png`, fullPage: true }).catch(() => {});
-    await writeFile(`${OUT}/failure.html`, await page.content().catch(() => '')).catch(() => {});
+    await page.screenshot({ path: `${OUT}/failure.png` }).catch(() => {});
     throw new Error(`Zen Planner, ${step}: ${error.message}`);
   } finally {
     await browser.close();

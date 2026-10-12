@@ -1,11 +1,13 @@
-// Starts the Zen Planner past due job (.github/workflows/zenplanner-pastdue.yml) for the
-// Past Due page's "Sync now" button. Signed-in portal users only.
+// Starts a Zen Planner job on GitHub Actions for the portal's sync buttons. Signed-in portal users only.
+//   {}                 -> .github/workflows/zenplanner-pastdue.yml (Past Due "Sync now")
+//   { job: 'monday' }  -> .github/workflows/zenplanner-monday.yml  (Monday report "Sync data")
 //
 // Deploy:  supabase functions deploy run-pastdue-sync
 // Secret:  supabase secrets set GITHUB_TOKEN=<fine-grained token: this repo only, Actions read & write>
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const WORKFLOW = 'https://api.github.com/repos/dracoSaint/NewCastle-Aikido-ReportWeb/actions/workflows/zenplanner-pastdue.yml/dispatches';
+const REPO = 'https://api.github.com/repos/dracoSaint/NewCastle-Aikido-ReportWeb/actions/workflows';
+const JOBS: Record<string, string> = { pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml' };
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
@@ -20,15 +22,19 @@ Deno.serve(async req => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response('Sign in first.', { status: 401, headers: cors });
 
-  const res = await fetch(WORKFLOW, {
+  const { job = 'pastdue' } = await req.json().catch(() => ({}));
+  const workflow = Object.hasOwn(JOBS, job) ? JOBS[job] : null;
+  if (!workflow) return new Response('Unknown job.', { status: 400, headers: cors });
+
+  const res = await fetch(`${REPO}/${workflow}/dispatches`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${Deno.env.get('GITHUB_TOKEN')}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'past-due-sync'
+      'User-Agent': 'zenplanner-sync'
     },
     body: JSON.stringify({ ref: 'main' })
   });
-  if (!res.ok) console.error('GitHub dispatch failed', res.status, await res.text());
+  if (!res.ok) console.error('GitHub dispatch failed', workflow, res.status, await res.text());
   return new Response(res.ok ? 'started' : 'Could not start the sync.', { status: res.ok ? 200 : 502, headers: cors });
 });

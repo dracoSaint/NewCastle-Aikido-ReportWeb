@@ -11,14 +11,13 @@
 
 import { createRequire } from 'node:module';
 import { createClient } from '@supabase/supabase-js';
-import { STUDIO, env, studioFrame, exportCsv, withZenPlanner } from './zenplanner.mjs';
+import { env, exportSavedReport as exportReport, withZenPlanner, MEMBERSHIP_REPORT } from './zenplanner.mjs';
 
 const require = createRequire(import.meta.url);
 const { fuAttendanceFromText, fuMembershipsFromText, fuNextReport, fuBuild } = require('../js/followUpCore.js');
 
 // Saved reports, opened by category and name exactly as Zen Planner lists them.
 const ATTENDANCE_REPORT = { category: 'Attendance', name: 'RED/ORANGE ATTENDANCE (30 DAYS COUNT)', file: 'attendance' };
-const MEMBERSHIP_REPORT = { category: 'Members', name: 'MEMBERSHIP REPORT (CURRENT/HOLD)', file: 'membership' };
 const AUTO_ATTENDANCE = 'Zen Planner auto-export (Red/Orange Attendance (30 Days Count))';
 const AUTO_MEMBERSHIP = 'Zen Planner auto-export (membership status)';
 
@@ -37,14 +36,6 @@ function sydneyReportDate() {
     return date.toISOString().slice(0, 10);
   }
   return null;
-}
-
-// Open a saved report from its category list and fetch its CSV export.
-async function exportReport(page, { category, name, file }) {
-  await page.goto(`${STUDIO}#/main/iframe/zenplanner/studio/welcome/index-reports.cfm?Category=${category}`);
-  const list = await studioFrame(page, url => url.includes('/welcome/index-reports.cfm'));
-  await list.getByText(name, { exact: true }).first().click({ timeout: 60000 });
-  return exportCsv(page, await studioFrame(page, url => !url.includes('/welcome/index-reports.cfm')), file);
 }
 
 const downloadReports = () => withZenPlanner(async (page, step) => {
