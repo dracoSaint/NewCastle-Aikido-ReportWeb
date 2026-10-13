@@ -29,14 +29,19 @@
   <main>
     <section class="tab-panel active" id="tab-overview">
       <form class="card chart-card-wide member-toolbar overview-filters" id="overviewFilters" aria-label="Filter the dashboard">
-        <label class="overview-date">
-          <span>From</span>
-          <input type="date" id="overviewFrom">
-        </label>
-        <label class="overview-date">
-          <span>To</span>
-          <input type="date" id="overviewTo">
-        </label>
+        <div class="fu-segment" id="overviewRange" role="group" aria-label="Weeks shown">
+          <button type="button" data-weeks="4" aria-pressed="false">4 weeks</button>
+          <button type="button" data-weeks="8" aria-pressed="false">8 weeks</button>
+          <button type="button" data-weeks="12" aria-pressed="false">12 weeks</button>
+          <button type="button" data-weeks="" aria-pressed="true">All</button>
+        </div>
+        <details class="overview-types">
+          <summary>Custom range</summary>
+          <div class="overview-types-list overview-range-list">
+            <label class="overview-date"><span>From</span><input type="date" id="overviewFrom"></label>
+            <label class="overview-date"><span>To</span><input type="date" id="overviewTo"></label>
+          </div>
+        </details>
         <details class="overview-types">
           <summary>Membership types: <span id="overviewTypesCount">All</span></summary>
           <div class="overview-types-list" id="overviewTypes"></div>
@@ -46,9 +51,16 @@
       </form>
       <div class="past-due-metrics key-strip chart-card-wide" id="mondayKeyFigure" aria-live="polite"></div>
       <div class="card chart-card chart-card-wide">
-        <h2>Membership Trend</h2>
+        <h2>Total Members</h2>
+        <div class="chart-wrap chart-wrap-short">
+          <canvas id="totalTrendChart" aria-label="Total members by week"></canvas>
+          <div class="loading">Loading dashboard...</div>
+        </div>
+      </div>
+      <div class="card chart-card chart-card-wide">
+        <h2>Membership Types</h2>
         <div class="chart-wrap">
-          <canvas id="membersTrendChart" aria-label="Total members by week"></canvas>
+          <canvas id="membersTrendChart" aria-label="Members by membership type, by week"></canvas>
           <div class="loading">Loading dashboard...</div>
         </div>
       </div>

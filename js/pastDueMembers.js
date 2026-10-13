@@ -30,6 +30,7 @@ const pastDueViews = new Map();    // containerId -> members currently rendered 
 const pastDueExemptSelected = new Set(); // ids ticked on the Exempted tab
 
 const pastDueMoneyFormat = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' });
+const pastDueWholeDollars = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 });
 
 function pastDueFailureReasons() {
   return pastDueFailureReasonsList;
@@ -200,6 +201,36 @@ function pastDueLastNoteTime(member) {
   return latest ? Date.parse(latest.created_at) || 0 : 0;
 }
 
+const pastDueLocalDate = value => new Date(value).toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
+
+// A staff-set date holds until a note is added on or after it; otherwise the SOP decides
+// (pastDueSopFollowUp). Escalated members are with Darius, so the SOP pauses for them.
+function pastDueFollowUp(member) {
+  const latest = pastDueNotesFor(member)[0];
+  const lastAction = latest ? pastDueLocalDate(latest.created_at) : null;
+  const manual = member.bills.map(bill => bill.next_follow_up).filter(Boolean).sort().pop();
+  if (manual && !(lastAction >= manual)) return { date: manual, step: 'Set by staff' };
+  if (member.bills.some(pastDueIsEscalated)) return { date: null, step: 'With Darius' };
+  const oldestDue = member.bills.map(bill => pastDueDateValue(bill.due_date)).filter(Boolean).sort()[0];
+  const next = pastDueSopFollowUp(oldestDue, lastAction);
+  if (!next) return { date: null, step: 'No due date' };
+  // Missed steps: name the step the member is at today, not the first one missed.
+  return next.date < pastDueLocalDate(Date.now()) ? { ...next, step: pastDueSopStep(pastDueOldest(member.bills)) } : next;
+}
+
+const pastDueIsFollowUpDue = member => {
+  const { date } = pastDueFollowUp(member);
+  return Boolean(date) && date <= pastDueLocalDate(Date.now());
+};
+
+function pastDueFollowUpHtml(member) {
+  const { date, step } = pastDueFollowUp(member);
+  if (!date) return `<span class="pd-muted">${escapeHtml(step)}</span>`;
+  const today = pastDueLocalDate(Date.now());
+  const label = date < today ? `Overdue · ${pastDueShortDate(date)}` : date === today ? 'Today' : pastDueShortDate(date);
+  return `<span${date <= today ? ' class="pd-due"' : ''}>${escapeHtml(label)}</span><small>${escapeHtml(step)}</small>`;
+}
+
 async function pastDueClient() {
   if (window.authReady) await window.authReady;
   if (!window.supabaseClient) throw new Error('Your Supabase session is not active. Please sign in again.');
@@ -301,9 +332,14 @@ function pastDueNotesHtml(member, notes, focusId) {
 }
 
 function pastDueActionsHtml(member, escalated, blocked, focusId) {
+  const followUp = pastDueFollowUp(member);
   return `
     <section class="pd-actions">
       <h4>Account</h4>
+      <label class="pd-follow-up">Next follow-up
+        <input type="date" data-action="follow-up" data-focus="${focusId('follow-up')}" value="${escapeHtml(followUp.date || '')}">
+        <small>${escapeHtml(followUp.step)}. Adding a note moves it to the next SOP step.</small>
+      </label>
       <label class="pd-check"><input type="checkbox" data-action="escalate" data-focus="${focusId('escalate')}"${escalated ? ' checked' : ''}> Escalated to accounts</label>
       <label class="pd-check"><input type="checkbox" data-action="block" data-focus="${focusId('block')}"${blocked ? ' checked' : ''}> Class booking blocked</label>
       <div class="pd-action-buttons">
@@ -341,9 +377,10 @@ function pastDueMemberRowsHtml(containerId, member, index, mode) {
       <td class="num measure" data-label="Oldest">${pastDuePlural(days, 'day')}<span class="stitch-meter${days > 30 ? ' late' : ''}" style="--p:${Math.min(days / 60, 1).toFixed(2)}" aria-hidden="true"></span></td>
       <td data-label="${mode === 'open' ? 'Stage' : 'Status'}">${mode === 'open' ? escapeHtml(oldestBill.stage || 'Not set') : `<span class="status-badge${statusClass}">${escapeHtml(status)}</span>`}</td>
       <td data-label="Last note" class="pd-last-note">${notes.length ? `${escapeHtml(pastDueWhen(notes[0].created_at))}<small>${pastDuePlural(notes.length, 'note')}</small>` : '<span class="pd-muted">None</span>'}</td>
+      ${mode === 'open' ? `<td data-label="Next follow-up" class="pd-last-note">${pastDueFollowUpHtml(member)}</td>` : ''}
     </tr>
     <tr class="child-row" id="${detailId}" data-index="${index}"${open ? '' : ' hidden'}>
-      <td colspan="7">
+      <td colspan="${mode === 'open' ? 8 : 7}">
         <div class="pd-detail">
           ${pastDueBillsHtml(member, mode, focusId)}
           <div class="pd-lower${mode === 'open' ? '' : ' is-single'}">
@@ -377,6 +414,7 @@ function pastDueRenderTable(containerId, members, mode = 'open', emptyText = 'No
           <th class="num">Oldest</th>
           <th>${mode === 'open' ? 'Stage' : 'Status'}</th>
           <th>Last note</th>
+          ${mode === 'open' ? '<th>Next follow-up</th>' : ''}
         </tr>
       </thead>
       <tbody>${members.map((member, index) => pastDueMemberRowsHtml(containerId, member, index, mode)).join('')}</tbody>
@@ -448,6 +486,13 @@ function pastDueOnChange(event) {
       await pastDueUpdateBills([bill], patch);
       if (note) await pastDueAddNote(member, note);
     }, `Saved ${billName}.`);
+    return;
+  }
+
+  if (input.dataset.action === 'follow-up') {
+    const date = input.value || null;
+    pastDueRun(() => pastDueUpdateBills(member.bills, { next_follow_up: date }),
+      date ? `Next follow-up set to ${pastDueShortDate(date)}.` : 'Next follow-up back on the SOP date.');
     return;
   }
 
@@ -655,6 +700,7 @@ const PAST_DUE_SORTS = {
   days: (a, b) => pastDueOldest(b.bills) - pastDueOldest(a.bills),
   amount: (a, b) => pastDueTotal(b.bills) - pastDueTotal(a.bills),
   name: (a, b) => a.member_name.localeCompare(b.member_name),
+  followUp: (a, b) => (pastDueFollowUp(a).date || '9999').localeCompare(pastDueFollowUp(b).date || '9999') || pastDueOldest(b.bills) - pastDueOldest(a.bills),
   note: (a, b) => pastDueLastNoteTime(a) - pastDueLastNoteTime(b) || pastDueOldest(b.bills) - pastDueOldest(a.bills)
 };
 
@@ -684,7 +730,7 @@ function pastDueRender() {
     metrics.innerHTML = `
       <div class="past-due-metric key"><span>Total overdue</span><strong>${pastDueMoney(pastDueTotal(openBills))}</strong></div>
       <div class="past-due-metric"><span>Members past due</span><strong>${openMembers.length}<small>${pastDuePlural(openBills.length, 'bill')}</small></strong></div>
-      <div class="past-due-metric"><span>Escalated</span><strong>${openMembers.filter(member => member.bills.some(pastDueIsEscalated)).length}</strong></div>
+      <div class="past-due-metric"><span>Follow-ups due today</span><strong>${openMembers.filter(pastDueIsFollowUpDue).length}<small>${openMembers.filter(member => member.bills.some(pastDueIsEscalated)).length} escalated</small></strong></div>
       <div class="past-due-metric"><span>Cleared / cancelled</span><strong>${clearedMembers.length} / ${cancelledMembers.length}</strong></div>`;
   }
   pastDueRenderAgeing(openMembers);
@@ -781,7 +827,7 @@ function pastDueRenderTrends(bills) {
     },
     options: {
       ...base,
-      scales: { x: { stacked: true, title: { display: true, text: 'Week due' } }, y: { stacked: true, ticks: { callback: value => pastDueMoney(value) } } },
+      scales: { x: { stacked: true, title: { display: true, text: 'Week due' } }, y: { stacked: true, ticks: { callback: value => pastDueWholeDollars.format(value) } } },
       plugins: { ...base.plugins, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${pastDueMoney(ctx.raw)} (${pastDuePlural(ctx.dataset.counts[ctx.dataIndex], 'bill')})` } } }
     }
   });

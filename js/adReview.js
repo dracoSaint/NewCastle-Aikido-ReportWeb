@@ -306,16 +306,26 @@ function arRenderReport(date) {
   const summary = arSummaryFor(rows);
   const avgCtr = rows.length ? rows.reduce((sum, row) => sum + row.m.ctr_all, 0) / rows.length : 0;
 
+  // Each figure against the report about a week earlier (the reports are rolling 7-day windows).
+  const prevDate = arReportDates().find(day => day <= arAddDays(date, -7));
+  const prevRows = prevDate ? arReportAds(prevDate) : [];
+  const prev = prevDate ? arSummaryFor(prevRows) : null;
+  const prevCtr = prevRows.length ? prevRows.reduce((sum, row) => sum + row.m.ctr_all, 0) / prevRows.length : 0;
+  const cpl = s => (s.totalLeads ? s.spend / s.totalLeads : null);
+  const vs = text => (prev ? `<small class="metric-change">vs ${text} on ${arDate(prevDate, { day: 'numeric', month: 'short' })}</small>` : '');
   document.getElementById('arReportMetrics').innerHTML = `
-    <div class="past-due-metric key"><span>Spend · last 7 days</span><strong>${arMoney(summary.spend)}</strong></div>
-    <div class="past-due-metric"><span>Leads</span><strong>${summary.totalLeads}</strong></div>
-    <div class="past-due-metric"><span>Blended CPL</span><strong>${summary.totalLeads ? arMoney(summary.spend / summary.totalLeads) : '—'}</strong></div>
-    <div class="past-due-metric"><span>Average CTR (All)</span><strong>${arPct(avgCtr)}</strong></div>`;
+    <div class="past-due-metric key"><span>Spend · last 7 days</span><strong>${arMoney(summary.spend)}${vs(prev && arMoney(prev.spend))}</strong></div>
+    <div class="past-due-metric"><span>Leads</span><strong>${summary.totalLeads}${vs(prev?.totalLeads)}</strong></div>
+    <div class="past-due-metric"><span>Blended CPL</span><strong>${cpl(summary) === null ? '—' : arMoney(cpl(summary))}${vs(prev && (cpl(prev) === null ? '—' : arMoney(cpl(prev))))}</strong></div>
+    <div class="past-due-metric"><span>Average CTR (All)</span><strong>${arPct(avgCtr)}${vs(arPct(prevCtr))}</strong></div>`;
 
+  // On screen: short ad names and bold figures. Copy for Slack keeps the full text.
+  const shorten = text => rows.reduce((out, row) => out.split(row.ad.ad_name).join(arShortName(row.ad.ad_name)), text);
+  const emphasise = text => arEsc(shorten(text)).replace(/(\$[\d,]+(?:\.\d+)?|\d+(?:\.\d+)?%|\b\d+ (?:of \d+ )?(?:leads?|Leads?)\b)/g, '<b>$1</b>');
   document.getElementById('arSummary').innerHTML = `
-    <div><dt>Top performer</dt><dd>${arEsc(summary.topText)}</dd></div>
-    <div><dt>Total leads generated</dt><dd>${arEsc(summary.leadsText)}</dd></div>
-    <div><dt>Key takeaway</dt><dd>${arEsc(summary.takeaway)}</dd></div>`;
+    <div><dt>Top performer</dt><dd>${emphasise(summary.topText)}</dd></div>
+    <div><dt>Total leads generated</dt><dd>${emphasise(summary.leadsText)}</dd></div>
+    <div><dt>Key takeaway</dt><dd>${emphasise(summary.takeaway)}</dd></div>`;
 
   document.getElementById('arThresholdTable').innerHTML = arReportRowsHtml(met, true, date);
   document.getElementById('arUnderTable').innerHTML = arReportRowsHtml(under, false, date);

@@ -97,7 +97,20 @@
       head.append(actions);
     }
 
-    header.insertBefore(head, header.querySelector(':scope > nav'));
+    const nav = header.querySelector(':scope > nav');
+    header.insertBefore(head, nav);
+    if (nav) initTabStrip(nav);
+  }
+
+  // ── Tabs on narrow screens: fade the edge while more tabs are hidden, keep the active one in view ──
+  function initTabStrip(nav) {
+    const update = () => nav.classList.toggle('has-more', nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2);
+    nav.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    nav.addEventListener('click', event => {
+      event.target.closest('button')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    });
+    update();
   }
 
   // ── Toggle open / close ───────────────────────────────────────────────────

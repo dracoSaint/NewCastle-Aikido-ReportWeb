@@ -38,11 +38,14 @@
           <span>Report date</span>
           <input type="date" id="fuReportDate">
         </label>
-        <div class="fu-toolbar-actions">
-          <button type="button" class="sop-action-button secondary" id="fuCopy">Copy</button>
-          <button type="button" class="sop-action-button secondary" id="fuDownload">.md</button>
-          <button type="button" class="sop-action-button primary" id="fuPdf">Download PDF</button>
-        </div>
+        <details class="fu-toolbar-actions overview-types fu-export" id="fuExport">
+          <summary class="sop-action-button secondary">Export</summary>
+          <div class="overview-types-list fu-export-list">
+            <button type="button" class="sop-action-button primary" id="fuPdf">Download PDF</button>
+            <button type="button" class="sop-action-button secondary" id="fuCopy">Copy as text</button>
+            <button type="button" class="sop-action-button secondary" id="fuDownload">Download .md</button>
+          </div>
+        </details>
       </div>
 
       <div class="member-toolbar fu-filters" id="fuFilters" hidden>
@@ -51,8 +54,8 @@
           <input id="fuSearch" type="search" placeholder="Search name or phone" autocomplete="off">
         </label>
         <div class="fu-segment" role="group" aria-label="Show">
-          <button type="button" data-show="all" aria-pressed="true">All</button>
-          <button type="button" data-show="todo" aria-pressed="false">Not contacted</button>
+          <button type="button" data-show="all" aria-pressed="false">All</button>
+          <button type="button" data-show="todo" aria-pressed="true">Not contacted</button>
           <button type="button" data-show="done" aria-pressed="false">Contacted</button>
         </div>
       </div>

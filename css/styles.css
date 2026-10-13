@@ -711,6 +711,26 @@ header::before {
   min-width: 1180px;
 }
 
+/* The follow-up step wraps under its date, so the Past Due table fits without a minimum width. */
+.past-due-page #pastDueTable table.pd-table {
+  min-width: 0;
+}
+
+.pd-table td[data-label="Next follow-up"] {
+  min-width: 170px;
+  white-space: normal;
+}
+
+.pd-table td[data-label="Next follow-up"] small {
+  white-space: normal;
+}
+
+@media (max-width: 1100px) {
+  .past-due-page :is(#pastDueTable, #clearedTable, #cancelledTable, #logTable) :is(table.pd-table, table.pd-bill-table) {
+    min-width: 0;
+  }
+}
+
 .past-due-page #tab-export .export-description {
   max-width: 880px;
 }
@@ -1235,11 +1255,13 @@ header::before {
 }
 
 .csv-progress-bar {
-  width: 0%;
+  width: 100%;
   height: 100%;
   background: linear-gradient(90deg, #7d1420 0%, #d9364f 100%);
   border-radius: inherit;
-  transition: width 0.3s ease;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.3s ease;
 }
 
 .csv-upload-modal-actions {
@@ -1833,7 +1855,7 @@ input[type="search"] {
   z-index: 4;
   background: #fff;
   min-width: 180px;
-  box-shadow: 1px 0 0 rgba(28, 43, 58, 0.08), 2px 0 6px -3px rgba(28, 43, 58, 0.18);
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.08), 2px 0 6px -3px rgba(0, 0, 0, 0.18);
 }
 
 .report-summary-table th:nth-child(2),
@@ -1843,7 +1865,7 @@ input[type="search"] {
   z-index: 3;
   background: #fff;
   min-width: 110px;
-  box-shadow: 1px 0 0 rgba(28, 43, 58, 0.08), 2px 0 6px -3px rgba(28, 43, 58, 0.18);
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.08), 2px 0 6px -3px rgba(0, 0, 0, 0.18);
 }
 
 .report-summary-table thead th:first-child,
@@ -2359,7 +2381,7 @@ footer {
   color: var(--red);
   border-color: var(--red);
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px #7b2c2d33;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
 }
 
 /* Adjust layout on smaller mobile screens */
@@ -2727,7 +2749,6 @@ footer {
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .success-title {
@@ -3222,7 +3243,7 @@ footer {
 
 .pricing-save-btn.saved {
   background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-  box-shadow: 0 3px 8px rgba(5, 150, 105, 0.2);
+  box-shadow: none;
 }
 
 .pricing-save-btn.error {
@@ -3738,12 +3759,21 @@ kbd {
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px 24px;
-  padding: 30px 0 22px;
+  gap: 12px 24px;
+  padding: 18px 0 14px;
 }
 
+/* Title and "last updated" share a line when there's room, so data starts higher. */
 .page-head-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 16px;
   min-width: 0;
+}
+
+header .page-head-text p.page-meta {
+  margin: 0;
 }
 
 .page-title,
@@ -3796,8 +3826,7 @@ header p.page-meta {
   animation: none;
 }
 
-header input[type="search"],
-#filterInput {
+header input[type="search"] {
   display: block;
   width: min(280px, 100%);
   height: 40px;
@@ -3812,11 +3841,11 @@ header input[type="search"],
   box-shadow: none;
 }
 
-#filterInput::placeholder {
+header #filterInput::placeholder {
   color: var(--on-ai-2);
 }
 
-#filterInput:focus {
+header #filterInput:focus {
   outline: none;
   border-color: #fff;
   background: rgba(255, 255, 255, 0.14);
@@ -3838,6 +3867,11 @@ nav.site-nav {
 
 nav.site-nav::-webkit-scrollbar {
   display: none;
+}
+
+/* More tabs off to the right: fade the edge so the strip reads as scrollable. */
+nav.site-nav.has-more {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent);
 }
 
 nav.site-nav button {
@@ -4242,7 +4276,7 @@ td.measure {
 }
 
 input[type="text"],
-input[type="search"]:not(#filterInput):not(#quickSwitcherInput),
+input[type="search"]:not(header #filterInput):not(#quickSwitcherInput),
 input[type="email"],
 input[type="password"],
 input[type="date"],
@@ -4687,6 +4721,10 @@ label > span,
 .chart-wrap {
   height: 340px;
   padding: 16px 20px 20px;
+}
+
+.chart-wrap.chart-wrap-short {
+  height: 220px;
 }
 
 .report-summary-table {
@@ -5937,6 +5975,19 @@ nav.site-nav {
   font-weight: 600;
 }
 
+/* "▼3 vs 162 last week" under the figure. */
+.past-due-metric strong small.metric-change {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+}
+
+.past-due-metric.key strong small.metric-change {
+  color: var(--on-ai-2);
+}
+
 .past-due-metric strong .report-status {
   display: inline-flex;
   width: auto;
@@ -6101,7 +6152,7 @@ h1, h2, h3, h4,
 
 .page-title,
 header h1.page-title {
-  font-size: clamp(2.3rem, 1.6rem + 2.2vw, 3.5rem);
+  font-size: clamp(2rem, 1.5rem + 1.6vw, 2.8rem);
   line-height: 1;
   letter-spacing: 0.015em;
 }
@@ -6262,6 +6313,12 @@ header .site-logo,
 .member-search {
   flex: 1 1 240px;
   max-width: 340px;
+}
+
+/* Grading: the search sits on the page, above whichever table is showing. */
+.member-toolbar.grading-toolbar {
+  padding: 0 0 16px;
+  border: 0;
 }
 
 .member-search input {
@@ -6892,13 +6949,25 @@ th[aria-sort="descending"] .sort-mark {
     padding: 0;
   }
 
-  /* Grading: name first, then attendance since test with its stitch run. */
-  :is(#home-adults-wrap, #home-juniors-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td:is(:nth-child(2), :nth-child(3)) {
+  /* Grading: name across the top, then the figures three to a row. */
+  :is(#home-adults-wrap, #home-juniors-wrap, #home-close-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack > tbody > tr {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px 12px;
+    padding: 12px 16px;
+  }
+
+  :is(#home-adults-wrap, #home-juniors-wrap, #home-close-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td:first-child {
+    grid-column: 1 / -1;
     order: -2;
+    font-size: 1rem;
     font-weight: 700;
   }
 
-  :is(#home-adults-wrap, #home-juniors-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td.measure {
+  :is(#home-adults-wrap, #home-juniors-wrap, #home-close-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td:first-child::before {
+    content: none;
+  }
+
+  :is(#home-adults-wrap, #home-juniors-wrap, #home-close-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td.measure {
     order: -1;
   }
 
@@ -6991,6 +7060,30 @@ th[aria-sort="descending"] .sort-mark {
   font-weight: 700;
 }
 
+.pd-due {
+  color: var(--beni);
+  font-weight: 700;
+}
+
+.pd-follow-up {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.pd-follow-up input {
+  width: 100%;
+  min-width: 0;
+}
+
+.pd-follow-up small {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
 .pd-last-note small,
 .pd-sub {
   display: block;
@@ -7023,7 +7116,17 @@ th[aria-sort="descending"] .sort-mark {
   background: var(--cotton);
 }
 
+/* The member table scrolls sideways below its 1180px min-width; keep the open
+   detail panel the width of the visible area, pinned left, so nothing sits off-screen. */
+.past-due-page .table-wrap {
+  container-type: inline-size;
+}
+
 .pd-detail {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: 100cqi;
   display: grid;
   gap: 16px;
   padding: 16px 20px 20px 64px;
@@ -7179,7 +7282,9 @@ th[aria-sort="descending"] .sort-mark {
 
 .pd-actions {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+  white-space: normal; /* the table cell around it is nowrap */
 }
 
 .pd-actions h4 {
@@ -8029,8 +8134,24 @@ th[aria-sort="descending"] .sort-mark {
   }
 
   :is(.ad-review-page, .follow-up-page) :is(.past-due-metrics) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  /* "Copy for Slack" stays on the heading's line. */
+  .ad-review-page .ar-summary-card .card-heading-row {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .ad-review-page .ar-summary-card .card-heading-row h2 {
+    flex: 1 1 auto;
+    font-size: 1.3rem;
+    white-space: nowrap;
+  }
+
+  .ad-review-page .ar-summary-card .card-heading-row .sop-action-button {
+    flex: 0 0 auto;
   }
 
   :is(.ad-review-page, .follow-up-page) .past-due-metric.key {
@@ -8182,7 +8303,7 @@ th[aria-sort="descending"] .sort-mark {
 
 @media (min-width: 1100px) {
   .fu-metrics {
-    grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr));
+    grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -8230,6 +8351,82 @@ th[aria-sort="descending"] .sort-mark {
   height: 100%;
   border-radius: inherit;
   background: var(--moss);
+}
+
+.past-due-metric.key .fu-progress {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.past-due-metric.key.fu-metric-progress strong small {
+  color: var(--on-ai-2);
+}
+
+/* Tiers fold away; the heading stays in view while you work down a long tier. */
+.fu-tier {
+  overflow: clip;
+}
+
+.fu-tier > summary {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--paper);
+  cursor: pointer;
+  list-style: none;
+}
+
+.fu-tier > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fu-tier > summary h2::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
+  border-right: 2px solid var(--ink-3);
+  border-bottom: 2px solid var(--ink-3);
+  transform: rotate(45deg) translateY(-3px);
+  transition: transform 0.2s ease;
+}
+
+.fu-tier:not([open]) > summary h2::after {
+  transform: rotate(-45deg);
+}
+
+.fu-tier:not([open]) {
+  margin-bottom: 12px;
+}
+
+.fu-sources {
+  margin: 0 0 16px;
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
+.fu-sources > summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.fu-sources .fu-hint {
+  margin: 6px 0 0;
+}
+
+.fu-export > summary {
+  list-style: none;
+}
+
+.fu-export > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fu-export .fu-export-list {
+  right: 0;
+  left: auto;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-width: 200px;
 }
 
 .fu-table tr.is-contacted,
@@ -8316,8 +8513,10 @@ th[aria-sort="descending"] .sort-mark {
   font-size: 0.8rem;
 }
 
+/* Remove is reversible ("Put back") but shouldn't sit under the thumb next to Log contact. */
 .fu-actions .pd-link {
-  margin-left: 6px;
+  margin-left: 16px;
+  color: var(--ink-3);
 }
 
 .fu-tier-tag {
@@ -8566,6 +8765,89 @@ th[aria-sort="descending"] .sort-mark {
   border-top: 1px solid var(--line);
 }
 
+/* Tablets and small laptops: the member table needs ~1000px, so each member becomes a
+   card (four figures to a row) instead of a table that scrolls sideways. Phones use the
+   two-column table.stack records further down. */
+@media (min-width: 641px) and (max-width: 1100px) {
+  .past-due-page :is(.table-wrap > table.pd-table, table.pd-bill-table),
+  .past-due-page :is(table.pd-table, table.pd-bill-table) > tbody {
+    display: block;
+    min-width: 0;
+  }
+
+  .past-due-page :is(table.pd-table, table.pd-bill-table) > thead {
+    display: none;
+  }
+
+  .past-due-page :is(table.pd-table > tbody > tr.parent-row, table.pd-bill-table > tbody > tr) {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px 16px;
+    align-items: start;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--ai-100);
+  }
+
+  .past-due-page table.pd-table > tbody > tr.parent-row.is-open {
+    background: var(--ai-50);
+  }
+
+  .past-due-page :is(table.pd-table > tbody > tr.parent-row, table.pd-bill-table > tbody > tr) > td {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent !important;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .past-due-page :is(table.pd-table > tbody > tr.parent-row, table.pd-bill-table > tbody > tr) > td::before {
+    content: attr(data-label);
+    color: var(--ink-3);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .past-due-page :is(table.pd-table > tbody > tr.parent-row, table.pd-bill-table > tbody > tr) > td:is(:not([data-label]), [data-label=""])::before {
+    content: none;
+  }
+
+  .past-due-page table.pd-table > tbody > tr.parent-row > td[data-label="Member"] {
+    grid-row: 1;
+    grid-column: 1 / 4;
+  }
+
+  .past-due-page table.pd-table > tbody > tr.parent-row > td.pd-toggle-cell {
+    grid-row: 1;
+    grid-column: 4;
+    justify-self: end;
+    width: auto;
+  }
+
+  .past-due-page table.pd-table > tbody > tr.parent-row > td.num .stitch-meter {
+    margin-left: 0;
+  }
+
+  .past-due-page table.pd-bill-table :is(input, select) {
+    width: 100%;
+    max-width: none;
+  }
+
+  .past-due-page table.pd-table > tbody > tr.child-row,
+  .past-due-page table.pd-table > tbody > tr.child-row > td {
+    display: block;
+  }
+
+  .past-due-page table.pd-table > tbody > tr.child-row[hidden] {
+    display: none;
+  }
+}
+
 @media (max-width: 1080px) {
   .pd-ageing {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8737,7 +9019,7 @@ th[aria-sort="descending"] .sort-mark {
   }
 
   .follow-up-page .fu-metrics {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .follow-up-page .fu-metrics .past-due-metric {
@@ -8844,6 +9126,11 @@ th[aria-sort="descending"] .sort-mark {
 
 .overview-types {
   position: relative;
+}
+
+.overview-range-list .overview-date {
+  display: grid;
+  gap: 4px;
 }
 
 .overview-types > summary {
