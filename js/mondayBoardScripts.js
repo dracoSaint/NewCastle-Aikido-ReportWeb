@@ -437,7 +437,7 @@ function setUploadProgress(percent, label) {
   const bar = document.getElementById('csvProgressBar');
   const text = document.getElementById('csvProgressText');
 
-  if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+  if (bar) bar.style.transform = `scaleX(${Math.min(100, Math.max(0, percent)) / 100})`;
   if (text) text.textContent = label || `${Math.round(percent)}%`;
 }
 
@@ -1136,7 +1136,7 @@ function renderMondayBoardCharts(data) {
     const lastFilled = totals.findLastIndex(value => value !== null && value !== undefined && value !== '');
     const dateCount = lastFilled >= 0 ? lastFilled + 1 : columnCount;
     const labels = dashboardDateLabels(data.rows, dateCount);
-    renderMondayKeyFigure(totals[dateCount - 1], dateCount > 1 ? totals[dateCount - 2] : null);
+    renderMondayKeyFigure({ members_total: totals[dateCount - 1] }, dateCount > 1 ? { members_total: totals[dateCount - 2] } : null);
 
     const memberTrendChartConfigs = [
         { label: 'Total members', rowLabel: 'MEMBERS TOTALS', borderColor: '#2F3237', backgroundColor: 'rgba(47, 50, 55, 0.06)' },
@@ -1258,13 +1258,21 @@ function renderMondayBoardChartsFromLog(logRows, keys = null) {
     const value = (row, key) => Number(row?.[key] || 0);
     const labels = logRows.map(row => formatReportDate(row.report_date));
 
-    renderMondayKeyFigure(latest.members_total, logRows.length > 1 ? logRows[logRows.length - 2].members_total : null);
+    renderMondayKeyFigure(latest, logRows.length > 1 ? logRows[logRows.length - 2] : null);
+
+    // The total sits on its own chart so the membership types below keep a readable scale.
+    const total = MONDAY_MEMBER_SERIES.find(series => series.total);
+    drawChart('totalTrendChart', {
+        type: 'line',
+        data: { labels, datasets: [{ label: total.label, data: logRows.map(row => value(row, total.key)), borderColor: total.color, backgroundColor: total.bg, fill: true, tension: 0.3 }] },
+        options: { ...chartOptions('Total members'), plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: { ticks: { precision: 0 } } } }
+    });
 
     drawChart('membersTrendChart', {
         type: 'line',
         data: {
             labels,
-            datasets: members.map(series => ({
+            datasets: members.filter(series => !series.total).map(series => ({
                 label: series.label,
                 data: logRows.map(row => value(row, series.key)),
                 borderColor: series.color,
@@ -1325,6 +1333,12 @@ function applyOverviewFilters() {
         return (!from || date >= from) && (!to || date <= to);
     });
 
+    const weekStart = weeks => String(mondayLogRows[Math.max(0, mondayLogRows.length - weeks)]?.report_date || '').slice(0, 10);
+    document.querySelectorAll('#overviewRange button').forEach(button => {
+        const weeks = Number(button.dataset.weeks);
+        button.setAttribute('aria-pressed', String(!to && (weeks ? from === weekStart(weeks) : !from)));
+    });
+
     const count = document.getElementById('overviewTypesCount');
     if (count) count.textContent = keys.size === boxes.length ? 'All' : `${keys.size} of ${boxes.length}`;
     const status = document.getElementById('overviewFilterStatus');
@@ -1346,6 +1360,15 @@ function initOverviewFilters() {
         `<label><input type="checkbox" value="${item.key}" checked> ${escapeHtml(item.label)}</label>`).join('')}</fieldset>`;
     list.innerHTML = group('Members', MONDAY_MEMBER_SERIES) + group('Become packages', MONDAY_BEGINNER_SERIES);
     form.addEventListener('change', applyOverviewFilters);
+    // Presets: start the range N weeks back from the latest report.
+    document.getElementById('overviewRange')?.addEventListener('click', event => {
+        const button = event.target.closest('button[data-weeks]');
+        if (!button) return;
+        const weeks = Number(button.dataset.weeks);
+        document.getElementById('overviewFrom').value = weeks ? String(mondayLogRows[Math.max(0, mondayLogRows.length - weeks)]?.report_date || '').slice(0, 10) : '';
+        document.getElementById('overviewTo').value = '';
+        applyOverviewFilters();
+    });
     form.addEventListener('submit', event => event.preventDefault());
     // Reset fires before the fields clear, so redraw on the next tick.
     form.addEventListener('reset', () => setTimeout(applyOverviewFilters));
@@ -1366,16 +1389,20 @@ async function loadOverviewFromWeeklyLog() {
   applyOverviewFilters();
 }
 
-// Members this week on the indigo plate; last week and the change beside it.
-function renderMondayKeyFigure(current, previous) {
+// latest / previous: the last two weekly log rows. Each figure carries its change on last week.
+function renderMondayKeyFigure(latest, previous) {
     const el = document.getElementById('mondayKeyFigure');
-    if (!el || current === null || current === undefined || current === '') return;
-    const now = Number(current) || 0;
-    const prev = previous === null || previous === undefined || previous === '' ? null : Number(previous) || 0;
-    const change = prev === null ? '' : getGoalBadge(now - prev);
-    el.innerHTML = `<div class="past-due-metric key"><span>Total members this week</span><strong>${now}</strong></div>` +
-        `<div class="past-due-metric"><span>Last week</span><strong>${prev === null ? '—' : prev}</strong></div>` +
-        `<div class="past-due-metric"><span>Change</span><strong>${change || '—'}</strong></div>`;
+    if (!el || latest?.members_total === null || latest?.members_total === undefined || latest.members_total === '') return;
+    const card = (label, key, extraClass = '') => {
+        if (latest[key] === undefined || latest[key] === null) return '';
+        const now = Number(latest[key]) || 0;
+        const before = previous ? Number(previous[key]) || 0 : null;
+        const change = before === null ? '' : `<small class="metric-change">${getGoalBadge(now - before)} vs ${before} last week</small>`;
+        return `<div class="past-due-metric${extraClass}"><span>${label}</span><strong>${now}${change}</strong></div>`;
+    };
+    el.innerHTML = card('Total members this week', 'members_total', ' key') +
+        card('Beginners on packages', 'beginner_totals') +
+        card('Regular adults', 'regular_adult');
 }
 
 function chartOptions(title, type = 'line') {

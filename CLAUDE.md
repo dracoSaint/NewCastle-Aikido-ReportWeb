@@ -36,4 +36,9 @@ Always on: ponytail `full` (minimal code), caveman (terse replies), security-gui
 5. **Hand over** — `graphify update .`; list what changed + what the user should click through. Wait for OK.
 6. **Ship (only after OK)** — `/ship` checklist, `/caveman-commit` message, one commit, one push.
 
+**Token hygiene** (context size drives cost, not plugins):
+- One feature per session; `/clear` after each push. Back after 1h+ idle on a long session? Start fresh, don't resume (cache rebuild costs 100k–450k).
+- Files over ~400 lines (e.g. `js/pastDueMembers.js`, `css/styles.css`): Grep `-n` for the symbol, then Read only that line range.
+- No subagents for reviews or small searches; run step 4 inline.
+
 Skip other agent-skills (TDD, CI/CD, ADRs, specs, API design, observability, interview/idea) unless asked.

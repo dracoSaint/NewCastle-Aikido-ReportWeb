@@ -16,7 +16,8 @@ let fuReports = [];      // history: [{ id, report_date, created_at, created_by 
 let fuCurrent = null;    // the report on screen (full row)
 let fuContacts = [];     // contact log, newest first
 let fuContactsError = '';
-let fuShow = 'all';      // all | todo | done
+let fuShow = 'todo';     // all | todo | done
+const fuCollapsed = new Set(); // tones of tiers the user folded away
 let fuDialogRow = null;  // the member the contact dialog is open for
 
 // ── Small helpers ────────────────────────────────────────────────────────────
@@ -90,13 +91,13 @@ function fuTierCard(title, owner, tone, rows, total, withDays) {
       </table>`
     : `<div class="empty">${total ? 'Nobody here matches the search or filter.' : 'Nobody in this tier.'}</div>`;
   return `
-    <div class="card fu-tier is-${tone}">
-      <div class="card-heading-row">
+    <details class="card fu-tier is-${tone}" data-tier="${tone}"${fuCollapsed.has(tone) ? '' : ' open'}>
+      <summary class="card-heading-row">
         <h2>${title} · ${rows.length === total ? total : `${rows.length} of ${total}`}</h2>
         ${owner ? `<span class="member-count">${owner} to follow up</span>` : ''}
-      </div>
+      </summary>
       <div class="table-wrap">${body}</div>
-    </div>`;
+    </details>`;
 }
 
 function fuFilterRows(rows) {
@@ -135,14 +136,13 @@ function fuRender() {
   const files = [fuCurrent.attendance_file && `Attendance: ${fuCurrent.attendance_file}`, fuCurrent.membership_file && `Membership: ${fuCurrent.membership_file}`].filter(Boolean).join(' · ');
   container.innerHTML = `
     <div class="past-due-metrics fu-metrics">
-      <div class="past-due-metric key"><span>To follow up</span><strong>${open.length}</strong></div>
-      <div class="past-due-metric fu-metric-progress"><span>Contacted</span><strong>${contacted}<small>of ${open.length}</small></strong>
+      <div class="past-due-metric key fu-metric-progress"><span>To follow up · ${contacted} of ${open.length} contacted</span><strong>${open.length - contacted}<small>left</small></strong>
         <span class="fu-progress" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100" aria-label="Contacted"><span style="width:${percent}%"></span></span></div>
       <div class="past-due-metric fu-metric-orange"><span>Orange · ${FU_ORANGE.from}–${FU_ORANGE.to} days</span><strong>${result.orange.length}</strong></div>
       <div class="past-due-metric fu-metric-red"><span>Red · ${FU_RED.from}+ days</span><strong>${result.red.length}</strong></div>
       <div class="past-due-metric"><span>Excluded · Gratis / HOLD</span><strong>${result.excluded.length}</strong></div>
     </div>
-    <p class="fu-hint">${fuEsc(files)}${fuCurrent.updated_by ? ` · last edited by ${fuEsc(fuCurrent.updated_by)}` : ''}</p>
+    <details class="fu-sources"><summary>Sources</summary><p class="fu-hint">${fuEsc(files)}${fuCurrent.updated_by ? ` · last edited by ${fuEsc(fuCurrent.updated_by)}` : ''}</p></details>
     ${fuContactsError ? `<div class="card fu-warning"><div class="error">${fuEsc(fuContactsError)}</div></div>` : ''}
     ${fuTierCard('Orange tier', FU_ORANGE.owner, 'orange', fuFilterRows(result.orange), result.orange.length, true)}
     ${fuTierCard('Red tier', FU_RED.owner, 'red', fuFilterRows(result.red), result.red.length, true)}
@@ -392,6 +392,17 @@ async function fuDeleteContact(event) {
 
 // The browser's print to "Save as PDF" keeps the page's own look; styles under @media print.
 function fuPrint() {
+  // The PDF is the whole report: every member, every tier open, whatever the screen filter.
+  const show = fuShow;
+  const collapsed = [...fuCollapsed];
+  fuShow = 'all';
+  fuRender();
+  document.querySelectorAll('#fuReport details').forEach(details => { details.open = true; });
+  window.addEventListener('afterprint', () => {
+    fuShow = show;
+    collapsed.forEach(tier => fuCollapsed.add(tier));
+    fuRender();
+  }, { once: true });
   const result = fuBuild(fuCurrent);
   document.getElementById('fuPrintMeta').textContent = `Report ${fuLongDate(fuCurrent.report_date)} · `
     + `${result.orange.length + result.red.length + result.none.length} to follow up · `
@@ -439,6 +450,11 @@ function fuInit() {
   }));
 
   const report = document.getElementById('fuReport');
+  // "toggle" doesn't bubble, so listen in the capture phase.
+  report.addEventListener('toggle', event => {
+    const tier = event.target.dataset?.tier;
+    if (tier) event.target.open ? fuCollapsed.delete(tier) : fuCollapsed.add(tier);
+  }, true);
   report.addEventListener('change', event => {
     const key = event.target.dataset.note;
     if (key === undefined) return;
@@ -490,6 +506,10 @@ function fuInit() {
     URL.revokeObjectURL(link.href);
   });
   document.getElementById('fuPdf').addEventListener('click', fuPrint);
+  // Close the Export menu once an option is picked.
+  document.getElementById('fuExport').addEventListener('click', event => {
+    if (event.target.closest('button')) event.currentTarget.open = false;
+  });
 
   Promise.all([fuLoadHistory(), fuLoadContacts()])
     .then(() => {

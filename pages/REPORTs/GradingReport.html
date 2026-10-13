@@ -19,10 +19,16 @@
     <button data-tab="juniors">Juniors Grading</button>
     <button data-tab="members">Member List</button>
   </nav>
-  <input type="search" id="filterInput" placeholder="Search by name...">
 </header>
 
 <main>
+
+  <div class="member-toolbar grading-toolbar">
+    <label class="member-search">
+      <span class="sr-only">Search members by name</span>
+      <input type="search" id="filterInput" placeholder="Search by name" autocomplete="off">
+    </label>
+  </div>
 
   <section class="tab-panel active" id="tab-home">
     <div class="past-due-metrics key-strip" id="gradingKeyFigure" aria-live="polite"></div>
@@ -35,6 +41,11 @@
         <h2>Juniors</h2>
         <div class="table-wrap" id="home-juniors-wrap"><div class="loading">Loading...</div></div>
       </div>
+    </div>
+    <div class="card">
+      <h2>Close to eligible</h2>
+      <p class="page-lede">Within 3 hours of the hours needed, closest first.</p>
+      <div class="table-wrap" id="home-close-wrap"><div class="loading">Loading...</div></div>
     </div>
   </section>
 

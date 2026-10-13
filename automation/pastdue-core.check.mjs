@@ -3,7 +3,16 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
-const { pastDueImportBatch } = createRequire(import.meta.url)('../js/pastDueCore.js');
+const { pastDueImportBatch, pastDueSopFollowUp } = createRequire(import.meta.url)('../js/pastDueCore.js');
+
+// Due Thu 8 Oct 2026. Each note moves the follow-up to the next SOP step, on a Mon/Wed/Fri.
+assert.deepEqual(pastDueSopFollowUp('2026-10-08', null), { date: '2026-10-12', step: 'Retry debit' });
+assert.deepEqual(pastDueSopFollowUp('2026-10-08', '2026-10-12'), { date: '2026-10-14', step: 'Stage 1: retry debit' });
+assert.deepEqual(pastDueSopFollowUp('2026-10-08', '2026-10-14'), { date: '2026-10-16', step: 'Stage 2: retry debit, send reminder' });
+assert.deepEqual(pastDueSopFollowUp('2026-10-08', '2026-10-16'), { date: '2026-10-23', step: 'Stage 3: invoice via Engage, flag to Darius' });
+assert.deepEqual(pastDueSopFollowUp('2026-10-08', '2026-10-23'), { date: '2026-10-30', step: 'Stage 3: invoice via Engage, flag to Darius' });
+assert.equal(pastDueSopFollowUp('2026-10-08', '2026-10-01').date, '2026-10-12', 'a note before the due date is ignored');
+assert.equal(pastDueSopFollowUp(null, null), null);
 
 // Zen Planner's Bills list export: a blank first line, then the header.
 const batch = pastDueImportBatch([

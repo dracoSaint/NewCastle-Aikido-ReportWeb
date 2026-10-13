@@ -151,7 +151,37 @@ function pastDueImportBatch(text, importDate) {
   return [...batch.values()];
 }
 
+// Follow-up timing from the PAST DUE SOP: retry the debit 2-3 days after the failure, Stage 1 at
+// 5 days, Stage 2 at 7, Stage 3 at 15, then weekly. Accounts are checked Monday, Wednesday and
+// Friday, so a follow-up lands on the next check day. Days count from the oldest unpaid due date.
+const PAST_DUE_SOP_STEPS = [
+  [2, 'Retry debit'],
+  [5, 'Stage 1: retry debit'],
+  [7, 'Stage 2: retry debit, send reminder'],
+  [15, 'Stage 3: invoice via Engage, flag to Darius']
+];
+
+// The SOP step for a bill this many days overdue.
+function pastDueSopStep(daysOverdue) {
+  return (PAST_DUE_SOP_STEPS.filter(([offset]) => offset <= daysOverdue).pop() || PAST_DUE_SOP_STEPS[0])[1];
+}
+
+// dueDate and lastAction (day of the last note, or null) are YYYY-MM-DD.
+// Returns the first follow-up after lastAction: { date: 'YYYY-MM-DD', step }.
+function pastDueSopFollowUp(dueDate, lastAction) {
+  const day = 86400000;
+  const due = Date.parse(`${dueDate}T00:00:00Z`);
+  if (Number.isNaN(due)) return null;
+  const last = Date.parse(`${lastAction}T00:00:00Z`);
+  const after = last > due ? last : due;
+  let days = (PAST_DUE_SOP_STEPS.find(([offset]) => due + offset * day > after) || PAST_DUE_SOP_STEPS[3])[0];
+  while (due + days * day <= after) days += 7;
+  const date = new Date(due + days * day);
+  while (![1, 3, 5].includes(date.getUTCDay())) date.setUTCDate(date.getUTCDate() + 1);
+  return { date: date.toISOString().slice(0, 10), step: pastDueSopStep(Math.round((date - due) / day)) };
+}
+
 // Node (the daily job) loads this file as a module; the browser just gets the globals.
 if (typeof module !== 'undefined') {
-  module.exports = { pastDueParseCsv, pastDueNormalizeRow, pastDueIdentity, pastDueImportBatch };
+  module.exports = { pastDueParseCsv, pastDueNormalizeRow, pastDueIdentity, pastDueImportBatch, pastDueSopFollowUp, pastDueSopStep };
 }

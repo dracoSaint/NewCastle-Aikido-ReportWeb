@@ -55,6 +55,8 @@ alter table public.past_due_member_log add column if not exists last_contact_dat
 alter table public.past_due_member_log add column if not exists outcome_notes text;
 alter table public.past_due_member_log add column if not exists escalated_to_darius boolean not null default false;
 alter table public.past_due_member_log add column if not exists class_blocked boolean not null default false;
+-- Staff-set follow-up date, kept on all of a member's bills. Null = the SOP date applies.
+alter table public.past_due_member_log add column if not exists next_follow_up date;
 
 alter table public.past_due_member_log enable row level security;
 

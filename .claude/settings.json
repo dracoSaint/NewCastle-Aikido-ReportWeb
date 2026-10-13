@@ -88,7 +88,9 @@
     "impeccable@impeccable": true,
     "session-report@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
-    "context7@claude-plugins-official": true
+    "context7@claude-plugins-official": false,
+    "claude-mem@thedotmack": false,
+    "claude-code-setup@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "ponytail": {
