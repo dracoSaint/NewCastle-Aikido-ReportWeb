@@ -4,7 +4,12 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
-const { mondayImportCsv } = createRequire(import.meta.url)('../js/mondayImportCore.js');
+const { mondayImportCsv, mondayReportWeek } = createRequire(import.meta.url)('../js/mondayImportCore.js');
+
+// A Tuesday sync belongs to Monday's week, so it refreshes that week instead of starting a new one.
+assert.deepEqual(mondayReportWeek('2026-10-13'), { start: '2026-10-12', end: '2026-10-18' });
+assert.deepEqual(mondayReportWeek('2026-10-12'), { start: '2026-10-12', end: '2026-10-18' });
+assert.deepEqual(mondayReportWeek('2026-10-18'), { start: '2026-10-12', end: '2026-10-18' });
 
 // Stand-in for the Supabase client: records writes, and answers selects from `tables`.
 function fakeClient(tables) {
@@ -13,7 +18,7 @@ function fakeClient(tables) {
     from(table) {
       let op = 'select';
       const query = {
-        select: () => query, eq: () => query, neq: () => query, in: () => query,
+        select: () => query, eq: () => query, neq: () => query, in: () => query, gte: () => query, lte: () => query,
         delete: () => { op = 'delete'; return query; },
         insert: () => { op = 'insert'; return query; },
         update: () => { op = 'update'; return query; },

@@ -11,3 +11,6 @@ supabase/ad_review_seed.sql
 automation-output/
 automation/.env
 supabase/.temp/
+
+# Local data backups (member personal data): never commit
+.claude/backups/

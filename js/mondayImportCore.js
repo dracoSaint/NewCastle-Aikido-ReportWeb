@@ -567,9 +567,19 @@ async function replaceCurrentMemberList(client, rows) {
 }
 
 
+// Monday..Sunday (YYYY-MM-DD) of the week a report date falls in.
+function mondayReportWeek(reportDate) {
+  const day = new Date(`${reportDate}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - (day.getUTCDay() + 6) % 7);
+  const end = new Date(day);
+  end.setUTCDate(end.getUTCDate() + 6);
+  return { start: day.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
 // Membership CSV text -> the Monday report for reportDateValue (YYYY-MM-DD): the current list is
-// archived as last week, replaced, and the week's counts saved. A second import for the same date
-// only refreshes that week, so last week's list is never overwritten with this week's.
+// archived as last week, replaced, and the week's counts saved. Another import in the same
+// Monday-Sunday week (a mid-week "Sync data") only refreshes that week, so last week's list is
+// never overwritten with this week's.
 async function mondayImportCsv(client, text, reportDateValue, progress = () => {}) {
   const reportDate = getSelectedReportDate(reportDateValue);
   const rows = parseUploadedCsv(text)
@@ -578,8 +588,9 @@ async function mondayImportCsv(client, text, reportDateValue, progress = () => {
     .map(row => ({ ...row, report_date: reportDate, imported_at: getSelectedReportTimestamp(reportDateValue), snapshot_label: 'CURRENT' }));
   if (!rows.length) throw new Error('No valid member rows were found in the CSV file.');
 
+  const week = mondayReportWeek(reportDate);
   const { data: sameWeek, error } = await client.from(MEMBER_WEEKLY_LOG_TABLE).select('id')
-    .eq('report_date', reportDate).eq('snapshot_label', 'CURRENT');
+    .gte('report_date', week.start).lte('report_date', week.end).eq('snapshot_label', 'CURRENT');
   if (error) throw error;
   progress(46);
   if (!sameWeek.length) await archiveCurrentMemberList(client, reportDateValue);
@@ -595,5 +606,5 @@ async function mondayImportCsv(client, text, reportDateValue, progress = () => {
 
 // Node (the weekly job) loads this file as a module; the browser just gets the globals.
 if (typeof module !== 'undefined') {
-  module.exports = { parseUploadedCsv, normalizeMembershipCsvRow, dedupeImportedMemberRows, buildWeeklySummaryLogFromRows, mondayImportCsv };
+  module.exports = { parseUploadedCsv, normalizeMembershipCsvRow, dedupeImportedMemberRows, buildWeeklySummaryLogFromRows, mondayImportCsv, mondayReportWeek };
 }
