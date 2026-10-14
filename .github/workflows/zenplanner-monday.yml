@@ -1,14 +1,10 @@
-# Every Monday at 7 am Newcastle time: pulls Zen Planner's "MEMBERSHIP REPORT (CURRENT/HOLD)" and
-# imports it into the Monday report. Also started by the Monday report's "Sync data" button
-# (supabase/functions/run-pastdue-sync). Runs on GitHub, not Netlify: no build credits are used.
+# Weekly, at the day and time set in the portal's Settings > Bots (started by bot-scheduler.yml):
+# pulls Zen Planner's "MEMBERSHIP REPORT (CURRENT/HOLD)" and imports it into the Monday report. Also
+# started by the Monday report's "Sync data" button (supabase/functions/run-pastdue-sync).
+# Runs on GitHub, not Netlify: no build credits are used.
 name: Zen Planner Monday report
 
 on:
-  schedule:
-    # GitHub cron is UTC. Monday 7 am Sydney is Sunday 20:00 UTC in daylight saving (AEDT)
-    # and Sunday 21:00 UTC otherwise (AEST). The job runs both and skips the wrong one.
-    - cron: '0 20 * * 0'
-    - cron: '0 21 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -47,7 +43,6 @@ jobs:
           ZP_PASSWORD: ${{ secrets.ZP_PASSWORD }}
           BOT_EMAIL: ${{ secrets.BOT_EMAIL }}
           BOT_PASSWORD: ${{ secrets.BOT_PASSWORD }}
-          SCHEDULE: ${{ github.event.schedule }}
           TZ: Australia/Sydney
         run: node automation/zenplanner-monday.mjs
 

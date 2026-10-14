@@ -14,28 +14,24 @@ import { createClient } from '@supabase/supabase-js';
 import { env, exportSavedReport as exportReport, withZenPlanner, MEMBERSHIP_REPORT } from './zenplanner.mjs';
 
 const require = createRequire(import.meta.url);
-const { fuAttendanceFromText, fuMembershipsFromText, fuNextReport, fuBuild } = require('../js/followUpCore.js');
+const { fuAttendanceFromText, fuMembershipsFromText, fuNextReport, fuBuild, fuApplyTiers } = require('../js/followUpCore.js');
 
 // Saved reports, opened by category and name exactly as Zen Planner lists them.
 const ATTENDANCE_REPORT = { category: 'Attendance', name: 'RED/ORANGE ATTENDANCE (30 DAYS COUNT)', file: 'attendance' };
 const AUTO_ATTENDANCE = 'Zen Planner auto-export (Red/Orange Attendance (30 Days Count))';
 const AUTO_MEMBERSHIP = 'Zen Planner auto-export (membership status)';
 
-// Runs at 11:59 pm Sydney. The schedule fires twice (daylight saving) and GitHub can run late,
-// so accept 11 pm to 3 am Sydney time, and date the report the evening it covers.
+// Started at the time set in Settings > Bots (automation/bot-scheduler.mjs). A run just after
+// midnight (GitHub can start late) still belongs to the evening before, so date it then.
 function sydneyReportDate() {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Australia/Sydney', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23'
   }).formatToParts(new Date()).map(part => [part.type, part.value]));
   const today = `${parts.year}-${parts.month}-${parts.day}`;
-  const hour = Number(parts.hour);
-  if (hour >= 23) return today;
-  if (hour < 3) {
-    const date = new Date(`${today}T00:00:00Z`);
-    date.setUTCDate(date.getUTCDate() - 1);
-    return date.toISOString().slice(0, 10);
-  }
-  return null;
+  if (Number(parts.hour) >= 3) return today;
+  const date = new Date(`${today}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 }
 
 const downloadReports = () => withZenPlanner(async (page, step) => {
@@ -50,14 +46,14 @@ async function main() {
   const reportDate = process.env.FORCE_RUN === 'true'
     ? new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' })
     : sydneyReportDate();
-  if (!reportDate) {
-    console.log('Outside the 11:59 pm Newcastle window (the other daylight-saving run). Nothing to do.');
-    return;
-  }
 
   const supabase = createClient(env('SUPABASE_URL'), env('SUPABASE_ANON_KEY'), { auth: { persistSession: false } });
   const { error: signInError } = await supabase.auth.signInWithPassword({ email: env('BOT_EMAIL').trim(), password: env('BOT_PASSWORD') });
   if (signInError) throw new Error(`Portal sign-in failed for BOT_EMAIL: ${signInError.message}`);
+
+  // Tier days and owners from Settings > Report rules (built-in defaults until that's set up).
+  const { data: tiers } = await supabase.from('app_settings').select('value').eq('key', 'followup_tiers').maybeSingle();
+  fuApplyTiers(tiers?.value);
 
   const { data: already } = await supabase.from('follow_up_reports').select('id')
     .eq('report_date', reportDate).eq('attendance_file', AUTO_ATTENDANCE).limit(1);

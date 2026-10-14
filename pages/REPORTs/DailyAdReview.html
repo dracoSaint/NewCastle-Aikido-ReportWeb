@@ -17,7 +17,7 @@
       <button data-tab="hub">Ad Hub</button>
       <button data-tab="review">Monthly Review</button>
       <button data-tab="leads">Leads</button>
-      <button data-tab="import">Import</button>
+      <button data-tab="import" data-requires="ads.edit">Import</button>
       <button data-tab="playbook">Playbook</button>
     </nav>
   </header>
@@ -239,7 +239,7 @@
     <section class="tab-panel" id="tab-playbook">
       <div class="ar-playbook-bar">
         <p class="ar-range" id="arPlaybookMeta"></p>
-        <div class="ar-preview-actions" id="arPlaybookActions"></div>
+        <div class="ar-preview-actions" id="arPlaybookActions" data-requires="ads.edit"></div>
       </div>
       <div id="arPlaybook"></div>
     </section>

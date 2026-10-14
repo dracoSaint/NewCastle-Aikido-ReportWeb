@@ -24,7 +24,7 @@
         <span class="sr-only">Search procedures</span>
         <input id="sopSearch" type="search" placeholder="Search procedures" autocomplete="off">
       </label>
-      <button id="addSopBtn" class="sop-action-button primary" type="button">Add New SOP</button>
+      <button id="addSopBtn" data-requires="sops.edit" class="sop-action-button primary" type="button">Add New SOP</button>
     </div>
     <nav id="sopMenu"></nav>
   </aside>
@@ -37,8 +37,8 @@
       </div>
       <div class="sop-reader-actions">
         <button id="sopBrowseBtn" class="sop-action-button primary sop-browse-btn" type="button">All procedures</button>
-        <button id="editSopBtn" class="sop-action-button secondary" type="button" hidden>Edit SOP</button>
-        <button id="deleteSopBtn" class="sop-action-button danger" type="button" hidden>Delete SOP</button>
+        <button id="editSopBtn" data-requires="sops.edit" class="sop-action-button secondary" type="button" hidden>Edit SOP</button>
+        <button id="deleteSopBtn" data-requires="sops.edit" class="sop-action-button danger" type="button" hidden>Delete SOP</button>
         <a id="openSopLink" class="sop-open-link" target="_blank" rel="noopener" hidden>Open in Google Drive</a>
       </div>
     </div>

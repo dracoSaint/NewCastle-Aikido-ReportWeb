@@ -23,6 +23,7 @@ const PAGES = {
   sop: 'pages/SOPs/SOPDocuments.html?sop=billing-account-query',
   ads: 'pages/REPORTs/DailyAdReview.html',
   profile: 'pages/profile.html',
+  settings: 'pages/Settings.html',
   reset: 'pages/reset-password.html',
   regerror: 'pages/register-error.html',
 };

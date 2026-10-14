@@ -26,6 +26,13 @@ Deno.serve(async req => {
   const workflow = Object.hasOwn(JOBS, job) ? JOBS[job] : null;
   if (!workflow) return new Response('Unknown job.', { status: 400, headers: cors });
 
+  // Settings: the role needs "Press Sync buttons", the bot must be switched on, and the cooldown
+  // must have passed (supabase/access_control.sql). Before that's set up, any signed-in user may sync.
+  const { error: claimError } = await supabase.rpc('claim_bot_run', { p_job: job, p_scheduled: false });
+  if (claimError && claimError.code !== 'PGRST202') { // PGRST202: function not created yet
+    return new Response(claimError.message, { status: claimError.code === '42501' ? 403 : 409, headers: cors });
+  }
+
   const res = await fetch(`${REPO}/${workflow}/dispatches`, {
     method: 'POST',
     headers: {
