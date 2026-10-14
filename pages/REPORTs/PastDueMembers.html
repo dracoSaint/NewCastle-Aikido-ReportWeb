@@ -18,7 +18,7 @@
       <button data-tab="cancelled">Cancelled</button>
       <button data-tab="log">Import Log</button>
       <button data-tab="exempted">Exempted</button>
-      <button data-tab="export">Import &amp; Export</button>
+      <button data-tab="export" data-requires="pastdue.edit">Import &amp; Export</button>
     </nav>
   </header>
 
@@ -177,7 +177,7 @@
         <p class="pd-card-lede">Members on this list stay in the import log but are left out of the dashboard and the
           past due, cleared and cancelled lists. Matched by number or full name.</p>
         <div class="pd-tool-body">
-          <form class="pd-inline-form" id="exemptedManualForm">
+          <form class="pd-inline-form" id="exemptedManualForm" data-requires="pastdue.edit">
             <label>
               <span>Member name</span>
               <input id="exemptedMemberNameInput" type="text" autocomplete="off">
@@ -218,7 +218,7 @@
         </div>
         <div class="pd-bulk-bar">
           <span id="exemptSelectedCount" role="status" aria-live="polite">Tick members to remove them from the list.</span>
-          <button type="button" class="sop-action-button danger pd-small" id="removeExemptedBtn" disabled>Remove selected</button>
+          <button type="button" class="sop-action-button danger pd-small" id="removeExemptedBtn" data-requires="pastdue.edit" disabled>Remove selected</button>
         </div>
         <div class="table-wrap" id="exemptedTable">
           <div class="loading">Loading…</div>
@@ -233,7 +233,7 @@
           <div class="pd-tool-body">
             <p class="pd-help">Unpaid bills due today or earlier are pulled from Zen Planner every morning at 7am. New bills are added, and past due bills Zen Planner no longer lists as unpaid are marked Cleared.</p>
             <div class="pd-inline-form">
-              <button type="button" class="sop-action-button primary" id="zenSyncBtn">Sync now</button>
+              <button type="button" class="sop-action-button primary" id="zenSyncBtn" data-requires="sync.run">Sync now</button>
             </div>
             <p id="zenSyncStatus" class="csv-upload-status" role="status"></p>
           </div>
@@ -270,7 +270,7 @@
         <div class="card">
           <div class="card-heading-row">
             <h2>Failure reasons</h2>
-            <button type="button" class="sop-action-button secondary pd-small" id="addFailureReasonBtn">Add reason</button>
+            <button type="button" class="sop-action-button secondary pd-small" id="addFailureReasonBtn" data-requires="pastdue.edit">Add reason</button>
           </div>
           <div class="pd-tool-body">
             <p class="pd-help">Options in each bill's failure reason list.</p>

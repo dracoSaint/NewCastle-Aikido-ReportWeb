@@ -4280,6 +4280,7 @@ input[type="search"]:not(header #filterInput):not(#quickSwitcherInput),
 input[type="email"],
 input[type="password"],
 input[type="date"],
+input[type="time"],
 input[type="number"],
 select,
 textarea {
@@ -9283,4 +9284,556 @@ th[aria-sort="descending"] .sort-mark {
 #memberHistoryLog-wrap tr[data-editable="false"] input:disabled::-webkit-calendar-picker-indicator,
 #memberHistoryLog-wrap tr[data-editable="false"] input:disabled::-webkit-inner-spin-button {
   display: none;
+}
+
+
+/* ---------- Settings (pages/Settings.html) ---------- */
+
+.settings-lede {
+  max-width: 72ch;
+  margin: 0 0 16px;
+}
+
+.settings-bots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.settings-bots > .card,
+.settings-roles > .card {
+  margin: 0;
+}
+
+.settings-bot-body,
+.settings-form > .page-lede,
+.settings-form > .settings-fields,
+.settings-form > .settings-actions {
+  padding: 0 20px;
+}
+
+.settings-bot-body {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 20px;
+}
+
+.settings-bot-body .page-lede,
+.settings-form > .page-lede {
+  margin: 14px 0 0;
+}
+
+.settings-form > .settings-actions {
+  padding-bottom: 20px;
+}
+
+.settings-status {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
+.settings-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 12px 16px;
+  margin-top: 14px;
+}
+
+.settings-fields label {
+  display: grid;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.settings-fields input {
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 14px;
+  margin-top: 16px;
+}
+
+.settings-actions .settings-status {
+  margin-right: auto;
+}
+
+/* Days: seven toggle chips. */
+.settings-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings-days legend {
+  margin-bottom: 6px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.settings-days label {
+  position: relative;
+}
+
+.settings-days input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.settings-days span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.settings-days input:checked + span {
+  border-color: var(--ai-800);
+  background: var(--ai-800);
+  color: var(--on-ai);
+}
+
+.settings-days input:focus-visible + span {
+  outline: 2px solid var(--ai-700);
+  outline-offset: 2px;
+}
+
+/* On/off switch: a styled checkbox (role="switch"). */
+.settings-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.settings-switch input {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--line-strong);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.settings-switch input::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--paper);
+  transition: transform 0.15s ease;
+}
+
+.settings-switch input:checked {
+  background: var(--moss);
+}
+
+.settings-switch input:checked::after {
+  transform: translateX(18px);
+}
+
+.settings-switch input:focus-visible {
+  outline: 2px solid var(--ai-700);
+  outline-offset: 2px;
+}
+
+.settings-switch input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Roles: list on the left, the chosen role's switches on the right. */
+.settings-roles {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.settings-role-items {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px;
+  list-style: none;
+}
+
+.settings-role-items button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-role-items button:hover {
+  background: var(--ai-50);
+}
+
+.settings-role-items button[aria-current="true"] {
+  border-color: var(--ai-800);
+  background: var(--ai-50);
+}
+
+.settings-role-items small {
+  color: var(--ink-3);
+  font-size: 0.8rem;
+}
+
+.settings-new-role {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 16px;
+}
+
+.settings-new-role input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-switches #switchGroups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 16px 24px;
+  padding: 16px 20px 0;
+}
+
+.settings-switches #switchGroups > .page-lede {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.settings-switches > .settings-actions {
+  padding: 0 20px 20px;
+}
+
+.settings-switch-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings-switch-group legend {
+  margin-bottom: 4px;
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.settings-user-table select {
+  min-width: 160px;
+}
+
+.access-denied,
+.settings-notice > .page-lede {
+  padding: 0 20px 20px;
+}
+
+.settings-page .card > .page-lede {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.access-denied h2 {
+  margin-top: 0;
+}
+
+@media (max-width: 760px) {
+  .settings-roles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Slide menu: Settings gear pinned to the bottom-left. Hover or focus turns the gear and
+   reveals the word from left to right; touch screens always show the word. */
+.page-drawer {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-drawer .drawer-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.drawer-footer {
+  flex: 0 0 auto;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.drawer-settings {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.drawer-settings:hover,
+.drawer-settings:focus-visible,
+.drawer-settings.active {
+  background: var(--ai-50);
+  color: var(--ink);
+}
+
+.drawer-settings svg {
+  flex: 0 0 auto;
+  transition: transform 0.6s var(--ease-out);
+}
+
+.drawer-settings:hover svg,
+.drawer-settings:focus-visible svg {
+  transform: rotate(120deg);
+}
+
+.drawer-settings-label {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+  transition: max-width 0.3s var(--ease-out), margin 0.3s var(--ease-out), clip-path 0.3s var(--ease-out), opacity 0.2s ease;
+}
+
+.drawer-settings:hover .drawer-settings-label,
+.drawer-settings:focus-visible .drawer-settings-label,
+.drawer-settings.active .drawer-settings-label {
+  max-width: 8rem;
+  margin-left: 10px;
+  opacity: 1;
+  clip-path: inset(0 0 0 0);
+}
+
+@media (hover: none) {
+  .drawer-settings-label {
+    max-width: 8rem;
+    margin-left: 10px;
+    opacity: 1;
+    clip-path: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-settings svg,
+  .drawer-settings-label {
+    transition: none;
+  }
+}
+
+/* Settings > Preferences "Reduce motion": the same as the system setting, for this account. */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Settings: account, preferences, system status, activity log. */
+.settings-two-col {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.settings-two-col > .card {
+  margin: 0;
+}
+
+.settings-pad {
+  padding: 0 20px 20px;
+}
+
+.settings-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 16px 20px 0;
+}
+
+.settings-facts > div {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.settings-facts dt {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.settings-facts dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.settings-access-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 16px 24px;
+  padding: 16px 20px 20px;
+}
+
+.settings-access-group h3 {
+  margin: 0 0 6px;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.settings-access-group ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.settings-access-group li {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-access-group li.is-yes > span:first-child {
+  color: var(--moss);
+  font-weight: 700;
+}
+
+.settings-access-group li.is-no {
+  color: var(--ink-3);
+}
+
+.settings-pref-switch {
+  padding-top: 14px;
+  padding-bottom: 0;
+}
+
+.settings-pill {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.settings-pill.is-ok { background: #e6f1ea; color: var(--moss); }
+.settings-pill.is-late { background: var(--beni-50); color: var(--beni); }
+.settings-pill.is-muted { background: var(--ai-50); color: var(--ink-2); }
+
+.settings-status-lines {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 14px 20px 20px;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+
+.settings-status-lines li:first-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.settings-activity-table td:first-child {
+  white-space: nowrap;
+}
+
+.settings-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.settings-switch > span {
+  line-height: 22px;
+}
+
+/* Bot card: the next run is the line people look for. */
+.settings-next {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.settings-bot-body .settings-status {
+  margin: -8px 0 0;
+}
+
+.settings-actions [data-unsaved]:not(:empty) {
+  color: var(--beni);
+  font-weight: 600;
+}
+
+/* Intro text under a card heading keeps clear of the stitched divider. */
+.settings-page .card > .card-heading-row + .page-lede {
+  margin-top: 14px;
+}
+
+/* Preferences: short fields, so a readable width instead of the full page. */
+#prefsForm {
+  max-width: 720px;
+}
+
+.settings-status-card .settings-pad {
+  margin: -6px 0 0;
+  font-size: 0.9rem;
 }

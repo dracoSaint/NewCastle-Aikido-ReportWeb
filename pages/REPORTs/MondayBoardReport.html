@@ -22,7 +22,7 @@
       <button data-tab="last_mondayReport">Last Week's Report</button>
       <button data-tab="current_memberList">Current Member List</button>
       <button data-tab="memberHistoryLog">Member History Log</button>
-      <button data-tab="pricingSettings" id="pricingSettingsTab">Pricing Settings</button>
+      <button data-tab="pricingSettings" data-requires="monday.edit" id="pricingSettingsTab">Pricing Settings</button>
     </nav>
   </header>
 
@@ -129,8 +129,8 @@
           <div class="member-toolbar-actions">
             <button type="button" class="sop-action-button secondary" id="exportMemberCsvBtn">Export CSV</button>
             <input id="memberCsvInput" type="file" accept=".csv,text/csv" hidden>
-            <button id="importMemberCsvBtn" type="button" class="sop-action-button secondary">Upload CSV</button>
-            <button id="mondaySyncBtn" type="button" class="sop-action-button primary" title="Pulls the membership report from Zen Planner. Runs automatically every Monday at 7am.">Sync data</button>
+            <button id="importMemberCsvBtn" data-requires="monday.edit" type="button" class="sop-action-button secondary">Upload CSV</button>
+            <button id="mondaySyncBtn" data-requires="sync.run" type="button" class="sop-action-button primary" title="Pulls the membership report from Zen Planner. Runs automatically every Monday at 7am.">Sync data</button>
           </div>
           <span id="csvUploadStatus" class="csv-upload-status" role="status"></span>
         </div>
@@ -181,7 +181,7 @@
       <div class="card">
         <div class="card-heading-row">
           <h2>Member History Log</h2>
-          <button type="button" class="monday-report-button primary" id="addWeeklyLogBtn">Add Log</button>
+          <button type="button" class="monday-report-button primary" id="addWeeklyLogBtn" data-requires="monday.edit">Add Log</button>
         </div>
         <div class="table-wrap" id="memberHistoryLog-wrap">
           <div class="loading">Loading...</div>

@@ -4,6 +4,18 @@
 
 const FU_ORANGE = { from: 7, to: 13, owner: 'Rachelle' };
 const FU_RED = { from: 14, owner: 'Darius' };
+
+// Settings > Report rules (app_settings "followup_tiers"): replaces the defaults above when the
+// days make sense (1 <= orange from < red from); orange runs up to the day before red.
+function fuApplyTiers(value) {
+  const orange = value?.orange || {};
+  const red = value?.red || {};
+  const [from, redFrom] = [orange.from, red.from].map(Number);
+  if (!(Number.isInteger(from) && Number.isInteger(redFrom) && from >= 1 && from < redFrom && redFrom <= 365)) return false;
+  Object.assign(FU_ORANGE, { from, to: redFrom - 1, owner: String(orange.owner || '').trim().slice(0, 40) });
+  Object.assign(FU_RED, { from: redFrom, owner: String(red.owner || '').trim().slice(0, 40) });
+  return true;
+}
 const FU_STATUS_RANK = ['CURRENT', 'NOT STARTED', 'HOLD', 'COMPLETED', 'CANCELED']; // tie-break order
 
 const fuKey = name => String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -206,5 +218,5 @@ function fuMarkdown(report, result) {
 
 // Node (the weekly job) loads this file as a module; the browser just gets the globals.
 if (typeof module !== 'undefined') {
-  module.exports = { FU_ORANGE, FU_RED, fuKey, fuIso, fuPhone, fuParseTable, fuAttendanceFromText, fuMembershipsFromText, fuDateFromFileName, fuBuild, fuNextReport, fuMarkdown };
+  module.exports = { FU_ORANGE, FU_RED, fuApplyTiers, fuKey, fuIso, fuPhone, fuParseTable, fuAttendanceFromText, fuMembershipsFromText, fuDateFromFileName, fuBuild, fuNextReport, fuMarkdown };
 }

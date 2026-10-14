@@ -308,7 +308,7 @@ function pastDueBillsHtml(member, mode, focusId) {
 
 function pastDueNotesHtml(member, notes, focusId) {
   const form = pastDueNotesReady
-    ? `<form class="pd-note-form" data-action="add-note">
+    ? `<form class="pd-note-form" data-action="add-note" data-requires="pastdue.edit">
         <label class="sr-only" for="${focusId('note')}">Add a note for ${escapeHtml(member.member_name)}</label>
         <textarea id="${focusId('note')}" rows="2" maxlength="2000" required data-focus="${focusId('note')}" placeholder="Call made, promise to pay, payment plan…"></textarea>
         <div class="pd-note-form-row"><small>Ctrl + Enter to save</small><button type="submit" class="sop-action-button primary pd-small">Add note</button></div>
@@ -334,7 +334,7 @@ function pastDueNotesHtml(member, notes, focusId) {
 function pastDueActionsHtml(member, escalated, blocked, focusId) {
   const followUp = pastDueFollowUp(member);
   return `
-    <section class="pd-actions">
+    <section class="pd-actions" data-requires="pastdue.edit">
       <h4>Account</h4>
       <label class="pd-follow-up">Next follow-up
         <input type="date" data-action="follow-up" data-focus="${focusId('follow-up')}" value="${escapeHtml(followUp.date || '')}">

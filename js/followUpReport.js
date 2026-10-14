@@ -83,7 +83,7 @@ function fuTierCard(title, owner, tone, rows, total, withDays) {
               <input type="text" maxlength="300" data-note="${fuEsc(row.key)}" value="${fuEsc(row.note)}" placeholder="Add a note" aria-label="Note for ${fuEsc(row.name)}">
               <span class="fu-print-only">${fuEsc(row.note)}</span>
             </td>
-            <td data-label="" class="fu-actions">
+            <td data-label="" class="fu-actions" data-requires="followup.edit">
               <button type="button" class="sop-action-button secondary fu-log-btn" data-log="${fuEsc(row.key)}">Log contact</button>
               <button type="button" class="pd-link" data-remove="${fuEsc(row.key)}">Remove</button>
             </td>
@@ -388,6 +388,13 @@ async function fuDeleteContact(event) {
   }
 }
 
+// Tier days and owners from Settings > Report rules; the built-in defaults stay if unset.
+async function fuLoadTiers() {
+  const client = await fuClient();
+  const { data } = await client.from('app_settings').select('value').eq('key', 'followup_tiers').maybeSingle();
+  fuApplyTiers(data?.value);
+}
+
 // ── PDF ──────────────────────────────────────────────────────────────────────
 
 // The browser's print to "Save as PDF" keeps the page's own look; styles under @media print.
@@ -511,7 +518,7 @@ function fuInit() {
     if (event.target.closest('button')) event.currentTarget.open = false;
   });
 
-  Promise.all([fuLoadHistory(), fuLoadContacts()])
+  Promise.all([fuLoadHistory(), fuLoadContacts(), fuLoadTiers()])
     .then(() => {
       fuRenderLog();
       return fuReports[0] ? fuOpen(fuReports[0].id) : fuRender();

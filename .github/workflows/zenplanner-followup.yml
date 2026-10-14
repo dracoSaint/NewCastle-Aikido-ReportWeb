@@ -1,18 +1,13 @@
-# Every night at 11:59 pm Newcastle time: pulls Zen Planner's "Red/Orange Attendance (30 Days Count)"
-# report and the membership status export, and saves the Red / Orange Follow-Up report to the portal.
-# Runs on GitHub, not Netlify: no build credits are used and nothing is deployed.
+# Nightly, at the time set in the portal's Settings > Bots (started by bot-scheduler.yml): pulls Zen
+# Planner's "Red/Orange Attendance (30 Days Count)" report and the membership status export, and saves
+# the Red / Orange Follow-Up report to the portal. Runs on GitHub, not Netlify: no build credits are used.
 name: Zen Planner follow-up report
 
 on:
-  schedule:
-    # GitHub cron is UTC. 11:59 pm Sydney is 12:59 UTC in daylight saving (AEDT)
-    # and 13:59 UTC otherwise (AEST). The job runs both and skips the wrong one.
-    - cron: '59 12 * * *'
-    - cron: '59 13 * * *'
   workflow_dispatch:
     inputs:
       force:
-        description: 'Run now, outside the 11:59 pm window (adds a new report)'
+        description: 'Run now even if today''s report exists (adds a new report)'
         type: boolean
         default: true
 

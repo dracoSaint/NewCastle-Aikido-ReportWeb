@@ -42,4 +42,12 @@ assert.deepEqual(r.excluded.map(row => row.reason), ['Gratis Training member, on
 assert.deepEqual(report.notes, { 'olly orange': 'Sick' });              // resolved note dropped
 assert.equal(fuPhone('412345678.0'), '0412345678');
 assert.equal(fuPhone(' 61412345678 '), '+61412345678');
+
+// Settings > Report rules: bad days keep the defaults; good ones move both tiers (last, it changes them).
+const { fuApplyTiers, FU_ORANGE, FU_RED } = createRequire(import.meta.url)('../js/followUpCore.js');
+assert.equal(fuApplyTiers(null), false);
+assert.equal(fuApplyTiers({ orange: { from: 10 }, red: { from: 10 } }), false, 'orange must start before red');
+assert.deepEqual([FU_ORANGE.from, FU_ORANGE.to, FU_RED.from], [7, 13, 14]);
+assert.equal(fuApplyTiers({ orange: { from: 5, owner: ' Sam ' }, red: { from: 21, owner: 'Darius' } }), true);
+assert.deepEqual([FU_ORANGE.from, FU_ORANGE.to, FU_ORANGE.owner, FU_RED.from], [5, 20, 'Sam', 21]);
 console.log('followUpCore rules: OK');

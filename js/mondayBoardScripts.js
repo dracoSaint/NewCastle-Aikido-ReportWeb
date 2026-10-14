@@ -156,7 +156,7 @@ function buildEditableWeeklyLogTableHTML(rows) {
       html += '<td><input type="' + inputType + '" value="' + escapeHtml(castValue) + '" data-field="' + escapeHtml(column) + '" step="' + escapeHtml(step) + '" disabled /></td>';
     });
 
-    html += '<td>' +
+    html += '<td data-requires="monday.edit">' +
       '<button type="button" class="sop-action-button primary weekly-log-edit" data-row-id="' + escapeHtml(String(rowId)) + '">Edit</button>' +
       '<button type="button" class="sop-action-button secondary weekly-log-delete" data-row-id="' + escapeHtml(String(rowId)) + '" style="margin-left:8px;">Delete</button>' +
       '<button type="button" class="sop-action-button primary weekly-log-save hidden" data-row-id="' + escapeHtml(String(rowId)) + '" style="margin-left:8px;">Save</button>' +

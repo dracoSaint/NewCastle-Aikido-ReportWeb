@@ -43,9 +43,9 @@
         }
 
         // Success! Supabase will handle storing the token in localStorage.
-        // Redirect to the home page (index.html)
+        // Go to the user's start page (Settings > Preferences), else Home.
         const homeUrl = new URL('../index.html', window.location.href).href;
-        window.location.replace(homeUrl);
+        window.location.replace(window.portalStartUrl ? window.portalStartUrl(data.user) : homeUrl);
 
       } catch (err) {
         console.error('Login error:', err);
