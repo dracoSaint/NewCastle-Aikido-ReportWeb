@@ -3,6 +3,8 @@
 
 const FU_TABLE = 'follow_up_reports';
 const FU_CONTACTS = 'follow_up_contacts';
+const FU_NOTES = 'follow_up_member_notes';
+const FU_RETURNS = 'follow_up_returns';
 const FU_OUTCOMES = {
   spoke: 'Spoke to them',
   voicemail: 'Left voicemail',
@@ -19,6 +21,14 @@ let fuContactsError = '';
 let fuShow = 'todo';     // all | todo | done
 const fuCollapsed = new Set(); // tones of tiers the user folded away
 let fuDialogRow = null;  // the member the contact dialog is open for
+let fuNotes = [];        // member notes log, newest first
+let fuNotesReady = true; // false until supabase/follow_up_member_notes.sql has been run
+let fuUserEmail = '';
+const fuNotesOpen = new Set(); // member keys whose notes log is open
+const fuNoteDrafts = new Map(); // unsaved top-level notes by member key (survive re-renders)
+const fuNoteEditing = new Set(); // member keys whose saved top-level note is being edited
+let fuReturned = [];       // Returned log (not removed), newest return first
+let fuReturnsReady = true; // false until supabase/follow_up_returns.sql has been run
 
 // ── Small helpers ────────────────────────────────────────────────────────────
 
@@ -69,24 +79,91 @@ function fuContactCell(row) {
     <small class="pd-sub">${fuWhen(last.contacted_at)} · ${fuEsc(fuStaff(last.contacted_by))}${contacts.length > 1 ? ` · ${contacts.length} attempts` : ''}</small>`;
 }
 
+const fuNotesFor = key => fuNotes.filter(note => note.member_key === key);
+const fuIsToday = stamp => fuSydneyDay(stamp) === fuSydneyDay(Date.now());
+
+const FU_ICONS = {
+  save: '<path d="M20 6 9 17l-5-5"/>',
+  cancel: '<path d="M18 6 6 18M6 6l12 12"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'
+};
+const fuIcon = name => `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${FU_ICONS[name]}</svg>`;
+
+// Top-level note: saved text with an edit button, or a box with save / cancel
+// (Enter saves, Esc cancels). Nothing saves on its own when the box loses focus.
+function fuNoteField(row) {
+  const key = fuEsc(row.key);
+  if (row.note && !fuNoteEditing.has(row.key)) {
+    return `<div class="fu-note-saved">
+      <p>${fuEsc(row.note)}</p>
+      <button type="button" class="fu-icon-btn" data-note-edit="${key}" data-requires="followup.edit" aria-label="Edit note for ${fuEsc(row.name)}" title="Edit note">${fuIcon('edit')}</button>
+    </div>`;
+  }
+  const value = fuNoteDrafts.get(row.key) ?? row.note;
+  const dirty = fuNoteEditing.has(row.key) || value !== row.note;
+  return `<div class="fu-note-field${dirty ? ' is-dirty' : ''}">
+      <input type="text" maxlength="300" data-note="${key}" value="${fuEsc(value)}" placeholder="Add a note" aria-label="Note for ${fuEsc(row.name)}">
+      <button type="button" class="fu-icon-btn is-save" data-note-save="${key}" aria-label="Save note" title="Save (Enter)">${fuIcon('save')}</button>
+      <button type="button" class="fu-icon-btn" data-note-cancel="${key}" aria-label="Don't save note" title="Cancel (Esc)">${fuIcon('cancel')}</button>
+    </div>`;
+}
+
+// The member's notes log (same look and rules as the past-due member notes).
+function fuNotesHtml(row, id) {
+  const notes = fuNotesFor(row.key);
+  const form = fuNotesReady
+    ? `<form class="pd-note-form" data-add-note="${fuEsc(row.key)}" data-requires="followup.edit">
+        <label class="sr-only" for="${id}-add">Add a note for ${fuEsc(row.name)}</label>
+        <textarea id="${id}-add" rows="2" maxlength="2000" required placeholder="Call back Tuesday, injured, travelling…"></textarea>
+        <div class="pd-note-form-row"><small>Ctrl + Enter to save</small><button type="submit" class="sop-action-button primary pd-small">Add note</button></div>
+      </form>`
+    : '<p class="pd-notice">The notes log needs a one-time database update: run <code>supabase/follow_up_member_notes.sql</code>.</p>';
+  const list = notes.length
+    ? notes.map(note => `
+        <li data-note-id="${note.id}">
+          <p>${fuEsc(note.note)}</p>
+          <span class="pd-note-meta">${fuEsc(fuStaff(note.author) || 'Staff')} · <time datetime="${fuEsc(note.created_at)}">${fuWhen(note.created_at)}</time>${note.edited_at ? ` · <span class="pd-edited">Edited by ${fuEsc(fuStaff(note.edited_by) || 'Staff')} ${fuWhen(note.edited_at)}</span>` : ''}${fuIsToday(note.created_at) ? `<span data-requires="followup.edit"> <button type="button" class="pd-link" data-edit-note>Edit</button>${note.author === fuUserEmail ? ' <button type="button" class="pd-link" data-delete-note>Delete</button>' : ''}</span>` : ''}</span>
+        </li>`).join('')
+    : '<li class="pd-muted">No notes yet.</li>';
+  return `
+    <section class="pd-notes fu-notes">
+      <h4>Notes log <small>Every note for this member, kept across reports</small></h4>
+      ${form}
+      <ol class="pd-note-list">${list}</ol>
+    </section>`;
+}
+
+function fuNotesToggle(row, id) {
+  const notes = fuNotesFor(row.key);
+  const [last] = notes;
+  const count = notes.length;
+  return `<button type="button" class="fu-notes-toggle" data-notes="${fuEsc(row.key)}" aria-expanded="${fuNotesOpen.has(row.key)}" aria-controls="${id}">
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    Notes log${count ? ` · ${count}` : ''}${last ? `<span> · last by ${fuEsc(fuStaff(last.author) || 'Staff')}, ${fuWhen(last.created_at)}</span>` : ''}</button>`;
+}
+
 function fuTierCard(title, owner, tone, rows, total, withDays) {
   const body = rows.length
     ? `<table class="stack ar-table fu-table">
         <thead><tr><th>Member</th><th>Phone</th>${withDays ? '<th>Last class</th><th class="num">Days</th>' : ''}<th>Contact</th><th>Note</th><th class="fu-actions-col"><span class="sr-only">Actions</span></th></tr></thead>
-        <tbody>${rows.map(row => `
+        <tbody>${rows.map((row, index) => `
           <tr data-key="${fuEsc(row.key)}"${fuContactsFor(row).length ? ' class="is-contacted"' : ''}>
             <td data-label="Member"><strong>${fuEsc(row.name)}</strong>${row.membership?.label ? `<small class="pd-sub">${fuEsc(row.membership.label)}</small>` : ''}</td>
             <td data-label="Phone">${row.phone ? `<a class="fu-phone" href="tel:${fuEsc(row.phone.replace(/\s/g, ''))}">${fuEsc(fuPhoneText(row.phone))}</a>` : '—'}</td>
             ${withDays ? `<td data-label="Last class">${fuDmy(row.lastAtt)}</td><td class="num" data-label="Days"><strong>${row.days}</strong></td>` : ''}
             <td data-label="Contact" class="fu-contact">${fuContactCell(row)}</td>
             <td data-label="Note" class="fu-note">
-              <input type="text" maxlength="300" data-note="${fuEsc(row.key)}" value="${fuEsc(row.note)}" placeholder="Add a note" aria-label="Note for ${fuEsc(row.name)}">
+              ${fuNoteField(row)}
               <span class="fu-print-only">${fuEsc(row.note)}</span>
+              ${fuNotesToggle(row, `fuNotes-${tone}-${index}`)}
             </td>
             <td data-label="" class="fu-actions" data-requires="followup.edit">
               <button type="button" class="sop-action-button secondary fu-log-btn" data-log="${fuEsc(row.key)}">Log contact</button>
               <button type="button" class="pd-link" data-remove="${fuEsc(row.key)}">Remove</button>
             </td>
+          </tr>
+          <tr class="child-row fu-notes-row" id="fuNotes-${tone}-${index}" data-key="${fuEsc(row.key)}"${fuNotesOpen.has(row.key) ? '' : ' hidden'}>
+            <td colspan="${withDays ? 7 : 5}">${fuNotesHtml(row, `fuNotes-${tone}-${index}`)}</td>
           </tr>`).join('')}</tbody>
       </table>`
     : `<div class="empty">${total ? 'Nobody here matches the search or filter.' : 'Nobody in this tier.'}</div>`;
@@ -119,6 +196,8 @@ function fuRender() {
     filters.hidden = true;
     updated.textContent = 'No report yet';
     container.innerHTML = '<div class="card"><div class="empty">No report yet. It builds itself every night from Zen Planner, or upload both exports on the Upload tab.</div></div>';
+    fuRenderFollowUp(null);
+    fuRenderReturned();
     return;
   }
 
@@ -126,7 +205,10 @@ function fuRender() {
   filters.hidden = false;
   updated.textContent = `Report ${fuLongDate(fuCurrent.report_date)}`;
   document.getElementById('fuReportDate').value = fuCurrent.report_date;
-  document.getElementById('fuHistory').innerHTML = fuReports.map(report => `
+  // One entry per day: the newest report for each date (older same-day ones stay in the database).
+  const daily = fuReports.filter((report, index) => fuReports.findIndex(other => other.report_date === report.report_date) === index);
+  if (!daily.some(report => report.id === fuCurrent.id)) daily.unshift(fuCurrent);
+  document.getElementById('fuHistory').innerHTML = daily.map(report => `
     <option value="${report.id}"${report.id === fuCurrent.id ? ' selected' : ''}>${fuLongDate(report.report_date)} · made ${new Date(report.created_at).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}</option>`).join('');
 
   const result = fuBuild(fuCurrent);
@@ -164,6 +246,91 @@ function fuRender() {
         <tr><td data-label="Member"><strong>${fuEsc(row.name)}</strong></td><td data-label="Note">${fuEsc(row.note || '—')}</td><td data-label=""><button type="button" class="pd-link" data-restore="${fuEsc(row.key)}">Put back</button></td></tr>`).join('')}</tbody></table>
     </details>` : ''}
     ${fuNoteGroupsHtml(result)}`;
+  fuRenderFollowUp(result);
+  // The Returned table scans the contact log per row: draw it only while it's on screen.
+  if (document.getElementById('tab-returned').classList.contains('active')) fuRenderReturned();
+}
+
+const fuTierTag = (tier, days) => (tier ? `<span class="fu-tier-tag is-${fuEsc(tier)}">${FU_TIER_NAMES[tier] || fuEsc(tier)}${days != null ? ` · ${days} d` : ''}</span>` : '—');
+const fuLatestNote = key => fuNotesFor(key)[0]?.note || '';
+
+// ── Rendering: Follow-up tab (contacted, still on the list) ──────────────────
+
+function fuRenderFollowUp(result) {
+  const table = document.getElementById('fuFollowTable');
+  const rows = result ? [...result.orange, ...result.red, ...result.none].filter(row => fuContactsFor(row).length) : [];
+  document.getElementById('fuFollowCount').textContent = result ? fuPlural(rows.length, 'member') : '';
+  table.innerHTML = rows.length
+    ? `<table class="stack ar-table fu-table fu-follow-table">
+        <thead><tr><th>Member</th><th>Phone</th><th>On the list</th><th>Last contact</th><th>Latest note</th><th class="fu-actions-col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>${rows.map((row, index) => `
+          <tr>
+            <td data-label="Member"><strong>${fuEsc(row.name)}</strong>${row.membership?.label ? `<small class="pd-sub">${fuEsc(row.membership.label)}</small>` : ''}</td>
+            <td data-label="Phone">${row.phone ? `<a class="fu-phone" href="tel:${fuEsc(row.phone.replace(/\s/g, ''))}">${fuEsc(fuPhoneText(row.phone))}</a>` : '—'}</td>
+            <td data-label="On the list">${fuTierTag(row.tier, row.days)}</td>
+            <td data-label="Last contact" class="fu-contact">${fuContactCell(row)}</td>
+            <td data-label="Latest note" class="fu-note"><p class="fu-follow-note">${fuEsc(row.note || fuLatestNote(row.key) || '—')}</p>${fuNotesToggle(row, `fuFollowNotes-${index}`)}</td>
+            <td data-label="" class="fu-actions" data-requires="followup.edit"><button type="button" class="sop-action-button secondary fu-log-btn" data-log="${fuEsc(row.key)}">Log contact</button></td>
+          </tr>
+          <tr class="child-row fu-notes-row" id="fuFollowNotes-${index}"${fuNotesOpen.has(row.key) ? '' : ' hidden'}>
+            <td colspan="6">${fuNotesHtml(row, `fuFollowNotes-${index}`)}</td>
+          </tr>`).join('')}</tbody>
+      </table>`
+    : `<div class="empty">${result ? 'Nobody on the current list has been contacted yet. Use “Log contact” on the Red/Orange Report.' : 'No report yet.'}</div>`;
+}
+
+// ── Rendering: Returned tab ──────────────────────────────────────────────────
+
+// The last contact during this absence (after their last class, on or before the day they came back).
+const fuContactBefore = item => fuContacts.find(contact => {
+  if (contact.member_key !== item.member_key) return false;
+  const day = fuSydneyDay(contact.contacted_at);
+  return day <= item.returned_on && (!item.last_class_before || day >= item.last_class_before);
+});
+
+function fuRenderReturned() {
+  const table = document.getElementById('fuReturnTable');
+  const metrics = document.getElementById('fuReturnMetrics');
+  if (!fuReturnsReady) {
+    metrics.innerHTML = '';
+    table.innerHTML = '<p class="pd-notice">The Returned list needs a one-time database update: run <code>supabase/follow_up_returns.sql</code>.</p>';
+    return;
+  }
+  const select = document.getElementById('fuReturnMonth');
+  const months = [...new Set(fuReturned.map(item => item.returned_on.slice(0, 7)))];
+  const current = select.value;
+  select.length = 1;
+  select.insertAdjacentHTML('beforeend', months.map(month => `<option value="${month}">${fuLongDate(`${month}-01`).replace(/^\d+ /, '')}</option>`).join(''));
+  select.value = months.includes(current) ? current : '';
+
+  const items = fuReturned.filter(item => !select.value || item.returned_on.startsWith(select.value));
+  const afterContact = items.filter(fuContactBefore).length;
+  const thisMonth = fuReturned.filter(item => item.returned_on.startsWith(fuSydneyDay(Date.now()).slice(0, 7))).length;
+  const scope = select.value ? select.selectedOptions[0].textContent : 'all time';
+  metrics.innerHTML = `
+    <div class="past-due-metric key"><span>Returned this month</span><strong>${thisMonth}</strong></div>
+    <div class="past-due-metric"><span>After contact · ${fuEsc(scope)}</span><strong>${afterContact}</strong></div>
+    <div class="past-due-metric"><span>On their own · ${fuEsc(scope)}</span><strong>${items.length - afterContact}</strong></div>`;
+
+  table.innerHTML = items.length
+    ? `<table class="stack ar-table fu-table fu-return-table">
+        <thead><tr><th>Member</th><th>Back on</th><th>Was on the list</th><th>Contact</th><th>Latest note</th><th><span class="sr-only">Remove</span></th></tr></thead>
+        <tbody>${items.map(item => {
+          const contact = fuContactBefore(item);
+          return `
+          <tr>
+            <td data-label="Member"><strong>${fuEsc(item.member_name)}</strong>${item.membership_label ? `<small class="pd-sub">${fuEsc(item.membership_label)}</small>` : ''}</td>
+            <td data-label="Back on">${fuDmy(item.returned_on)}${item.last_class_before ? `<small class="pd-sub">Last class before: ${fuDmy(item.last_class_before)}</small>` : ''}</td>
+            <td data-label="Was on the list">${fuTierTag(item.tier, item.days)}</td>
+            <td data-label="Contact">${contact
+              ? `<span class="fu-chip is-done">After contact</span><small class="pd-sub">${fuEsc(FU_OUTCOMES[contact.outcome] || contact.outcome)} · ${fuEsc(fuStaff(contact.contacted_by))} · ${fuWhen(contact.contacted_at)}</small>`
+              : '<span class="fu-chip is-tried">On their own</span>'}</td>
+            <td data-label="Latest note">${fuEsc(fuLatestNote(item.member_key) || '—')}</td>
+            <td data-label="">${fuIsToday(item.detected_at) ? `<button type="button" class="pd-link" data-requires="followup.edit" data-remove-return="${item.id}">Remove</button>` : ''}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`
+    : `<div class="empty">${fuReturned.length ? 'Nobody returned in this month.' : 'No returns recorded yet. They are picked up each time a new report is built.'}</div>`;
 }
 
 // Step 7.5: remove everyone carrying a given note in one go.
@@ -241,6 +408,89 @@ async function fuLoadContacts() {
   fuContacts = data || [];
 }
 
+// ponytail: newest 2000 notes, same ceiling as the contact log.
+async function fuLoadNotes() {
+  const client = await fuClient();
+  const [{ data, error }, { data: session }] = await Promise.all([
+    client.from(FU_NOTES).select('*').order('created_at', { ascending: false }).limit(2000),
+    client.auth.getSession()
+  ]);
+  fuUserEmail = session?.session?.user?.email || '';
+  fuNotesReady = !(error && /does not exist|schema cache/i.test(error.message));
+  if (error && fuNotesReady) throw error;
+  fuNotes = data || [];
+}
+
+// ponytail: newest 2000 returns; page with .range() if the log outgrows it.
+async function fuLoadReturns() {
+  const client = await fuClient();
+  const { data, error } = await client.from(FU_RETURNS).select('*').is('removed_at', null).order('returned_on', { ascending: false }).limit(2000);
+  fuReturnsReady = !(error && /does not exist|schema cache/i.test(error.message));
+  if (error && fuReturnsReady) throw error;
+  fuReturned = data || [];
+}
+
+// Record who came back since the previous day's report (same rule as the nightly bot).
+async function fuSaveReturns(report) {
+  if (!fuReturnsReady) return 0;
+  const client = await fuClient();
+  const { data: previous, error } = await client.from(FU_TABLE).select('*')
+    .lt('report_date', report.report_date).order('report_date', { ascending: false }).order('created_at', { ascending: false })
+    .limit(1).maybeSingle();
+  if (error) throw error;
+  const rows = fuReturns(previous, report).map(row => ({ ...row, report_id: report.id }));
+  if (rows.length) {
+    const { error: saveError } = await client.from(FU_RETURNS).upsert(rows, { onConflict: 'member_key,returned_on', ignoreDuplicates: true });
+    if (saveError) throw saveError;
+  }
+  await fuLoadReturns();
+  return rows.length;
+}
+
+// Soft remove (same day only, checked by the database): RLS answers a refusal with 0 rows.
+async function fuRemoveReturn(id) {
+  try {
+    const client = await fuClient();
+    const { data, error } = await client.from(FU_RETURNS).update({ removed_at: new Date().toISOString() }).eq('id', id).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('Not removed. Returns can only be removed on the day they were recorded.');
+    await fuLoadReturns();
+    fuRenderReturned();
+    fuToast('Removed from Returned.');
+  } catch (error) {
+    fuToast(error.message || 'Could not remove.', true);
+  }
+}
+
+async function fuAddNote(key, text) {
+  const result = fuBuild(fuCurrent);
+  const row = [...result.orange, ...result.red, ...result.none, ...result.removed].find(item => item.key === key);
+  const client = await fuClient();
+  const { error } = await client.from(FU_NOTES).insert({ member_key: key, member_name: row?.name || key, note: text });
+  if (error) throw error;
+  await fuLoadNotes();
+}
+
+// Note log changes; RLS answers a refused edit or delete with 0 rows, so check what came back.
+async function fuChangeNote(id, change) {
+  const client = await fuClient();
+  const query = change === null ? client.from(FU_NOTES).delete() : client.from(FU_NOTES).update({ note: change });
+  const { data, error } = await query.eq('id', id).select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error(change === null ? 'Only the person who wrote a note can delete it.' : 'The note was not saved. You may not have edit access.');
+  await fuLoadNotes();
+}
+
+async function fuRunNote(work, message) {
+  try {
+    await work();
+    fuRender();
+    fuToast(message);
+  } catch (error) {
+    fuToast(/does not exist|schema cache/i.test(error.message || '') ? 'Run supabase/follow_up_member_notes.sql in Supabase first.' : (error.message || 'Could not save the note.'), true);
+  }
+}
+
 async function fuOpen(id) {
   const client = await fuClient();
   const { data, error } = await client.from(FU_TABLE).select('*').eq('id', id).single();
@@ -256,28 +506,52 @@ async function fuUpdate(patch, message) {
     if (error) throw error;
     fuCurrent = data;
     if (message) fuToast(message);
+    return true;
   } catch (error) {
     fuToast(error.message || 'Could not save.', true);
+    return false;
   }
 }
 
-// Steps 7.1-7.4: a new file means a fresh report, carrying notes forward from the one on screen.
+// Steps 7.1-7.4: a new file means a fresh report from the files on screen. One report per
+// day: a same-day refresh updates that day's report and keeps its notes; a new day clears them.
 async function fuRegenerate(changes, status) {
-  const next = fuNextReport(fuCurrent, { ...changes, report_date: changes.report_date || fuCurrent?.report_date || new Date().toLocaleDateString('en-CA') });
+  // A file without a date (membership) runs against the latest report only, never an older one.
+  if (!changes.report_date && fuCurrent && fuReports[0] && fuCurrent.report_date !== fuReports[0].report_date) {
+    throw new Error('Open the latest report from the Report list first, then upload this file.');
+  }
+  const reportDate = changes.report_date || fuCurrent?.report_date || new Date().toLocaleDateString('en-CA');
+  const client = await fuClient();
+  const sameDayId = fuCurrent?.report_date === reportDate ? fuCurrent.id : fuReports.find(report => report.report_date === reportDate)?.id;
+  let sameDay = sameDayId === fuCurrent?.id ? fuCurrent : null;
+  if (sameDayId && !sameDay) {
+    const { data, error } = await client.from(FU_TABLE).select('*').eq('id', sameDayId).single();
+    if (error) throw error;
+    sameDay = data;
+  }
+  // Inputs come from the report on screen; notes and removals from that day's report, if any.
+  const base = sameDay && fuCurrent ? { ...fuCurrent, report_date: reportDate, notes: sameDay.notes, removed: sameDay.removed } : fuCurrent;
+  const next = fuNextReport(base, { ...changes, report_date: reportDate });
   if (!next) {
     status.textContent += changes.attendance || fuPending.attendance ? ' Now add the membership status export.' : ' Now add the attendance export.';
     fuPending = { ...fuPending, ...changes };
     return;
   }
-  const client = await fuClient();
-  const { data, error } = await client.from(FU_TABLE).insert(next).select().single();
+  // A same-day update writes only the inputs: notes and removals saved meanwhile stay as they are.
+  const { notes: _notes, removed: _removed, ...inputs } = next;
+  const save = sameDay ? client.from(FU_TABLE).update(inputs).eq('id', sameDay.id) : client.from(FU_TABLE).insert(next);
+  const { data, error } = await save.select().single();
   if (error) throw error;
   fuCurrent = data;
   fuPending = {};
   await fuLoadHistory();
+  let returnsError = '';
+  const returned = await fuSaveReturns(data).catch(saveError => { returnsError = saveError.message; return 0; });
   fuRender();
-  const carried = Object.keys(next.notes).length;
-  fuToast(`Report built${carried ? `; ${fuPlural(carried, 'note')} carried over` : ''}.`);
+  const kept = Object.keys(next.notes).length;
+  const back = returned ? `; ${fuPlural(returned, 'member')} returned` : '';
+  if (returnsError) fuToast(`Report saved, but returns were not recorded: ${returnsError}`, true);
+  else fuToast(sameDay ? `Report for ${fuLongDate(reportDate)} updated${kept ? `; ${fuPlural(kept, 'note')} kept` : ''}${back}.` : `Report built${back}.`);
 }
 
 // Holds the first file when the other one hasn't been supplied yet (very first report).
@@ -388,6 +662,22 @@ async function fuDeleteContact(event) {
   }
 }
 
+// Starts the Zen Planner job through supabase/functions/run-pastdue-sync (sync.run permission and
+// cooldown checked there); it re-pulls today's list in place, keeping today's notes.
+async function fuSync(button) {
+  button.disabled = true;
+  try {
+    const client = await fuClient();
+    const { error } = await client.functions.invoke('run-pastdue-sync', { body: { job: 'followup' } });
+    if (error) throw new Error(await error.context?.text?.().catch(() => '') || error.message);
+    fuToast('Sync started. Today\'s list updates in about 3 minutes; refresh the page then.');
+  } catch (error) {
+    fuToast(error.message || 'Could not start the sync.', true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 // Tier days and owners from Settings > Report rules; the built-in defaults stay if unset.
 async function fuLoadTiers() {
   const client = await fuClient();
@@ -427,6 +717,7 @@ function fuInit() {
   tabs.forEach(button => button.addEventListener('click', () => {
     tabs.forEach(item => item.classList.toggle('active', item === button));
     document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === `tab-${button.dataset.tab}`));
+    if (button.dataset.tab === 'returned') fuRenderReturned();
   }));
 
   document.querySelectorAll('[data-pick]').forEach(button => {
@@ -444,33 +735,110 @@ function fuInit() {
   // Changing the date re-runs the tiers for this report (same files, same notes).
   document.getElementById('fuReportDate').addEventListener('change', async event => {
     if (!fuCurrent || !event.target.value || event.target.value === fuCurrent.report_date) return;
+    // One report per day: never move a report onto a date that already has one.
+    if (fuReports.some(report => report.report_date === event.target.value && report.id !== fuCurrent.id)) {
+      fuToast(`There is already a report for ${fuLongDate(event.target.value)}. Open it from the Report list instead.`, true);
+      event.target.value = fuCurrent.report_date;
+      return;
+    }
     await fuUpdate({ report_date: event.target.value }, 'Report date changed; tiers recalculated.');
     await fuLoadHistory();
     fuRender();
   });
 
   document.getElementById('fuSearch').addEventListener('input', fuRender);
+  document.getElementById('fuReturnMonth').addEventListener('input', fuRenderReturned);
   document.querySelectorAll('[data-show]').forEach(button => button.addEventListener('click', () => {
     fuShow = button.dataset.show;
     document.querySelectorAll('[data-show]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
     fuRender();
   }));
 
-  const report = document.getElementById('fuReport');
+  // Report, Follow-up and Returned tabs share these handlers (notes, contacts, removals).
+  const report = document.querySelector('.follow-up-main');
   // "toggle" doesn't bubble, so listen in the capture phase.
   report.addEventListener('toggle', event => {
     const tier = event.target.dataset?.tier;
     if (tier) event.target.open ? fuCollapsed.delete(tier) : fuCollapsed.add(tier);
   }, true);
-  report.addEventListener('change', event => {
+  // Top-level note: typing keeps a draft and shows save / cancel; Enter saves, Esc cancels.
+  report.addEventListener('input', event => {
     const key = event.target.dataset.note;
     if (key === undefined) return;
-    const notes = { ...(fuCurrent.notes || {}) };
-    const value = event.target.value.trim();
-    if (value) notes[key] = value; else delete notes[key];
-    fuUpdate({ notes }, 'Note saved.').then(fuRenderKeepFocus);
+    fuNoteDrafts.set(key, event.target.value);
+    event.target.parentElement.classList.toggle('is-dirty', fuNoteEditing.has(key) || event.target.value !== (fuCurrent.notes?.[key] || ''));
+  });
+  report.addEventListener('submit', event => {
+    const form = event.target;
+    event.preventDefault();
+    const text = form.querySelector('textarea')?.value.trim();
+    if (!text) return;
+    const button = form.querySelector('[type="submit"]');
+    const original = fuNotes.find(note => String(note.id) === form.dataset.saveNote)?.note;
+    if (form.dataset.saveNote && text === original) { fuRender(); return; }
+    button.disabled = true;
+    const work = form.dataset.saveNote
+      ? fuRunNote(() => fuChangeNote(Number(form.dataset.saveNote), text), 'Note updated.')
+      : fuRunNote(() => fuAddNote(form.dataset.addNote, text), 'Note added.');
+    work.finally(() => { button.disabled = false; });
+  });
+  report.addEventListener('keydown', event => {
+    const noteKey = event.target.dataset?.note;
+    if (noteKey !== undefined && event.key === 'Enter') { event.preventDefault(); fuSaveTopNote(noteKey); return; }
+    if (noteKey !== undefined && event.key === 'Escape') { fuCancelTopNote(noteKey); return; }
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && event.target.matches('.fu-notes textarea')) event.target.form.requestSubmit();
+    if (event.key === 'Escape' && event.target.matches('.fu-notes form[data-save-note] textarea')) fuRender();
   });
   report.addEventListener('click', event => {
+    const noteButton = event.target.closest('[data-note-save], [data-note-cancel], [data-note-edit]');
+    if (noteButton) {
+      const { noteSave, noteCancel, noteEdit } = noteButton.dataset;
+      if (noteSave !== undefined) fuSaveTopNote(noteSave);
+      if (noteCancel !== undefined) fuCancelTopNote(noteCancel);
+      if (noteEdit !== undefined) {
+        fuNoteEditing.add(noteEdit);
+        fuRender();
+        const input = document.querySelector(`[data-note="${CSS.escape(noteEdit)}"]`);
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      }
+      return;
+    }
+    const toggle = event.target.closest('[data-notes]');
+    if (toggle) {
+      const key = toggle.dataset.notes;
+      const open = !fuNotesOpen.has(key);
+      if (open) fuNotesOpen.add(key); else fuNotesOpen.delete(key);
+      toggle.setAttribute('aria-expanded', String(open));
+      document.getElementById(toggle.getAttribute('aria-controls')).hidden = !open;
+      return;
+    }
+    const item = event.target.closest('[data-note-id]');
+    if (item && event.target.closest('[data-edit-note]')) {
+      const note = fuNotes.find(entry => String(entry.id) === item.dataset.noteId);
+      if (!note) return;
+      item.innerHTML = `
+        <form class="pd-note-edit" data-save-note="${note.id}">
+          <label class="sr-only" for="fuEditNote-${note.id}">Edit note</label>
+          <textarea id="fuEditNote-${note.id}" rows="3" maxlength="2000" required>${fuEsc(note.note)}</textarea>
+          <div class="pd-note-form-row">
+            <button type="button" class="pd-link" data-cancel-edit>Cancel</button>
+            <button type="submit" class="sop-action-button primary pd-small">Save edit</button>
+          </div>
+        </form>`;
+      item.querySelector('textarea').focus();
+      return;
+    }
+    if (event.target.closest('[data-cancel-edit]')) { fuRender(); return; }
+    if (item && event.target.closest('[data-delete-note]')) {
+      if (window.confirm('Delete this note? This cannot be undone.')) fuRunNote(() => fuChangeNote(Number(item.dataset.noteId), null), 'Note deleted.');
+      return;
+    }
+    const returnId = event.target.closest('[data-remove-return]')?.dataset.removeReturn;
+    if (returnId) {
+      if (window.confirm('Take this member off the Returned list? Use this for a wrong match, like a one-off class.')) fuRemoveReturn(Number(returnId));
+      return;
+    }
     const log = event.target.closest('[data-log]')?.dataset.log;
     const remove = event.target.closest('[data-remove]')?.dataset.remove;
     const restore = event.target.closest('[data-restore]')?.dataset.restore;
@@ -513,12 +881,14 @@ function fuInit() {
     URL.revokeObjectURL(link.href);
   });
   document.getElementById('fuPdf').addEventListener('click', fuPrint);
+  document.getElementById('fuSyncBtn').addEventListener('click', event => fuSync(event.currentTarget));
   // Close the Export menu once an option is picked.
   document.getElementById('fuExport').addEventListener('click', event => {
     if (event.target.closest('button')) event.currentTarget.open = false;
   });
 
-  Promise.all([fuLoadHistory(), fuLoadContacts(), fuLoadTiers()])
+  Promise.all([fuLoadHistory(), fuLoadContacts(), fuLoadTiers(), fuLoadNotes().catch(error => fuToast(`Notes log: ${error.message}`, true)),
+    fuLoadReturns().catch(error => fuToast(`Returned: ${error.message}`, true))])
     .then(() => {
       fuRenderLog();
       return fuReports[0] ? fuOpen(fuReports[0].id) : fuRender();
@@ -529,11 +899,36 @@ function fuInit() {
     });
 }
 
-// Re-render after a note change, keeping the cursor where the user tabbed to.
-function fuRenderKeepFocus() {
-  const key = document.activeElement?.dataset?.note;
+// Save a top-level note to the report and the member's notes log. Your own same-day log
+// entry for the old text is edited in place; anyone else's edit, or a later day's, is a new entry.
+const fuSaving = new Set(); // member keys with a top-level note save in flight (Enter + click can't double-log)
+
+async function fuSaveTopNote(key) {
+  if (fuSaving.has(key)) return;
+  const before = fuCurrent.notes?.[key] || '';
+  const value = (fuNoteDrafts.get(key) ?? before).trim();
+  const finish = () => { fuNoteDrafts.delete(key); fuNoteEditing.delete(key); fuRender(); };
+  if (value === before) { finish(); return; }
+  fuSaving.add(key);
+  try {
+    const notes = { ...(fuCurrent.notes || {}) };
+    if (value) notes[key] = value; else delete notes[key];
+    if (!await fuUpdate({ notes }, value ? 'Note saved.' : 'Note cleared; the log keeps it.')) return;
+    if (value && fuNotesReady) {
+      const own = before && fuNotesFor(key).find(note => note.author === fuUserEmail && note.note === before && fuIsToday(note.created_at));
+      await (own ? fuChangeNote(own.id, value) : fuAddNote(key, value))
+        .catch(error => fuToast(`Note saved, but not added to the log: ${error.message}`, true));
+    }
+    finish();
+  } finally {
+    fuSaving.delete(key);
+  }
+}
+
+function fuCancelTopNote(key) {
+  fuNoteDrafts.delete(key);
+  fuNoteEditing.delete(key);
   fuRender();
-  if (key !== undefined) document.querySelector(`[data-note="${CSS.escape(key)}"]`)?.focus();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fuInit);

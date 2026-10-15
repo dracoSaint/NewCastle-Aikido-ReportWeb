@@ -65,7 +65,7 @@ async function main() {
     const response = await fetch(`https://api.github.com/repos/${env('GITHUB_REPOSITORY')}/actions/workflows/${WORKFLOWS[bot.job]}/dispatches`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${env('GITHUB_TOKEN')}`, Accept: 'application/vnd.github+json', 'User-Agent': 'bot-scheduler' },
-      // The follow-up job's "force" input adds a second report for the day; a scheduled run never forces.
+      // The follow-up job's "force" input re-pulls a day already saved; a scheduled run never forces.
       body: JSON.stringify({ ref: 'main', ...(bot.job === 'followup' ? { inputs: { force: false } } : {}) })
     });
     if (response.ok) console.log(`${bot.job}: started.`);

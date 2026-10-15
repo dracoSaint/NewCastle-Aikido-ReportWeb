@@ -47,6 +47,7 @@ let arActions = [];
 let arLeads = [];
 let arPendingImport = null;   // { kind: 'ads' | 'leads', rows, ... } waiting for confirmation
 const arOpen = new Set();     // expanded Ad Hub rows (ad ids)
+const arTrendOpen = new Set(); // Ad Hub rows showing their trend charts (ad ids)
 
 const arMoneyFormat = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' });
 
@@ -82,7 +83,7 @@ function arToast(message, isError = false) {
   toast.classList.toggle('is-error', isError);
   toast.hidden = false;
   clearTimeout(arToast.timer);
-  arToast.timer = setTimeout(() => { toast.hidden = true; }, isError ? 6000 : 2500);
+  arToast.timer = setTimeout(() => { toast.hidden = true; }, isError ? 6000 : 4000);
 }
 
 // ── Ad naming helpers (same rules as the sheet formulas) ─────────────────────
@@ -427,12 +428,14 @@ function arHubRowsHtml(ads, date) {
   if (!ads.length) return '<div class="empty">No ads here.</div>';
   return `
     <table class="stack ar-table ar-hub-table">
-      <thead><tr><th><span class="sr-only">Details</span></th><th>Ad</th><th class="num">Impressions</th><th class="num">CTR (All)</th><th class="num">CTR (LCT)</th><th class="num">Leads</th><th class="num">CPL</th><th class="num">Spent</th><th>Diagnosis</th><th>Stage</th></tr></thead>
+      <thead><tr><th><span class="sr-only">Details</span></th><th>Ad</th><th class="num">Impressions</th><th class="num">CTR (All)</th><th class="num">CTR (LCT)</th><th class="num">Leads</th><th class="num">CPL</th><th class="num">Spent</th><th>Diagnosis</th><th>Stage</th><th><span class="sr-only">Trends</span></th></tr></thead>
       <tbody>${ads.map(ad => {
         const m = arMetrics(arSnapFor(ad.id, date));
         const verdict = arEvaluate(m);
         const weeks = arWeeksRunning(ad);
         const open = arOpen.has(ad.id);
+        const trendOpen = arTrendOpen.has(ad.id);
+        const reports = new Set(arSnaps.filter(snap => snap.ad_id === ad.id).map(snap => snap.report_date)).size;
         return `
           <tr class="parent-row${open ? ' is-open' : ''}" data-ad="${ad.id}">
             <td class="pd-toggle-cell"><button type="button" class="toggle-btn" aria-expanded="${open}" aria-controls="arAd-${ad.id}" aria-label="Edit ${arEsc(ad.ad_name)}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button></td>
@@ -450,9 +453,10 @@ function arHubRowsHtml(ads, date) {
                 ${AR_STAGES.map(stage => `<option${stage === ad.workflow_stage ? ' selected' : ''}>${stage}</option>`).join('')}
               </select>
             </td>
+            <td class="ar-trend-cell"><button type="button" class="ar-trend-btn" data-trend-ad="${ad.id}" aria-expanded="${trendOpen}" aria-controls="arTrend-${ad.id}" aria-label="Trends for ${arEsc(ad.ad_name)}" title="Trends"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-6"/></svg></button></td>
           </tr>
           <tr class="child-row" id="arAd-${ad.id}" data-ad="${ad.id}"${open ? '' : ' hidden'}>
-            <td colspan="10">
+            <td colspan="11">
               <div class="ar-edit">
                 <label><span>Ad name</span><input type="text" data-ad-field="ad_name" value="${arEsc(ad.ad_name)}" maxlength="200"></label>
                 <label><span>Campaign</span><input type="text" data-ad-field="campaign" value="${arEsc(ad.campaign || '')}" maxlength="200"></label>
@@ -465,6 +469,14 @@ function arHubRowsHtml(ads, date) {
                   <button type="button" class="pd-link" data-delete-ad="${ad.id}">Delete ad and its history</button>
                 </div>
               </div>
+            </td>
+          </tr>
+          <tr class="child-row ar-trend-row" id="arTrend-${ad.id}" data-ad="${ad.id}"${trendOpen ? '' : ' hidden'}>
+            <td colspan="11">
+              <div class="ar-ad-trends">${[['Spend', 'Spend and leads', 'Amount spent and leads'], ['Cpl', 'Cost per lead', 'Cost per lead'], ['Ctr', 'Click-through rate', 'CTR (All) and CTR (LCT) with targets']].map(([key, title, label]) => `
+                <figure><figcaption>${title}</figcaption><div class="chart-wrap chart-wrap-short"><canvas role="img" id="arAd${key}-${ad.id}" aria-label="${label} for ${arEsc(ad.ad_name)} by report date"></canvas></div></figure>`).join('')}
+              </div>
+              <p class="ar-ad-trends-note">${arPlural(reports, 'report')} · each point is Meta's rolling 7 days · dashed lines are the CTR targets${reports < 2 ? ' · trend lines start after 2 reports' : ''}</p>
             </td>
           </tr>`;
       }).join('')}</tbody>
@@ -491,8 +503,15 @@ function arRenderHub(date) {
   const byImpressions = (a, b) => (Number(arSnapFor(b.id, date)?.impressions) || 0) - (Number(arSnapFor(a.id, date)?.impressions) || 0);
   document.getElementById('arActiveCount').textContent = arPlural(active.length, 'ad');
   document.getElementById('arInactiveCount').textContent = arPlural(inactive.length, 'ad');
+  if (typeof Chart !== 'undefined') document.querySelectorAll('.ar-trend-row canvas').forEach(canvas => Chart.getChart(canvas)?.destroy());
   document.getElementById('arActiveTable').innerHTML = arHubRowsHtml(active.sort(byImpressions), date);
   document.getElementById('arInactiveTable').innerHTML = arHubRowsHtml(inactive.sort(byImpressions), date);
+  arTrendOpen.forEach(arDrawAdTrends);
+}
+
+function arDrawAdTrends(adId) {
+  const ad = arAds.find(item => item.id === adId);
+  if (ad) arDrawTrends([ad], { spend: `arAdSpend-${adId}`, cpl: `arAdCpl-${adId}`, ctr: `arAdCtr-${adId}` });
 }
 
 async function arSaveAdField(input) {
@@ -710,9 +729,15 @@ const arLeadKeys = lead => [
   !lead.email && lead.phone && `phone:${String(lead.phone).replace(/^p:|[^\d+]/g, '')}`
 ].filter(Boolean);
 
-async function arPrepareLeadsImport(file) {
-  const rows = (await arReadTable(file)).filter(row => row.id);
-  if (!rows.length) throw new Error('No leads found. Use the CSV or TSV downloaded from the Meta lead form.');
+// One or many lead files (or a whole folder of them) become one preview.
+async function arPrepareLeadsImport(files) {
+  const rows = [];
+  const unread = [];
+  for (const file of files) {
+    const found = await arReadTable(file).then(table => table.filter(row => row.id), () => []);
+    if (found.length) rows.push(...found); else unread.push(file.name);
+  }
+  if (!rows.length) throw new Error(`No leads found${files.length > 1 ? ` in ${files.length} files` : ''}. Use the CSV or TSV downloaded from the Meta lead form.`);
   // Form questions differ per ad, so only the contact and source columns are kept.
   const leads = rows.map(row => {
     const [first, ...rest] = String(row.full_name || '').split(' ');
@@ -737,8 +762,31 @@ async function arPrepareLeadsImport(file) {
     lead.duplicate = keys.some(key => seen.has(key));
     keys.forEach(key => seen.add(key));
   });
-  arPendingImport = { kind: 'leads', rows: leads, fresh: leads.filter(lead => !lead.duplicate).length };
+  arPendingImport = { kind: 'leads', rows: leads, fresh: leads.filter(lead => !lead.duplicate).length, files: files.length - unread.length, unread };
   arRenderPreview();
+}
+
+// Every file in a drop, walking into any dropped folders and their subfolders.
+async function arDroppedFiles(dataTransfer) {
+  // Entries must be taken before the first await; the drop data is cleared after the event.
+  const entries = [...dataTransfer.items].map(item => item.webkitGetAsEntry?.()).filter(Boolean);
+  if (!entries.length) return [...dataTransfer.files];
+  const files = [];
+  const walk = async entry => {
+    if (entry.isFile) {
+      files.push(await new Promise((resolve, reject) => entry.file(resolve, reject)));
+      return;
+    }
+    const reader = entry.createReader();
+    // readEntries returns folders in batches; keep reading until it returns none.
+    for (;;) {
+      const batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+      if (!batch.length) break;
+      await Promise.all(batch.map(walk));
+    }
+  };
+  await Promise.all(entries.map(walk));
+  return files;
 }
 
 function arRenderPreview() {
@@ -749,8 +797,9 @@ function arRenderPreview() {
 
   if (pending.kind === 'leads') {
     const skipped = pending.rows.length - pending.fresh;
-    document.getElementById('arPreviewTitle').textContent = `Import ${arPlural(pending.fresh, 'new lead')}`;
-    document.getElementById('arPreviewLede').textContent = `${pending.fresh} new · ${skipped} already on the list, skipped (same lead id, or same email or phone).`;
+    document.getElementById('arPreviewTitle').textContent = `Import ${arPlural(pending.fresh, 'new lead')}${pending.files > 1 ? ` from ${pending.files} files` : ''}`;
+    document.getElementById('arPreviewLede').textContent = `${pending.fresh} new · ${skipped} already on the list or repeated, skipped (same lead id, or same email or phone).`
+      + (pending.unread.length ? ` No leads found in ${pending.unread.join(', ')}.` : '');
     document.getElementById('arPreviewTable').innerHTML = `
       <table class="stack ar-table"><thead><tr><th>Lead</th><th>Received</th><th>Ad</th><th>Email</th><th>Status</th></tr></thead><tbody>${pending.rows.map(lead => `
         <tr class="${lead.duplicate ? 'ar-skipped' : ''}">
@@ -803,6 +852,7 @@ async function arConfirmImport() {
   if (!pending) return;
   const button = document.getElementById('arPreviewConfirm');
   button.disabled = true;
+  let done = '';
   try {
     const client = await arClient();
     if (pending.kind === 'leads') {
@@ -816,7 +866,8 @@ async function arConfirmImport() {
         const campaign = pending.rows.find(lead => arNorm(lead.ad_name) === arNorm(ad.ad_name))?.campaign_name;
         if (campaign) await client.from(AR_TABLES.ads).update({ campaign }).eq('id', ad.id);
       }
-      document.getElementById('arLeadsStatus').textContent = `Imported ${arPlural(fresh.length, 'new lead')}; ${pending.rows.length - fresh.length} already on the list were skipped.`;
+      done = `Imported ${arPlural(fresh.length, 'new lead')}, skipped ${pending.rows.length - fresh.length} already on the list.`;
+      document.getElementById('arLeadsStatus').textContent = done;
     } else {
       const chosen = pending.rows.filter(row => row.target !== 'skip');
       if (!chosen.length) throw new Error('Every row is set to Skip. Choose where to save at least one ad.');
@@ -872,12 +923,15 @@ async function arConfirmImport() {
           await client.from(AR_TABLES.ads).update({ status }).eq('id', snap.ad_id);
         }
       }
-      document.getElementById('arAdsStatus').textContent = `Imported report ${arDate(pending.reportDate)}: ${arPlural(snapshots.length, 'ad')}.`;
+      done = `Imported report ${arDate(pending.reportDate)}: ${arPlural(snapshots.length, 'ad')}.`;
+      document.getElementById('arAdsStatus').textContent = done;
       document.getElementById('arReportDate').value = pending.reportDate;
     }
+    // Clear the checked rows, then reload so the history and every tab show the new data.
     arPendingImport = null;
+    arRenderPreview();
     await arLoad();
-    arToast('Import complete.');
+    arToast(`Import complete. ${done}`);
   } catch (error) {
     arToast(error.message || 'Import failed. Nothing was changed.', true);
   } finally {
@@ -983,7 +1037,7 @@ function arRenderLeads() {
   }
   container.innerHTML = `
     <table class="stack ar-table ar-lead-table">
-      <thead><tr><th>Received</th><th>Lead</th><th>Source</th><th>Email</th><th>Phone</th></tr></thead>
+      <thead><tr><th>Received</th><th>Lead</th><th>Source</th><th>Email</th><th>Phone</th><th data-requires="ads.edit"><span class="sr-only">Delete</span></th></tr></thead>
       <tbody>${leads.map(lead => {
         const [line] = arLeadLines([lead]);
         const platform = { ig: 'Instagram', fb: 'Facebook' }[lead.platform] || lead.platform || 'Meta';
@@ -994,9 +1048,27 @@ function arRenderLeads() {
           <td data-label="Source">${arEsc(arLeadAudience(lead))}<small class="pd-sub">${arEsc(arShortName(lead.ad_name) || '—')} · ${arEsc(platform)}</small></td>
           <td data-label="Email">${lead.email ? `<a href="mailto:${arEsc(lead.email)}">${arEsc(lead.email)}</a>` : '—'}</td>
           <td data-label="Phone">${line.phone ? `<a href="tel:${arEsc(line.phone)}">${arEsc(line.phone)}</a>` : '—'}</td>
+          <td class="ar-lead-delete" data-requires="ads.edit"><button type="button" class="pd-link" data-delete-lead="${arEsc(lead.id)}" aria-label="Delete ${arEsc(arLeadName(lead))}">Delete</button></td>
         </tr>`;
       }).join('')}</tbody>
     </table>`;
+}
+
+async function arDeleteLead(leadId) {
+  const lead = arLeads.find(item => item.id === leadId);
+  if (!lead || !window.confirm(`Delete ${arLeadName(lead)}? This cannot be undone.`)) return;
+  try {
+    const client = await arClient();
+    // RLS turns a delete without permission into "0 rows", not an error, so check what came back.
+    const { data, error } = await client.from(AR_TABLES.leads).delete().eq('id', leadId).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('The lead was not deleted. You may not have permission to edit ads.');
+    arLeads = arLeads.filter(item => item.id !== leadId);
+    arRender();
+    arToast(`${arLeadName(lead)} deleted.`);
+  } catch (error) {
+    arToast(error.message || 'Could not delete the lead.', true);
+  }
 }
 
 function arExportLeads() {
@@ -1289,12 +1361,18 @@ function arDrawChart(id, config) {
 
 function arRenderTrends() {
   const ads = arTrendAds();
+  const reports = arDrawTrends(ads, { spend: 'arTrendSpend', cpl: 'arTrendCpl', ctr: 'arTrendCtr', byAd: 'arTrendByAd' });
+  const scope = document.getElementById('arTrendScope');
+  if (scope) scope.textContent = `${arPlural(ads.length, 'ad')} · ${arPlural(reports, 'report')}${reports < 2 ? ' · trend lines start after 2 reports' : ''}`;
+}
+
+// Draws the trend charts for these ads into the canvases named in `canvas`
+// (Trends tab, and one Ad Hub row). Returns how many report dates were drawn.
+function arDrawTrends(ads, canvas) {
   const ids = new Set(ads.map(ad => ad.id));
   const snaps = arSnaps.filter(snap => ids.has(snap.ad_id));
   const dates = [...new Set(snaps.map(snap => snap.report_date))].sort();
   const points = dates.map(date => arTrendPoint(snaps.filter(snap => snap.report_date === date)));
-  const scope = document.getElementById('arTrendScope');
-  if (scope) scope.textContent = `${arPlural(ads.length, 'ad')} · ${arPlural(dates.length, 'report')}${dates.length < 2 ? ' · trend lines start after 2 reports' : ''}`;
 
   const css = getComputedStyle(document.documentElement);
   const color = token => css.getPropertyValue(token).trim() || '#63666b';
@@ -1331,7 +1409,7 @@ function arRenderTrends() {
   };
   const area = (label, data, lineColor, opacity, extra = {}) => line(label, data, lineColor, { fill: 'origin', backgroundColor: fade(lineColor, opacity), pointBackgroundColor: lineColor, ...extra });
 
-  arDrawChart('arTrendSpend', {
+  arDrawChart(canvas.spend, {
     type: 'line',
     data: {
       labels,
@@ -1351,7 +1429,7 @@ function arRenderTrends() {
     }
   });
 
-  arDrawChart('arTrendCpl', {
+  arDrawChart(canvas.cpl, {
     type: 'line',
     data: { labels, datasets: [area('Cost per lead', points.map(p => p.cpl), color('--beni'), 0.1, { spanGaps: true })] },
     options: {
@@ -1362,7 +1440,7 @@ function arRenderTrends() {
   });
 
   const target = (label, value, targetColor) => line(label, dates.map(() => value), targetColor, { borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 0, borderWidth: 1.5 });
-  arDrawChart('arTrendCtr', {
+  arDrawChart(canvas.ctr, {
     type: 'line',
     data: {
       labels,
@@ -1380,7 +1458,7 @@ function arRenderTrends() {
     }
   });
 
-  arDrawChart('arTrendByAd', {
+  if (canvas.byAd) arDrawChart(canvas.byAd, {
     type: 'line',
     data: {
       labels,
@@ -1391,6 +1469,7 @@ function arRenderTrends() {
     },
     options: { ...base, scales: { x, y: y({ ticks: { precision: 0 } }) } }
   });
+  return dates.length;
 }
 
 function arRender() {
@@ -1459,6 +1538,18 @@ function arInit() {
   main.addEventListener('click', event => {
     const deleteButton = event.target.closest('[data-delete-ad]');
     if (deleteButton) { arDeleteAd(Number(deleteButton.dataset.deleteAd)); return; }
+    const deleteLead = event.target.closest('[data-delete-lead]');
+    if (deleteLead) { arDeleteLead(deleteLead.dataset.deleteLead); return; }
+    const trendButton = event.target.closest('[data-trend-ad]');
+    if (trendButton) {
+      const id = Number(trendButton.dataset.trendAd);
+      const open = !arTrendOpen.has(id);
+      if (open) arTrendOpen.add(id); else arTrendOpen.delete(id);
+      trendButton.setAttribute('aria-expanded', String(open));
+      document.getElementById(`arTrend-${id}`).hidden = !open;
+      if (open) arDrawAdTrends(id);
+      return;
+    }
     const row = event.target.closest('.parent-row');
     if (row && (event.target.closest('.toggle-btn') || !event.target.closest('button, a, input, select, textarea, label'))) {
       const id = Number(row.dataset.ad);
@@ -1475,34 +1566,49 @@ function arInit() {
   arRenderPlaybook();
 
   document.querySelectorAll('[data-pick]').forEach(button => button.addEventListener('click', () => document.getElementById(button.dataset.pick).click()));
-  [['arAdsFile', 'arAdsStatus', arPrepareAdsImport], ['arLeadsFile', 'arLeadsStatus', arPrepareLeadsImport]].forEach(([inputId, statusId, prepare]) => {
-    const input = document.getElementById(inputId);
+  // Ads: one CSV. Leads: any number of files, a picked folder, or a dropped folder (only lead files kept).
+  const isLeadFile = file => /\.(csv|tsv|txt)$/i.test(file.name);
+  [['arAdsFile', 'arAdsStatus', files => arPrepareAdsImport(files[0]), files => files.filter(file => /\.csv$/i.test(file.name)).slice(0, 1)],
+    ['arLeadsFile', 'arLeadsStatus', arPrepareLeadsImport, files => files.filter(isLeadFile)]].forEach(([inputId, statusId, prepare, keep]) => {
     const drop = document.querySelector(`[data-pick="${inputId}"]`);
-    const handle = async file => {
-      if (!file) return;
-      const status = document.getElementById(statusId);
+    const status = document.getElementById(statusId);
+    const handle = async picked => {
+      const files = keep(picked);
       status.classList.remove('upload-status-error');
-      status.textContent = `Reading ${file.name}…`;
+      if (!files.length) {
+        if (picked.length) {
+          status.textContent = 'No CSV or TSV files found there.';
+          status.classList.add('upload-status-error');
+        }
+        return;
+      }
+      const name = files.length === 1 ? files[0].name : `${files.length} files`;
+      status.textContent = `Reading ${name}…`;
       try {
-        await prepare(file);
-        status.textContent = `${file.name}: check the rows below, then import.`;
+        await prepare(files);
+        status.textContent = `${name}: check the rows below, then import.`;
         document.getElementById('arPreviewCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (error) {
         status.textContent = error.message || 'Could not read that file.';
         status.classList.add('upload-status-error');
       }
     };
-    input.addEventListener('change', () => {
-      const file = input.files[0];
+    [inputId, `${inputId}Folder`].map(id => document.getElementById(id)).filter(Boolean).forEach(input => input.addEventListener('change', () => {
+      const files = [...input.files];
       input.value = '';
-      handle(file);
-    });
+      handle(files);
+    }));
     drop.addEventListener('dragover', event => { event.preventDefault(); drop.classList.add('is-over'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
-    drop.addEventListener('drop', event => {
+    drop.addEventListener('drop', async event => {
       event.preventDefault();
       drop.classList.remove('is-over');
-      handle(event.dataTransfer.files[0]);
+      const files = await arDroppedFiles(event.dataTransfer).catch(() => null);
+      if (files) handle(files);
+      else {
+        status.textContent = 'Could not read what was dropped. Try choosing the files instead.';
+        status.classList.add('upload-status-error');
+      }
     });
   });
 

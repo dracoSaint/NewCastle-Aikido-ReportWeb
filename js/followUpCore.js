@@ -163,21 +163,52 @@ function fuBuild(report) {
   return result;
 }
 
-// Steps 7.1-7.4: a new report from new inputs, carrying notes forward from `base`
-// only for people still on a follow-up list (resolved notes drop away).
+// Members who were on the previous report's list (orange, red or no record) and are off the
+// next one because they trained again: a newer last class, and a membership that isn't on
+// HOLD, Gratis or cancelled. People who dropped off for any other reason are not returns.
+function fuReturns(previous, next) {
+  if (!previous || !next) return [];
+  const before = fuBuild(previous);
+  const after = fuBuild(next);
+  const stillOff = new Set([...after.orange, ...after.red, ...after.none, ...after.removed, ...after.excluded].map(row => row.key));
+  const attendance = new Map((next.attendance || []).map(person => [fuKey(person.name), person]));
+  const memberships = new Map((next.memberships || []).map(record => [fuKey(record.name), record]));
+  return [...before.orange, ...before.red, ...before.none].flatMap(row => {
+    const person = attendance.get(row.key);
+    const membership = memberships.get(row.key);
+    const back = person?.lastAtt && (!row.lastAtt || person.lastAtt > row.lastAtt);
+    const blocked = /hold|cancel/i.test(membership?.status || '') || /gratis training/i.test(membership?.label || '');
+    if (stillOff.has(row.key) || !back || blocked) return [];
+    return [{
+      member_key: row.key,
+      member_name: row.name,
+      phone: row.phone || null,
+      returned_on: person.lastAtt,
+      last_class_before: row.lastAtt || null,
+      tier: row.tier,
+      days: row.days,
+      membership_label: membership?.label || null
+    }];
+  });
+}
+
+// Steps 7.1-7.4: a report from new inputs. A same-day refresh keeps that day's notes
+// (for people still on a list) and removals; a new day starts with none, since every
+// note is kept in the member notes log (follow_up_member_notes).
 function fuNextReport(base, changes) {
   const next = {
     report_date: changes.report_date || base?.report_date,
     attendance_file: changes.attendance_file ?? base?.attendance_file ?? null,
     membership_file: changes.membership_file ?? base?.membership_file ?? null,
     attendance: changes.attendance || base?.attendance,
-    memberships: changes.memberships || base?.memberships,
-    removed: []
+    memberships: changes.memberships || base?.memberships
   };
   if (!next.attendance || !next.memberships) return null;
-  const onList = fuBuild({ ...next, notes: {} });
+  const sameDay = Boolean(base?.report_date) && base.report_date === next.report_date;
+  const onList = fuBuild({ ...next, notes: {}, removed: [] });
   const stillListed = new Set([...onList.orange, ...onList.red, ...onList.none].map(row => row.key));
-  next.notes = Object.fromEntries(Object.entries(base?.notes || {}).filter(([key, note]) => note && stillListed.has(key)));
+  next.notes = sameDay ? Object.fromEntries(Object.entries(base.notes || {}).filter(([key, note]) => note && stillListed.has(key))) : {};
+  next.removed = sameDay ? base.removed || [] : [];
   return next;
 }
 
@@ -218,5 +249,5 @@ function fuMarkdown(report, result) {
 
 // Node (the weekly job) loads this file as a module; the browser just gets the globals.
 if (typeof module !== 'undefined') {
-  module.exports = { FU_ORANGE, FU_RED, fuApplyTiers, fuKey, fuIso, fuPhone, fuParseTable, fuAttendanceFromText, fuMembershipsFromText, fuDateFromFileName, fuBuild, fuNextReport, fuMarkdown };
+  module.exports = { FU_ORANGE, FU_RED, fuApplyTiers, fuKey, fuIso, fuPhone, fuParseTable, fuAttendanceFromText, fuMembershipsFromText, fuDateFromFileName, fuBuild, fuNextReport, fuReturns, fuMarkdown };
 }
