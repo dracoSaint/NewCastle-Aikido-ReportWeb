@@ -12,7 +12,9 @@
   <header>
     <p id="updatedLine">Loading…</p>
     <nav class="site-nav">
-      <button data-tab="report" class="active">Follow-up</button>
+      <button data-tab="report" class="active">Red/Orange Report</button>
+      <button data-tab="followup">Follow-up</button>
+      <button data-tab="returned">Returned</button>
       <button data-tab="log">Contact log</button>
       <button data-tab="upload" data-requires="followup.edit">Upload</button>
     </nav>
@@ -38,6 +40,7 @@
           <span>Report date</span>
           <input type="date" id="fuReportDate">
         </label>
+        <button type="button" class="sop-action-button primary fu-sync" id="fuSyncBtn" data-requires="sync.run" title="Pulls today's attendance and membership from Zen Planner. Keeps today's notes.">Sync now</button>
         <details class="fu-toolbar-actions overview-types fu-export" id="fuExport">
           <summary class="sop-action-button secondary">Export</summary>
           <div class="overview-types-list fu-export-list">
@@ -61,6 +64,34 @@
       </div>
 
       <div id="fuReport"></div>
+    </section>
+
+    <!-- Follow-up: members on the current list who have been contacted. -->
+    <section class="tab-panel" id="tab-followup">
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Contacted, still on the list</h2>
+          <span class="member-count" id="fuFollowCount" role="status" aria-live="polite"></span>
+        </div>
+        <p class="pd-card-lede">Members on the current Red/Orange report with a contact logged since their last class.</p>
+        <div class="table-wrap" id="fuFollowTable"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- Returned: members who left the list because they came back to class. -->
+    <section class="tab-panel" id="tab-returned">
+      <div class="past-due-metrics fu-metrics" id="fuReturnMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Returned</h2>
+          <label>
+            <span class="sr-only">Month</span>
+            <select id="fuReturnMonth"><option value="">All months</option></select>
+          </label>
+        </div>
+        <p class="pd-card-lede">Off the Red/Orange list because they trained again, with a membership not on HOLD, Gratis or cancelled. Recorded each time a report is built.</p>
+        <div class="table-wrap" id="fuReturnTable"><div class="loading">Loading…</div></div>
+      </div>
     </section>
 
     <section class="tab-panel" id="tab-log">
@@ -93,8 +124,8 @@
 
     <section class="tab-panel" id="tab-upload">
       <p class="fu-hint">The report builds itself every night at 11:59 pm from Zen Planner. Upload here only to
-        re-run it by hand: a new file on its own is run against the other file already on record, and notes
-        carry over to anyone still on the list.</p>
+        re-run it by hand: a new file on its own is run against the other file already on record. Re-running
+        the same day updates that day's list and keeps its notes; a new day starts with clear notes (the Notes log keeps them all).</p>
       <div class="pd-tools">
         <div class="card ar-step">
           <div class="ar-step-head">

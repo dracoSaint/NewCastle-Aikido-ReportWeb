@@ -8245,6 +8245,148 @@ th[aria-sort="descending"] .sort-mark {
   white-space: normal;
 }
 
+/* Sync now sits with Export at the right of the report toolbar. */
+.fu-toolbar .fu-sync {
+  margin-left: auto;
+}
+
+.fu-toolbar .fu-sync + .fu-export {
+  margin-left: 0;
+}
+
+@media (max-width: 760px) {
+  .fu-toolbar .fu-sync {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+/* Top-level note: save / cancel appear once the box changes; a saved note reads as text with an edit button. */
+.fu-note-field,
+.fu-note-saved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fu-note-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+.fu-note-field .fu-icon-btn {
+  display: none;
+}
+
+.fu-note-field.is-dirty .fu-icon-btn {
+  display: inline-grid;
+}
+
+.fu-follow-note {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.fu-note-saved p {
+  flex: 1;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.fu-icon-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.fu-icon-btn:hover {
+  border-color: var(--ai-400);
+  background: var(--ai-50);
+}
+
+.fu-icon-btn.is-save {
+  border-color: var(--moss);
+  background: var(--moss);
+  color: var(--paper);
+}
+
+.fu-icon-btn.is-save:hover {
+  background: #255a3d;
+}
+
+.fu-icon-btn:focus-visible {
+  outline: 3px solid var(--ai-400);
+  outline-offset: 2px;
+}
+
+/* Notes log: a quiet toggle under the note box, opening a past-due style notes thread. */
+.fu-notes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fu-notes-toggle span {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.fu-notes-toggle svg {
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.fu-notes-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.fu-notes-toggle:hover {
+  color: var(--ink);
+}
+
+.fu-notes-toggle:focus-visible {
+  outline: 2px solid var(--ai-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.fu-table > tbody > .fu-notes-row > td {
+  padding: 12px 16px 16px;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--cotton);
+}
+
+.fu-notes {
+  max-width: 760px;
+  margin-left: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fu-notes-toggle svg {
+    transition: none;
+  }
+}
+
 .fu-removed summary {
   cursor: pointer;
   list-style: none;
@@ -8669,6 +8811,12 @@ th[aria-sort="descending"] .sort-mark {
     width: 100%;
   }
 
+  table.stack > tbody > tr > td.fu-note {
+    grid-column: 1 / -1;
+    width: auto;
+    min-width: 0;
+  }
+
   .member-toolbar label:has(> #fuLogOutcome),
   #fuLogOutcome {
     flex: 1 1 100%;
@@ -8958,7 +9106,7 @@ th[aria-sort="descending"] .sort-mark {
     -webkit-print-color-adjust: exact;
   }
 
-  .follow-up-page :is(.fu-toolbar, .fu-filters, .fu-actions, .fu-actions-col, .fu-removed, .fu-note-card, .fu-warning, .pd-toast, .fu-dialog),
+  .follow-up-page :is(.fu-toolbar, .fu-filters, .fu-actions, .fu-actions-col, .fu-removed, .fu-note-card, .fu-warning, .pd-toast, .fu-dialog, .fu-notes-toggle, .fu-notes-row, .fu-note-field, .fu-note-saved),
   .follow-up-page .fu-note input,
   .follow-up-page .tab-panel:not(#tab-report) {
     display: none !important;
@@ -9230,6 +9378,108 @@ th[aria-sort="descending"] .sort-mark {
 @media (max-width: 900px) {
   .ar-trend-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Ad Hub: per-ad trend button and its chart row. */
+.ar-trend-cell {
+  width: 1%;
+  text-align: right;
+}
+
+.ar-trend-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.ar-trend-btn:hover {
+  border-color: var(--ai-400);
+  background: var(--ai-50);
+}
+
+.ar-trend-btn[aria-expanded="true"] {
+  border-color: var(--ai-800);
+  background: var(--ai-800);
+  color: var(--paper);
+}
+
+.ar-trend-btn:focus-visible {
+  outline: 3px solid var(--ai-400);
+  outline-offset: 2px;
+}
+
+.ar-ad-trends {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px 20px 0;
+}
+
+.ar-ad-trends figure {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.ar-ad-trends figcaption {
+  padding: 12px 16px 0;
+  font-family: var(--font-head);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.ar-ad-trends .chart-wrap {
+  padding: 8px 12px 12px;
+}
+
+.ar-ad-trends-note {
+  margin: 0;
+  padding: 10px 20px 16px;
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.ar-lead-delete {
+  width: 1%;
+  text-align: right;
+}
+
+.ar-folder-pick {
+  justify-self: center;
+  margin-top: -4px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 1080px) {
+  .ar-ad-trends {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .ar-hub-table > tbody > tr.parent-row > td.ar-trend-cell {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: end;
+    width: auto;
+    margin-right: 40px;
+  }
+
+  .ar-ad-trends {
+    padding: 14px 14px 0;
+  }
+
+  .ar-ad-trends-note {
+    padding: 10px 14px 14px;
   }
 }
 

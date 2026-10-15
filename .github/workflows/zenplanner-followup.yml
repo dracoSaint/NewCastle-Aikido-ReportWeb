@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: 'Run now even if today''s report exists (adds a new report)'
+        description: 'Run now even if today''s report exists (refreshes today''s list, keeps its notes)'
         type: boolean
         default: true
 

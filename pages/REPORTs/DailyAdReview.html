@@ -203,12 +203,15 @@
             <ul class="ar-checklist">
               <li>Anyone already on the list (same lead, email or phone) is skipped, never duplicated.</li>
               <li>They appear in each report's lead log and on the Leads tab.</li>
+              <li>Several files, or a whole folder of them, import together in one check.</li>
             </ul>
-            <input id="arLeadsFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" hidden>
+            <input id="arLeadsFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" multiple hidden>
+            <input id="arLeadsFileFolder" type="file" webkitdirectory hidden>
             <button type="button" class="ar-drop" data-pick="arLeadsFile">
-              <strong>Choose leads file</strong>
-              <span>or drop the file here</span>
+              <strong>Choose leads files</strong>
+              <span>or drop files or a folder here</span>
             </button>
+            <button type="button" class="pd-link ar-folder-pick" data-pick="arLeadsFileFolder">Choose a folder instead</button>
             <p class="csv-upload-status" id="arLeadsStatus" role="status"></p>
           </div>
         </div>

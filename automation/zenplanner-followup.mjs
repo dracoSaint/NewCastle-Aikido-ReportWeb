@@ -14,7 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 import { env, exportSavedReport as exportReport, withZenPlanner, MEMBERSHIP_REPORT } from './zenplanner.mjs';
 
 const require = createRequire(import.meta.url);
-const { fuAttendanceFromText, fuMembershipsFromText, fuNextReport, fuBuild, fuApplyTiers } = require('../js/followUpCore.js');
+const { fuAttendanceFromText, fuMembershipsFromText, fuNextReport, fuBuild, fuReturns, fuApplyTiers } =require('../js/followUpCore.js');
 
 // Saved reports, opened by category and name exactly as Zen Planner lists them.
 const ATTENDANCE_REPORT = { category: 'Attendance', name: 'RED/ORANGE ATTENDANCE (30 DAYS COUNT)', file: 'attendance' };
@@ -43,9 +43,9 @@ const downloadReports = () => withZenPlanner(async (page, step) => {
 });
 
 async function main() {
-  const reportDate = process.env.FORCE_RUN === 'true'
-    ? new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' })
-    : sydneyReportDate();
+  // A manual run (FORCE_RUN) uses the same date, so re-running on the same day (or before 3 am)
+  // refreshes that day's list in place and keeps its top-level notes.
+  const reportDate = sydneyReportDate();
 
   const supabase = createClient(env('SUPABASE_URL'), env('SUPABASE_ANON_KEY'), { auth: { persistSession: false } });
   const { error: signInError } = await supabase.auth.signInWithPassword({ email: env('BOT_EMAIL').trim(), password: env('BOT_PASSWORD') });
@@ -66,25 +66,50 @@ async function main() {
   const attendance = fuAttendanceFromText(attendanceText);
   const memberships = fuMembershipsFromText(membershipText);
 
-  // The latest report supplies the notes to carry over.
-  const { data: latest, error: latestError } = await supabase.from('follow_up_reports').select('*')
-    .order('created_at', { ascending: false }).limit(1).maybeSingle();
-  if (latestError) throw latestError;
+  // One report per day: a same-day run updates that day's report (keeping its notes);
+  // otherwise a new report starts with the top-level notes cleared (they live on in the notes log).
+  const { data: sameDay, error: sameDayError } = await supabase.from('follow_up_reports').select('*')
+    .eq('report_date', reportDate).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (sameDayError) throw sameDayError;
 
-  const next = fuNextReport(latest, {
+  const next = fuNextReport(sameDay, {
     attendance, memberships, report_date: reportDate,
     attendance_file: AUTO_ATTENDANCE, membership_file: AUTO_MEMBERSHIP
   });
   const result = fuBuild(next);
   let id = 'not saved (DRY_RUN)';
+  let returned = 0;
   if (!process.env.DRY_RUN) {
-    const { data, error } = await supabase.from('follow_up_reports').insert(next).select('id').single();
+    // A same-day update writes only the inputs, so notes staff save during the run are never overwritten.
+    const { notes: _notes, removed: _removed, ...inputs } = next;
+    const save = sameDay
+      ? supabase.from('follow_up_reports').update(inputs).eq('id', sameDay.id)
+      : supabase.from('follow_up_reports').insert(next);
+    const { data, error } = await save.select('id').single();
     if (error) throw error;
-    id = data.id;
+    id = sameDay ? `${data.id} (updated)` : data.id;
+    returned = await saveReturns(supabase, reportDate, next, data.id);
   }
   console.log(`Report ${id} for ${reportDate}: ${attendance.length} attendance rows, ${memberships.length} membership records; `
     + `orange ${result.orange.length}, red ${result.red.length}, no record ${result.none.length}, `
-    + `excluded ${result.excluded.length}; ${Object.keys(next.notes).length} notes carried over.`);
+    + `excluded ${result.excluded.length}; ${Object.keys(next.notes).length} notes kept; ${returned} returned.`);
+}
+
+// Returned: anyone on the previous day's list who is off this one because they trained again.
+// A missing follow_up_returns table only skips this step; the report itself is already saved.
+async function saveReturns(supabase, reportDate, next, reportId) {
+  const { data: previous, error } = await supabase.from('follow_up_reports').select('*')
+    .lt('report_date', reportDate).order('report_date', { ascending: false }).order('created_at', { ascending: false })
+    .limit(1).maybeSingle();
+  if (error) throw error;
+  const rows = fuReturns(previous, next).map(row => ({ ...row, report_id: reportId }));
+  if (!rows.length) return 0;
+  const { error: saveError } = await supabase.from('follow_up_returns').upsert(rows, { onConflict: 'member_key,returned_on', ignoreDuplicates: true });
+  if (saveError) {
+    console.warn(`Returned not recorded: ${saveError.message}`);
+    return 0;
+  }
+  return rows.length;
 }
 
 main().catch(error => {

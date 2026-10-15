@@ -257,7 +257,7 @@ begin
     ('past_due_member_notes', 'pastdue'), ('past_due_import_runs', 'pastdue'),
     ('membership_data', 'monday'), ('membership_data_previous', 'monday'), ('membership_data_log', 'monday'),
     ('membership_weekly_log', 'monday'), ('pricing_settings', 'monday'),
-    ('follow_up_reports', 'followup'), ('follow_up_contacts', 'followup'),
+    ('follow_up_reports', 'followup'), ('follow_up_contacts', 'followup'), ('follow_up_member_notes', 'followup'), ('follow_up_returns', 'followup'),
     ('ad_review_ads', 'ads'), ('ad_review_snapshots', 'ads'), ('ad_review_actions', 'ads'),
     ('ad_review_leads', 'ads'), ('ad_review_playbook', 'ads'),
     ('sop_documents', 'sops')
@@ -407,7 +407,7 @@ begin
   foreach t in array array[
     'past_due_member_log', 'past_due_exempted_members', 'past_due_failure_reason', 'past_due_member_notes', 'past_due_import_runs',
     'membership_data', 'membership_data_previous', 'membership_data_log', 'membership_weekly_log', 'pricing_settings',
-    'follow_up_reports', 'follow_up_contacts',
+    'follow_up_reports', 'follow_up_contacts', 'follow_up_member_notes', 'follow_up_returns',
     'ad_review_ads', 'ad_review_snapshots', 'ad_review_actions', 'ad_review_leads', 'ad_review_playbook',
     'sop_documents'
   ] loop

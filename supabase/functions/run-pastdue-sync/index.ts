@@ -1,13 +1,15 @@
 // Starts a Zen Planner job on GitHub Actions for the portal's sync buttons. Signed-in portal users only.
 //   {}                 -> .github/workflows/zenplanner-pastdue.yml (Past Due "Sync now")
 //   { job: 'monday' }  -> .github/workflows/zenplanner-monday.yml  (Monday report "Sync data")
+//   { job: 'followup' } -> .github/workflows/zenplanner-followup.yml (Red/Orange "Sync now": refreshes
+//                         today's list in place, keeping its notes)
 //
 // Deploy:  supabase functions deploy run-pastdue-sync
 // Secret:  supabase secrets set GITHUB_TOKEN=<fine-grained token: this repo only, Actions read & write>
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const REPO = 'https://api.github.com/repos/dracoSaint/NewCastle-Aikido-ReportWeb/actions/workflows';
-const JOBS: Record<string, string> = { pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml' };
+const JOBS: Record<string, string> = { pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml', followup: 'zenplanner-followup.yml' };
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
@@ -40,7 +42,8 @@ Deno.serve(async req => {
       Accept: 'application/vnd.github+json',
       'User-Agent': 'zenplanner-sync'
     },
-    body: JSON.stringify({ ref: 'main' })
+    // The follow-up job skips a day already saved unless forced; a button press always re-pulls.
+    body: JSON.stringify({ ref: 'main', ...(job === 'followup' ? { inputs: { force: true } } : {}) })
   });
   if (!res.ok) console.error('GitHub dispatch failed', workflow, res.status, await res.text());
   return new Response(res.ok ? 'started' : 'Could not start the sync.', { status: res.ok ? 200 : 502, headers: cors });
