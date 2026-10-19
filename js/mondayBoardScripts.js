@@ -968,13 +968,13 @@ function renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSumm
     <div class="report-card-panel">
       <table class="report-summary-table report-sheet-table stack">
         <colgroup><col class="report-col-label">${'<col>'.repeat(7)}</colgroup>
-        <thead><tr><th>${title}</th>${[...sharedColumns, ...moneyColumns].map(name => `<th>${name}</th>`).join('')}</tr></thead>
+        <thead><tr><th>${title}</th>${[...sharedColumns, ...moneyColumns].map((name, index) => `<th${index >= sharedColumns.length ? ' class="num"' : ''}>${name}</th>`).join('')}</tr></thead>
         <tbody>${rows.map(row => {
           const cells = [row.current, getTrendBadge(row.trend === 'up' ? row.delta : row.trend === 'down' ? -row.delta : 0), row.holds, row.goal, getToAchieveCell(row.toAchieve), ...money(row)];
           return `
           <tr class="${row.totalRow ? 'report-summary-total' : ''}">
             <td>${escapeHtml(row.label)}</td>
-            ${cells.map((cell, index) => `<td data-label="${[...sharedColumns, ...moneyColumns][index]}">${cell}</td>`).join('')}
+            ${cells.map((cell, index) => `<td${index >= sharedColumns.length ? ' class="num"' : ''} data-label="${[...sharedColumns, ...moneyColumns][index]}">${cell}</td>`).join('')}
           </tr>`;
         }).join('')}
         </tbody>
@@ -2059,6 +2059,8 @@ function loadMondayTab(key) {
     loadMemberHistoryLog();
   } else if (key === 'pricingSettings') {
     renderPricingSettingsTab();
+  } else if (key === 'allMembers') {
+    // js/allMembers.js loads this tab itself.
   } else {
     loadMondayPage(key);
   }

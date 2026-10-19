@@ -9,6 +9,7 @@ const ACCESS_PERMISSIONS = [
   { group: 'Past Due Members', items: [['pastdue.view', 'View'], ['pastdue.edit', 'Notes, bills, imports, exemptions']] },
   { group: 'Red / Orange Follow-Up', items: [['followup.view', 'View'], ['followup.edit', 'Log contacts, notes, uploads']] },
   { group: 'Daily Ad Review', items: [['ads.view', 'View'], ['ads.edit', 'Imports, actions, playbook']] },
+  { group: 'Geronimo Metrics', items: [['geronimo.view', 'View'], ['geronimo.edit', 'Weekly figures, waves, scoreboard']] },
   { group: 'Grading Report', items: [['grading.view', 'View']] },
   { group: 'SOPs', items: [['sops.view', 'View'], ['sops.edit', 'Add, edit, delete SOPs']] },
   { group: 'Bots', items: [['sync.run', 'Press Sync buttons'], ['bots.manage', 'Bot schedules and report rules']] },
@@ -22,6 +23,7 @@ const ACCESS_PAGES = {
   'PastDueMembers.html': 'pastdue',
   'FollowUpReport.html': 'followup',
   'DailyAdReview.html': 'ads',
+  'GeronimoMetrics.html': 'geronimo',
   'GradingReport.html': 'grading',
   'SOPDocuments.html': 'sops'
 };

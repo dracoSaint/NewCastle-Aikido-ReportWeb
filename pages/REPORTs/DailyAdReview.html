@@ -43,20 +43,38 @@
         <dl class="ar-summary" id="arSummary"></dl>
       </div>
 
-      <div class="card">
-        <div class="card-heading-row">
-          <h2>Threshold met</h2>
-          <span class="member-count">1,000+ impressions · ready for a decision</span>
-        </div>
-        <div class="table-wrap" id="arThresholdTable"><div class="loading">Loading…</div></div>
+      <!-- Lead-form ads and traffic (link click) ads, one at a time. Spend above covers both. -->
+      <div class="past-due-metrics ar-kind-tabs" role="group" aria-label="Campaign type">
+        <button type="button" class="past-due-metric member-view-tile is-active" data-ad-kind="leads" aria-pressed="true"><span>Lead ads</span><strong id="arAdKindLeadsCount">–</strong></button>
+        <button type="button" class="past-due-metric member-view-tile" data-ad-kind="traffic" aria-pressed="false"><span>Traffic ads</span><strong id="arAdKindTrafficCount">–</strong></button>
       </div>
 
-      <div class="card">
-        <div class="card-heading-row">
-          <h2>Under threshold</h2>
-          <span class="member-count">Testing phase · under 1,000 impressions</span>
+      <div id="arKind-leads">
+        <div class="card">
+          <div class="card-heading-row">
+            <h2>Threshold met</h2>
+            <span class="member-count">1,000+ impressions · ready for a decision</span>
+          </div>
+          <div class="table-wrap" id="arThresholdTable"><div class="loading">Loading…</div></div>
         </div>
-        <div class="table-wrap" id="arUnderTable"><div class="loading">Loading…</div></div>
+
+        <div class="card">
+          <div class="card-heading-row">
+            <h2>Under threshold</h2>
+            <span class="member-count">Testing phase · under 1,000 impressions</span>
+          </div>
+          <div class="table-wrap" id="arUnderTable"><div class="loading">Loading…</div></div>
+        </div>
+      </div>
+
+      <div id="arKind-traffic" hidden>
+        <div class="card">
+          <div class="card-heading-row">
+            <h2>Traffic campaign</h2>
+            <span class="member-count">Link clicks, not leads · spend counts in the total above</span>
+          </div>
+          <div class="table-wrap" id="arTrafficTable"><div class="loading">Loading…</div></div>
+        </div>
       </div>
 
       <div class="card">

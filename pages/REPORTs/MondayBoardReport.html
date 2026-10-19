@@ -21,6 +21,7 @@
       <button data-tab="current_mondayReport">This Week's Report</button>
       <button data-tab="last_mondayReport">Last Week's Report</button>
       <button data-tab="current_memberList">Current Member List</button>
+      <button data-tab="allMembers">All Members</button>
       <button data-tab="memberHistoryLog">Member History Log</button>
       <button data-tab="pricingSettings" data-requires="monday.edit" id="pricingSettingsTab">Pricing Settings</button>
     </nav>
@@ -177,6 +178,82 @@
         </div>
     </section>
 
+    <!-- All Members: every Zen Planner membership, any status (js/allMembers.js) -->
+    <section class="tab-panel" id="tab-allMembers">
+      <div class="past-due-metrics key-strip member-summary am-status" id="amStatus" aria-label="Filter by status"></div>
+
+      <div class="card member-list-card">
+        <div class="card-heading-row">
+          <h2>All members</h2>
+          <span class="member-count" id="amCount" role="status" aria-live="polite"></span>
+        </div>
+        <p class="pd-card-lede" id="amSynced">Every membership in Zen Planner: current, not started, hold, cancelled, cancel pending and completed. Refreshed nightly.</p>
+
+        <form class="member-toolbar am-filters" id="amFilters" aria-label="Filter all members">
+          <label class="member-search">
+            <span class="sr-only">Search by name or number</span>
+            <input id="amSearch" type="search" placeholder="Search name or number" autocomplete="off">
+          </label>
+          <label>
+            <span class="sr-only">Status</span>
+            <select id="amStatusFilter">
+              <option value="">All statuses</option>
+              <option value="CURRENT">Current</option>
+              <option value="NOT STARTED">Not started</option>
+              <option value="HOLD">Hold</option>
+              <option value="CANCEL PENDING">Cancel pending</option>
+              <option value="CANCELED">Cancelled</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Membership</span>
+            <select id="amLabelFilter"><option value="">All memberships</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Autopay</span>
+            <select id="amAutopayFilter">
+              <option value="">Any autopay</option>
+              <option value="ON">Autopay on</option>
+              <option value="OFF">Autopay off</option>
+              <option value="ERROR">Autopay error</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Date to filter on</span>
+            <select id="amDateField">
+              <option value="mbr_begin_date">Begins</option>
+              <option value="mbr_end_date">Ends</option>
+            </select>
+          </label>
+          <label><span class="sr-only">From</span><input id="amFrom" type="date" aria-label="From date"></label>
+          <label><span class="sr-only">To</span><input id="amTo" type="date" aria-label="To date"></label>
+          <label>
+            <span class="sr-only">Sort</span>
+            <select id="amSort">
+              <option value="begin_desc">Newest start first</option>
+              <option value="begin_asc">Oldest start first</option>
+              <option value="end_asc">Ending soonest</option>
+              <option value="end_desc">Ending latest</option>
+              <option value="name">Last name A–Z</option>
+            </select>
+          </label>
+          <div class="member-toolbar-actions">
+            <button type="button" class="sop-action-button secondary" id="amClear">Clear filters</button>
+            <button type="button" class="sop-action-button secondary" id="amExport">Export CSV</button>
+          </div>
+        </form>
+
+        <div class="table-wrap" id="amTable"><div class="loading">Loading memberships…</div></div>
+
+        <div class="am-pager">
+          <button type="button" class="sop-action-button secondary" id="amPrev" disabled>Previous</button>
+          <span id="amPageInfo" role="status" aria-live="polite"></span>
+          <button type="button" class="sop-action-button secondary" id="amNext" disabled>Next</button>
+        </div>
+      </div>
+    </section>
+
     <section class="tab-panel" id="tab-memberHistoryLog">
       <div class="card">
         <div class="card-heading-row">
@@ -213,6 +290,7 @@
   <script src="../../js/config.js"></script>
   <script src="../../js/mondayImportCore.js"></script>
   <script src="../../js/mondayBoardScripts.js"></script>
+  <script src="../../js/allMembers.js"></script>
 </body>
 
 <script src="../../js/footer.js"></script>

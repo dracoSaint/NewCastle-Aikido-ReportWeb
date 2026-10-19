@@ -28,6 +28,10 @@
         {
           label: 'Daily Ad Review',
           path: 'pages/REPORTs/DailyAdReview.html'
+        },
+        {
+          label: 'Geronimo Metrics Report',
+          path: 'pages/REPORTs/GeronimoMetrics.html'
         }
       ]
     },

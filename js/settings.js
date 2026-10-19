@@ -16,6 +16,7 @@ const SETTINGS_START_PAGES = [
   ['pages/REPORTs/PastDueMembers.html', 'Past Due Members', 'pastdue'],
   ['pages/REPORTs/FollowUpReport.html', 'Red / Orange Follow-Up', 'followup'],
   ['pages/REPORTs/DailyAdReview.html', 'Daily Ad Review', 'ads'],
+  ['pages/REPORTs/GeronimoMetrics.html', 'Geronimo Metrics Report', 'geronimo'],
   ['pages/REPORTs/GradingReport.html', 'Grading Report', 'grading'],
   ['pages/SOPs/SOPDocuments.html', 'SOPs', 'sops']
 ];
@@ -516,6 +517,8 @@ const SETTINGS_AUDIT_TABLES = {
   follow_up_reports: ['Follow-Up', 'follow-up report'], follow_up_contacts: ['Follow-Up', 'contact log entry'],
   ad_review_ads: ['Ad Review', 'ad'], ad_review_snapshots: ['Ad Review', 'ad snapshot'], ad_review_actions: ['Ad Review', 'ad action'],
   ad_review_leads: ['Ad Review', 'lead'], ad_review_playbook: ['Ad Review', 'playbook'],
+  geronimo_weekly: ['Geronimo Metrics', 'week'], geronimo_wave_members: ['Geronimo Metrics', 'wave member'],
+  geronimo_scoreboard: ['Geronimo Metrics', 'scoreboard day'],
   sop_documents: ['SOPs', 'SOP'],
   app_roles: ['Settings', 'role'], app_role_permissions: ['Settings', 'permission'], app_user_roles: ['Settings', 'user role'],
   bot_settings: ['Settings', 'bot setting'], app_settings: ['Settings', 'report rule']
