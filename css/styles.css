@@ -10087,3 +10087,140 @@ html.reduce-motion *::after {
   margin: -6px 0 0;
   font-size: 0.9rem;
 }
+
+/* ---- Login intro: whirlwind gathers into the logo (first login per browser session, js/login.js) ---- */
+.login-intro {
+  position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 16px; overflow: hidden; color: var(--cotton); text-align: center;
+  background: radial-gradient(ellipse at 50% 40%, #34373d 0%, var(--ai-900) 75%);
+  animation: li-in .5s ease both;
+}
+.login-intro__stage { display: flex; flex-direction: column; align-items: center; animation: li-drift 5.2s var(--ease-out) both; }
+
+/* Box = the swirl icon only. In the 500x526 white PNG the icon sits in a 300px square at (91, 91.5);
+   every img is scaled/offset so that square fills the box, and masked to drop the lettering ring and seal. */
+.login-intro__mark { --k: min(176px, 46vw); position: relative; width: var(--k); height: var(--k); margin-bottom: 56px; }
+.login-intro__mark img {
+  position: absolute; width: calc(var(--k) * 500 / 300); left: calc(var(--k) * -91 / 300); top: calc(var(--k) * -91.5 / 300); max-width: none;
+  -webkit-mask: radial-gradient(ellipse 30% 28.5% at 48.2% 45.9%, #000 97%, transparent 100%);
+          mask: radial-gradient(ellipse 30% 28.5% at 48.2% 45.9%, #000 97%, transparent 100%);
+}
+
+/* Bands: concentric rings of the icon spun in like currents; --a/--b are the ring's inner/outer radius. */
+.login-intro__band { position: absolute; inset: 0; opacity: 0;
+  -webkit-mask: radial-gradient(closest-side, transparent calc(var(--a) - 1%), #000 var(--a), #000 var(--b), transparent calc(var(--b) + 1%));
+          mask: radial-gradient(closest-side, transparent calc(var(--a) - 1%), #000 var(--a), #000 var(--b), transparent calc(var(--b) + 1%));
+  animation: li-spin 1.65s cubic-bezier(.16,1,.3,1) var(--delay) forwards, li-hide .25s linear 2.1s forwards; }
+.login-intro__band.is-trail { --o: .3; animation-duration: 1.75s, .25s; }
+/* Whole icon replaces the bands as they meet (hides seams), settling like water. */
+.login-intro__whole { position: absolute; inset: 0; opacity: 0; filter: url(#li-warp); animation: li-fade .3s ease 1.95s forwards; }
+.login-intro__glow { position: absolute; inset: -30%; border-radius: 50%; opacity: 0; pointer-events: none;
+  background: radial-gradient(circle, rgba(247,245,243,.5), rgba(247,245,243,0) 60%); animation: li-flash 1.2s ease-out 1.9s forwards; }
+
+/* Wind arcs circling the icon, tightening inward. */
+.login-intro__wind { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; opacity: 0; pointer-events: none;
+  animation: li-wind var(--dur) cubic-bezier(.4,0,.2,1) var(--delay) forwards; }
+.login-intro__wind circle { fill: none; stroke: var(--cotton); stroke-linecap: round; vector-effect: non-scaling-stroke; }
+
+/* Leaves riding the spiral: the wrapper turns, the leaf slides in to the centre. */
+.login-intro__orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: li-orbit var(--dur) cubic-bezier(.4,0,.3,1) var(--delay) both; }
+.login-intro__leaf { position: absolute; width: var(--w); height: calc(var(--w) / 2.2); margin: calc(var(--w) / -4.4) 0 0 calc(var(--w) / -2);
+  border-radius: 0 100% 0 100%; background: var(--c); opacity: 0; animation: li-inward var(--dur) cubic-bezier(.5,0,.3,1) var(--delay) forwards; }
+
+/* Ensō: open brush circle drawn anticlockwise after the icon forms, gap top-right. */
+.login-intro__enso { position: absolute; inset: -24px; width: calc(100% + 48px); height: calc(100% + 48px); overflow: visible; }
+.login-intro__enso circle { fill: none; stroke: var(--cotton); stroke-linecap: round; transform: scaleX(-1) rotate(232deg); transform-origin: 50% 50%; stroke-dasharray: 100 101; stroke-dashoffset: 100; }
+.login-intro__enso .ink  { stroke-width: 2.4; opacity: .92; animation: li-draw 1.6s cubic-bezier(.6,.05,.3,1) 2.05s forwards; }
+.login-intro__enso .wash { stroke-width: 7; opacity: .08; animation: li-draw 1.6s cubic-bezier(.6,.05,.3,1) 2.1s forwards; }
+
+.login-intro__ripple { position: absolute; inset: 0; border: 1px solid rgba(247,245,243,.35); border-radius: 50%; opacity: 0; pointer-events: none; animation: li-ripple 2.8s ease-out forwards; }
+.login-intro__ripple:nth-of-type(1) { animation-delay: 2s; }
+.login-intro__ripple:nth-of-type(2) { animation-delay: 2.45s; }
+.login-intro__ripple:nth-of-type(3) { animation-delay: 2.9s; }
+
+.login-intro__title { margin: 0; white-space: nowrap; font: 400 clamp(1.25rem, 6vw, 2.5rem)/1.1 var(--font-head); animation: li-breathe 1.6s var(--ease-out) 2.4s both; }
+.login-intro__line { width: 72px; height: 1px; margin: 16px 0 14px; background: var(--beni); transform: scaleX(0); animation: li-line 1s var(--ease-out) 2.9s forwards; }
+.login-intro__sub { margin: 0; font-size: .8rem; letter-spacing: .32em; text-transform: uppercase; color: var(--on-ai-2); opacity: 0; animation: li-fade 1.2s ease 3.1s forwards; }
+
+@keyframes li-in      { from { opacity: 0 } }
+@keyframes li-drift   { from { transform: scale(.97) } to { transform: scale(1.02) } }
+@keyframes li-spin {
+  0%   { opacity: 0; filter: blur(5px); transform: rotate(var(--r)) scale(var(--s)); }
+  25%  { opacity: var(--o, 1); }
+  100% { opacity: var(--o, 1); filter: blur(0); transform: none; }
+}
+@keyframes li-wind {
+  0%   { opacity: 0; transform: rotate(var(--a0)) scale(var(--s0)); }
+  25%  { opacity: var(--o); }
+  75%  { opacity: var(--o); }
+  100% { opacity: 0; transform: rotate(calc(var(--a0) + var(--turn))) scale(.62); }
+}
+@keyframes li-orbit   { from { transform: rotate(var(--a0)) } to { transform: rotate(calc(var(--a0) + var(--turn))) } }
+@keyframes li-inward  {
+  0%   { opacity: 0; transform: translateX(var(--r0)) rotate(0); }
+  20%  { opacity: var(--o); }
+  85%  { opacity: var(--o); }
+  100% { opacity: 0; transform: translateX(0) rotate(var(--spin)) scale(.2); }
+}
+@keyframes li-hide    { to { opacity: 0 } }
+@keyframes li-fade    { to { opacity: 1 } }
+@keyframes li-flash   { 0% { opacity: 0; transform: scale(.4) } 25% { opacity: 1 } 100% { opacity: 0; transform: scale(1.5) } }
+@keyframes li-draw    { to { stroke-dashoffset: 9 } }
+@keyframes li-ripple  { 0% { opacity: .6; transform: scale(1.15) } 100% { opacity: 0; transform: scale(3.2) } }
+@keyframes li-breathe { from { opacity: 0; letter-spacing: .5em; filter: blur(8px) } to { opacity: 1; letter-spacing: .12em; filter: blur(0) } }
+@keyframes li-line    { to { transform: scaleX(1) } }
+
+/* ---- Geronimo Metrics Report (js/geronimoMetrics.js) ---- */
+.gm-metrics { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.past-due-metric.is-good strong { color: var(--moss); }
+.past-due-metric.is-bad strong { color: var(--beni); }
+.past-due-metric.key.is-good { border-left: 4px solid var(--moss); }
+.past-due-metric.key.is-bad { border-left: 4px solid var(--beni); }
+.past-due-metric.key.is-good strong,
+.past-due-metric.key.is-bad strong { color: #fff; }
+
+.gm-grid { font-variant-numeric: tabular-nums; }
+.gm-grid th, .gm-grid td { white-space: nowrap; }
+.gm-grid td { text-align: right; }
+.gm-grid tbody th, .gm-grid thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); text-align: left; }
+.gm-grid th small { color: var(--ink-3); font-weight: 400; }
+.gm-grid .gm-head th { background: var(--cotton); color: var(--ink-2); font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+.gm-grid .is-selected { background: var(--ai-50); }
+.gm-grid td.is-good { color: var(--moss); font-weight: 600; }
+.gm-grid td.is-bad { color: var(--beni); font-weight: 600; }
+.gm-week-pick, .gm-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.gm-week-pick:hover, .gm-link:hover { color: var(--ai-600); text-decoration: underline; }
+
+.gm-score { font-variant-numeric: tabular-nums; }
+.gm-score td { text-align: center; }
+.gm-score tbody th { text-align: left; white-space: nowrap; }
+.gm-score input { width: 64px; text-align: center; }
+.gm-score input.gm-money { width: 96px; text-align: right; }
+/* Monday Board > All Members: status tiles (7 across) and the pager. */
+.am-status { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.am-pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px 20px 20px; }
+@media (max-width: 900px) { .am-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Daily Ad Review: Lead ads / Traffic ads switch, two equal tabs. */
+.ar-kind-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 560px; }
+.gm-grid thead small { display: block; font-weight: 500; color: var(--ink-3); }
+.gm-grid thead small.gm-live { color: var(--moss); }
+.gm-score tr.is-today { background: var(--ai-50); }
+.gm-score tfoot th, .gm-score tfoot td { font-weight: 700; border-top: 2px solid var(--line-strong); }
+.gm-net { font-weight: 600; }
+.gm-net.is-good { color: var(--moss); }
+.gm-net.is-bad { color: var(--beni); }
+
+.gm-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
+.gm-fieldset { margin: 0; padding: 0; border: 0; }
+.gm-fieldset + .gm-fieldset { margin-top: 4px; }
+.gm-fieldset legend { margin-bottom: 8px; color: var(--ink); font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.gm-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.gm-fields label { display: grid; gap: 4px; font-size: .875rem; font-weight: 600; color: var(--ink); }
+.gm-fields input, .gm-fields select, .gm-fields textarea { width: 100%; box-sizing: border-box; }
+.gm-fields .gm-wide { grid-column: 1 / -1; }
+.gm-fields .gm-check { display: flex; align-items: center; gap: 8px; align-self: end; min-height: 38px; }
+.gm-fields .gm-check input { width: auto; }
+.gm-filled { margin-left: 6px; padding: 3px 8px; border-radius: 999px; background: var(--moss-50); color: var(--moss); font-size: .7rem; font-style: normal; font-weight: 600; }
+@media (max-width: 560px) {
+  .gm-fields { grid-template-columns: 1fr; }
+}

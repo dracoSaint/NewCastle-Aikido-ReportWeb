@@ -110,6 +110,33 @@
         ],
         "createdAt": "2026-10-09T00:55:39.370Z",
         "reason": "Claude measured rendered page: .card has no padding by design, children (h2, .pd-card-lede, .pd-tool-body, tables) inset themselves; no text within 8px of any card edge at 1440 and 390 on all tabs"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/GeronimoMetrics.html"
+        ],
+        "createdAt": "2026-10-16T00:54:33.922Z",
+        "reason": "Claude: page has no box/text-shadow or inline styles; finding comes from shared css/styles.css, not this file"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-10-18T22:31:56.907Z",
+        "reason": "Claude: only a link was added; the glow comes from shared css/styles.css, same false positive suppressed for GeronimoMetrics.html on 2026-10-16"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/MondayBoardReport.html"
+        ],
+        "createdAt": "2026-10-19T01:00:07.400Z",
+        "reason": "Claude: glow comes from shared css/styles.css (#0f1830 shadow), same false positive suppressed for index.html and GeronimoMetrics.html"
       }
     ]
   }

@@ -28,6 +28,13 @@
 
   const isBypassPage = isLoginPage || isResetPage || isRegisterPage;
 
+  // ?welcome=1 on any page previews the login intro (js/login.js).
+  const isWelcomePreview = new URLSearchParams(window.location.search).get('welcome') === '1';
+  if (isWelcomePreview && !isLoginPage) {
+    window.location.replace(loginUrl + '?welcome=1');
+    return;
+  }
+
   if (isInviteLink && !isRegisterPage) {
     window.location.replace(registerUrl + window.location.hash);
     return;
@@ -105,7 +112,7 @@
       localStorage.removeItem(tokenKey);
       window.location.replace(loginUrl);
       return;
-    } else if (session && isLoginPage) {
+    } else if (session && isLoginPage && !isWelcomePreview) {
       // User is authenticated but trying to access the login page
       window.location.replace(startUrl(session.user));
       return;

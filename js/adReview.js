@@ -91,6 +91,9 @@ function arToast(message, isError = false) {
 const arAdNo = name => (String(name || '').match(/^AD\s*\d+/i) || [''])[0].toUpperCase().replace(/\s+/, ' ');
 const arShortName = name => arAdNo(name) || name;
 const arCampaign = ad => ad?.campaign || ad?.ad_set || '';
+const arIsTraffic = ad => ad?.campaign_type === 'traffic'; // link click ads: no leads, so no CPL or lead verdicts
+// Traffic ads: link clicks = impressions × CTR (link click-through), cost per click from spend.
+const arClicks = m => Math.round(m.impressions * m.ctr_lct);
 const arStripMonth = text => String(text || '').replace(/ - [A-Za-z]{3} [0-9]{2}$/, '');
 const arIsRetargeting = text => /retarget|warm/i.test(text || '');
 
@@ -300,22 +303,53 @@ function arReportRowsHtml(rows, met, date) {
     </table>`;
 }
 
+// Traffic ads on a report: spend, link clicks and cost per click, for the tab, the summary and Slack.
+function arTrafficFor(rows) {
+  const spend = rows.reduce((sum, row) => sum + row.m.spent, 0);
+  const clicks = rows.reduce((sum, row) => sum + arClicks(row.m), 0);
+  return { spend, clicks, cpc: clicks ? spend / clicks : null };
+}
+
+function arTrafficRowsHtml(rows) {
+  if (!rows.length) return '<div class="empty">No traffic ads on this report. Mark an ad as Traffic in the Ad Hub, or import a traffic campaign.</div>';
+  return `
+    <table class="stack ar-table">
+      <thead><tr><th>Ad</th><th class="num">Impressions</th><th class="num">CTR (All)</th><th class="num">CTR (LCT)</th><th class="num">Link clicks</th><th class="num">Cost per click</th><th class="num">Spent</th></tr></thead>
+      <tbody>${rows.map(row => `
+        <tr>
+          <td data-label="Ad"><strong>${arEsc(row.ad.ad_name)}</strong><small class="pd-sub">${arEsc(arCampaign(row.ad))}</small></td>
+          <td class="num" data-label="Impressions">${arInt(row.m.impressions)}</td>
+          <td class="num" data-label="CTR (All)">${arPct(row.m.ctr_all)}</td>
+          <td class="num" data-label="CTR (LCT)">${arPct(row.m.ctr_lct)}</td>
+          <td class="num" data-label="Link clicks">${arInt(arClicks(row.m))}</td>
+          <td class="num" data-label="Cost per click">${arClicks(row.m) ? arMoney(row.m.spent / arClicks(row.m)) : '—'}</td>
+          <td class="num" data-label="Spent">${arMoney(row.m.spent)}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
 function arRenderReport(date) {
-  const rows = arReportAds(date).sort((a, b) => b.m.impressions - a.m.impressions);
+  const all = arReportAds(date).sort((a, b) => b.m.impressions - a.m.impressions);
+  const rows = all.filter(row => !arIsTraffic(row.ad));
+  const trafficRows = all.filter(row => arIsTraffic(row.ad));
+  const traffic = arTrafficFor(trafficRows);
   const met = rows.filter(row => row.m.impressions >= arThreshold());
   const under = rows.filter(row => row.m.impressions < arThreshold());
   const summary = arSummaryFor(rows);
   const avgCtr = rows.length ? rows.reduce((sum, row) => sum + row.m.ctr_all, 0) / rows.length : 0;
 
   // Each figure against the report about a week earlier (the reports are rolling 7-day windows).
+  // Spend covers every ad (traffic too); leads and CPL only the lead ads.
   const prevDate = arReportDates().find(day => day <= arAddDays(date, -7));
-  const prevRows = prevDate ? arReportAds(prevDate) : [];
+  const prevAll = prevDate ? arReportAds(prevDate) : [];
+  const prevRows = prevAll.filter(row => !arIsTraffic(row.ad));
   const prev = prevDate ? arSummaryFor(prevRows) : null;
+  const prevSpend = prevAll.reduce((sum, row) => sum + row.m.spent, 0);
   const prevCtr = prevRows.length ? prevRows.reduce((sum, row) => sum + row.m.ctr_all, 0) / prevRows.length : 0;
   const cpl = s => (s.totalLeads ? s.spend / s.totalLeads : null);
   const vs = text => (prev ? `<small class="metric-change">vs ${text} on ${arDate(prevDate, { day: 'numeric', month: 'short' })}</small>` : '');
   document.getElementById('arReportMetrics').innerHTML = `
-    <div class="past-due-metric key"><span>Spend · last 7 days</span><strong>${arMoney(summary.spend)}${vs(prev && arMoney(prev.spend))}</strong></div>
+    <div class="past-due-metric key"><span>Spend · last 7 days${trafficRows.length ? ` · incl. ${arMoney(traffic.spend)} traffic` : ''}</span><strong>${arMoney(summary.spend + traffic.spend)}${vs(prev && arMoney(prevSpend))}</strong></div>
     <div class="past-due-metric"><span>Leads</span><strong>${summary.totalLeads}${vs(prev?.totalLeads)}</strong></div>
     <div class="past-due-metric"><span>Blended CPL</span><strong>${cpl(summary) === null ? '—' : arMoney(cpl(summary))}${vs(prev && (cpl(prev) === null ? '—' : arMoney(cpl(prev))))}</strong></div>
     <div class="past-due-metric"><span>Average CTR (All)</span><strong>${arPct(avgCtr)}${vs(arPct(prevCtr))}</strong></div>`;
@@ -326,10 +360,14 @@ function arRenderReport(date) {
   document.getElementById('arSummary').innerHTML = `
     <div><dt>Top performer</dt><dd>${emphasise(summary.topText)}</dd></div>
     <div><dt>Total leads generated</dt><dd>${emphasise(summary.leadsText)}</dd></div>
-    <div><dt>Key takeaway</dt><dd>${emphasise(summary.takeaway)}</dd></div>`;
+    <div><dt>Key takeaway</dt><dd>${emphasise(summary.takeaway)}</dd></div>
+    ${trafficRows.length ? `<div><dt>Traffic campaign</dt><dd>${emphasise(arTrafficText(traffic, trafficRows.length))}</dd></div>` : ''}`;
 
   document.getElementById('arThresholdTable').innerHTML = arReportRowsHtml(met, true, date);
   document.getElementById('arUnderTable').innerHTML = arReportRowsHtml(under, false, date);
+  document.getElementById('arTrafficTable').innerHTML = arTrafficRowsHtml(trafficRows);
+  document.getElementById('arAdKindLeadsCount').textContent = rows.length;
+  document.getElementById('arAdKindTrafficCount').textContent = trafficRows.length;
 
   const leads = arLeadLines(arLeadsFor(date));
   document.getElementById('arLeadTitle').textContent = `Lead log (${leads.length})`;
@@ -348,8 +386,13 @@ function arRenderReport(date) {
     : '<li class="pd-muted">Fill in the Action column above and the steps compile here.</li>';
 }
 
+const arTrafficText = (traffic, count) =>
+  `${arPlural(count, 'traffic ad')}: ${arMoney(traffic.spend)} spent for ${arInt(traffic.clicks)} link clicks${traffic.cpc === null ? '' : ` at ${arMoney(traffic.cpc)} per click`}.`;
+
 function arSlackText(date) {
-  const rows = arReportAds(date).sort((a, b) => b.m.impressions - a.m.impressions);
+  const all = arReportAds(date).sort((a, b) => b.m.impressions - a.m.impressions);
+  const trafficRows = all.filter(row => arIsTraffic(row.ad));
+  const rows = all.filter(row => !arIsTraffic(row.ad));
   const met = rows.filter(row => row.m.impressions >= arThreshold());
   const under = rows.filter(row => row.m.impressions < arThreshold());
   const summary = arSummaryFor(rows);
@@ -369,6 +412,7 @@ function arSlackText(date) {
     `• Top Performer: ${summary.topText}`,
     `• Total Leads Generated: ${summary.leadsText}`,
     `• Key Takeaway: ${summary.takeaway}`,
+    ...(trafficRows.length ? [`• Traffic Campaign: ${arTrafficText(arTrafficFor(trafficRows), trafficRows.length)}`] : []),
     '',
     `THRESHOLD MET ADS (${arThresholdShort()}+ Impressions)`,
     block(met, arThresholdLabel, `No ads past ${arThresholdText()} impressions yet`),
@@ -376,6 +420,11 @@ function arSlackText(date) {
     `UNDER THRESHOLD ADS (Testing Phase - <${arThresholdShort()} Impressions)`,
     block(under, arUnderLabel, 'No ads in testing phase'),
     '',
+    ...(trafficRows.length ? [
+      'TRAFFIC ADS',
+      trafficRows.map(row => `• ${arThresholdLabel(row)}\n   \`Impressions:\` ${arInt(row.m.impressions)} | \`CTR (LCT):\` ${arPct(row.m.ctr_lct)} | \`Link clicks:\` ${arInt(arClicks(row.m))} | \`Spent:\` ${arMoney(row.m.spent)}`).join('\n'),
+      ''
+    ] : []),
     `LEAD LOG (${leads.length} TOTAL)`,
     leads.length
       ? leads.map(lead => `${lead.title}\n   • \`Email:\` ${lead.email}\n   • \`Phone:\` ${lead.phone}`).join('\n\n')
@@ -439,14 +488,16 @@ function arHubRowsHtml(ads, date) {
         return `
           <tr class="parent-row${open ? ' is-open' : ''}" data-ad="${ad.id}">
             <td class="pd-toggle-cell"><button type="button" class="toggle-btn" aria-expanded="${open}" aria-controls="arAd-${ad.id}" aria-label="Edit ${arEsc(ad.ad_name)}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button></td>
-            <td data-label="Ad"><strong>${arEsc(ad.ad_name)}</strong><small class="pd-sub">${arEsc(arCampaign(ad) || 'No campaign set')}${weeks !== null ? ` · ${weeks}&nbsp;wk${weeks === 1 ? '' : 's'}` : ''}</small></td>
+            <td data-label="Ad"><strong>${arEsc(ad.ad_name)}</strong>${arIsTraffic(ad) ? ' <span class="ar-tag">Traffic</span>' : ''}<small class="pd-sub">${arEsc(arCampaign(ad) || 'No campaign set')}${weeks !== null ? ` · ${weeks}&nbsp;wk${weeks === 1 ? '' : 's'}` : ''}</small></td>
             <td class="num" data-label="Impressions">${m ? arInt(m.impressions) : '—'}</td>
             <td class="num" data-label="CTR (All)">${m ? arCtr(m.ctr_all, 'all') : '—'}</td>
             <td class="num" data-label="CTR (LCT)">${m ? arCtr(m.ctr_lct, 'lct') : '—'}</td>
             <td class="num" data-label="Leads">${m ? m.leads : '—'}</td>
             <td class="num" data-label="CPL">${m?.leads ? arMoney(m.cpl) : '—'}</td>
             <td class="num" data-label="Spent">${m ? arMoney(m.spent) : '—'}</td>
-            <td data-label="Diagnosis"><span class="ar-verdict is-${!verdict.met ? 'muted' : verdict.diagnosis.startsWith('Performing') ? 'good' : 'bad'}">${arEsc(verdict.diagnosis)}</span><small class="pd-sub">${arEsc(verdict.action)}</small></td>
+            <td data-label="Diagnosis">${arIsTraffic(ad)
+              ? `<span class="ar-verdict is-muted">Traffic campaign</span><small class="pd-sub">${m && arClicks(m) ? `${arInt(arClicks(m))} link clicks · ${arMoney(m.spent / arClicks(m))} per click` : 'No lead rules'}</small>`
+              : `<span class="ar-verdict is-${!verdict.met ? 'muted' : verdict.diagnosis.startsWith('Performing') ? 'good' : 'bad'}">${arEsc(verdict.diagnosis)}</span><small class="pd-sub">${arEsc(verdict.action)}</small>`}</td>
             <td data-label="Stage">
               <select data-ad-field="workflow_stage" aria-label="Workflow stage for ${arEsc(ad.ad_name)}">
                 <option value="">Not started</option>
@@ -463,6 +514,7 @@ function arHubRowsHtml(ads, date) {
                 <label><span>Ad set</span><input type="text" data-ad-field="ad_set" value="${arEsc(ad.ad_set || '')}" maxlength="200"></label>
                 <label><span>Published</span><input type="date" data-ad-field="published_on" value="${arEsc(ad.published_on || '')}"></label>
                 <label><span>Status</span><select data-ad-field="status">${['ACTIVE', 'INACTIVE'].map(status => `<option${status === ad.status ? ' selected' : ''}>${status}</option>`).join('')}</select></label>
+                <label><span>Campaign type</span><select data-ad-field="campaign_type">${[['leads', 'Lead ads'], ['traffic', 'Traffic']].map(([value, label]) => `<option value="${value}"${value === (ad.campaign_type || 'leads') ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
                 <label class="ar-edit-wide"><span>Action owner / notes</span><textarea rows="2" data-ad-field="owner_notes" maxlength="2000">${arEsc(ad.owner_notes || '')}</textarea></label>
                 <div class="ar-edit-foot">
                   <small>Changes save as you go.</small>
@@ -487,17 +539,20 @@ function arRenderHub(date) {
   const active = arAds.filter(ad => ad.status === 'ACTIVE');
   const inactive = arAds.filter(ad => ad.status !== 'ACTIVE');
   const activeMetrics = active.map(ad => arMetrics(arSnapFor(ad.id, date))).filter(Boolean);
+  // Spend: every ad. Leads, CPL and verdicts: lead ads only (traffic ads bring clicks, not leads).
+  const leadMetrics = active.filter(ad => !arIsTraffic(ad)).map(ad => arMetrics(arSnapFor(ad.id, date))).filter(Boolean);
   const spend = activeMetrics.reduce((sum, m) => sum + m.spent, 0);
-  const leads = activeMetrics.reduce((sum, m) => sum + m.leads, 0);
-  const verdicts = activeMetrics.map(arEvaluate);
+  const leadSpend = leadMetrics.reduce((sum, m) => sum + m.spent, 0);
+  const leads = leadMetrics.reduce((sum, m) => sum + m.leads, 0);
+  const verdicts = leadMetrics.map(arEvaluate);
   const ready = verdicts.filter(verdict => verdict.met).length;
   const needAction = verdicts.filter(verdict => verdict.action.startsWith('Turn off')).length;
   const keep = verdicts.filter(verdict => verdict.action.startsWith('Keep Active')).length;
 
   document.getElementById('arHubMetrics').innerHTML = `
     <div class="past-due-metric key"><span>Total spend · ${arPlural(active.length, 'active ad')}</span><strong>${arMoney(spend)}</strong></div>
-    <div class="past-due-metric"><span>Leads · blended CPL</span><strong>${leads}<small>${leads ? arMoney(spend / leads) : '—'}</small></strong></div>
-    <div class="past-due-metric"><span>Ready for decision</span><strong>${ready}<small>${activeMetrics.length - ready} gathering</small></strong></div>
+    <div class="past-due-metric"><span>Leads · blended CPL</span><strong>${leads}<small>${leads ? arMoney(leadSpend / leads) : '—'}</small></strong></div>
+    <div class="past-due-metric"><span>Ready for decision</span><strong>${ready}<small>${leadMetrics.length - ready} gathering</small></strong></div>
     <div class="past-due-metric"><span>Need action</span><strong>${needAction}<small>${keep} keep / scale</small></strong></div>`;
 
   const byImpressions = (a, b) => (Number(arSnapFor(b.id, date)?.impressions) || 0) - (Number(arSnapFor(a.id, date)?.impressions) || 0);
@@ -696,6 +751,8 @@ async function arPrepareAdsImport(file) {
     return {
       name: arPick(row, /^ad_name$/),
       adSet: arPick(row, /^ad_set_name$/),
+      // Traffic campaign: Meta's result is link clicks / landing page views, not leads (or "traffic" in its name).
+      traffic: Boolean(indicator && !/lead/i.test(indicator)) || /traffic/i.test(arPick(row, /^campaign_name$/)),
       delivery: arPick(row, /^ad_delivery$/).toLowerCase(),
       start: arIsoDate(arPick(row, /^reporting_starts$/)),
       end: arIsoDate(arPick(row, /^reporting_ends$/)),
@@ -881,10 +938,16 @@ async function arConfirmImport() {
           ad_set: row.adSet || null,
           campaign: arLeads.find(lead => arNorm(lead.ad_name) === arNorm(row.name))?.campaign_name || null,
           published_on: row.created || null,
-          status: row.delivery === 'active' ? 'ACTIVE' : 'INACTIVE'
+          status: row.delivery === 'active' ? 'ACTIVE' : 'INACTIVE',
+          ...(row.traffic ? { campaign_type: 'traffic' } : {}) // lead ads take the column default
         }))).select();
         if (error) throw error;
         fresh.forEach(row => { row.target = String(data.find(ad => arNorm(ad.ad_name) === arNorm(row.name)).id); });
+      }
+      // An existing lead ad that Meta now reports as traffic is moved over (a Hub change back to Lead sticks
+      // until the next import says traffic again).
+      for (const id of new Set(chosen.filter(row => row.traffic && row.target !== 'new').map(row => Number(row.target)))) {
+        if (arAds.find(ad => ad.id === id)?.campaign_type !== 'traffic') await client.from(AR_TABLES.ads).update({ campaign_type: 'traffic' }).eq('id', id);
       }
 
       // Several export rows can map to one ad: add counts, weight CTRs by impressions.
@@ -1513,6 +1576,15 @@ function arInit() {
 
   document.getElementById('arReportDate').addEventListener('change', arRender);
   document.getElementById('arMonth').addEventListener('change', arRenderMonth);
+  const kinds = document.querySelectorAll('[data-ad-kind]');
+  kinds.forEach(button => button.addEventListener('click', () => {
+    kinds.forEach(item => {
+      const on = item === button;
+      item.classList.toggle('is-active', on);
+      item.setAttribute('aria-pressed', String(on));
+      document.getElementById(`arKind-${item.dataset.adKind}`).hidden = !on;
+    });
+  }));
 
   document.getElementById('arCopyBtn').addEventListener('click', async () => {
     const date = arSelectedDate();

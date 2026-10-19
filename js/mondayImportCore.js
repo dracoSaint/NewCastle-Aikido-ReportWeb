@@ -606,5 +606,5 @@ async function mondayImportCsv(client, text, reportDateValue, progress = () => {
 
 // Node (the weekly job) loads this file as a module; the browser just gets the globals.
 if (typeof module !== 'undefined') {
-  module.exports = { parseUploadedCsv, normalizeMembershipCsvRow, dedupeImportedMemberRows, buildWeeklySummaryLogFromRows, mondayImportCsv, mondayReportWeek };
+  module.exports = { BEGINNER_PACKAGE_LABELS, parseUploadedCsv, normalizeMembershipCsvRow, dedupeImportedMemberRows, buildWeeklySummaryLogFromRows, mondayImportCsv, mondayReportWeek };
 }
