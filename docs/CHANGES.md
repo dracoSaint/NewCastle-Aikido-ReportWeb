@@ -5,7 +5,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Monday Board: All Members tab (2026-10-19, not yet shipped)
+## Monday Board: All Members tab (shipped 2026-10-19, b0b80e5)
 
 Every Zen Planner membership in any status (current, not started, hold, cancel pending, cancelled, completed): about 3,100 rows, one per membership.
 
@@ -34,7 +34,7 @@ Every Zen Planner membership in any status (current, not started, hold, cancel p
 
 ---
 
-## Daily Ad Review: traffic campaigns (2026-10-19, not yet shipped)
+## Daily Ad Review: traffic campaigns (shipped 2026-10-19, b0b80e5)
 
 Traffic (link click) campaigns sit beside the lead-form ads without skewing the lead figures.
 
@@ -64,7 +64,7 @@ Traffic (link click) campaigns sit beside the lead-form ads without skewing the 
 
 ---
 
-## Geronimo Metrics Report (2026-10-16, not yet shipped)
+## Geronimo Metrics Report (shipped 2026-10-19, b0b80e5)
 
 Replaces the "2026 Newcastle Aikido GRN_Metrics" Google Sheet. Menu: REPORTS → Geronimo Metrics Report.
 
@@ -151,7 +151,7 @@ Replaces the "2026 Newcastle Aikido GRN_Metrics" Google Sheet. Menu: REPORTS →
 
 ---
 
-## Login intro animation (2026-10-16, not yet shipped)
+## Login intro animation (shipped 2026-10-19, b0b80e5)
 
 After a successful sign-in, a full-screen intro plays once per browser session, then the page goes to the user's start page.
 

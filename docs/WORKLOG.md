@@ -19,7 +19,7 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ## 2026-10-19 — Monday Board: All Members tab
 
-Status: **awaiting user OK to ship** (same push).
+Status: **shipped (testing b0b80e5 / main fe17e96, 2026-10-19)**
 
 ### Instructions from the user
 - Add an "ALL MEMBERS" tab to the Monday Board from the Zen Planner membership grid (all statuses), with the filters needed for 1,000+ rows.
@@ -40,7 +40,7 @@ Status: **awaiting user OK to ship** (same push).
 
 ## 2026-10-19 — Daily Ad Review: traffic campaigns
 
-Status: **awaiting user OK to ship** (same push).
+Status: **shipped (testing b0b80e5 / main fe17e96, 2026-10-19)**
 
 ### Instructions from the user
 - Add traffic campaigns (not lead gen) to the Ad Review, in a tab-style split from the lead ads. The budget spent still includes the traffic campaign.
@@ -68,7 +68,7 @@ Status: **awaiting user OK to ship** (same push).
 
 ## 2026-10-19 — Geronimo Metrics: end-of-week report from the other reports
 
-Status: **awaiting user OK to ship** (same push as the rest of 2026-10-16/19).
+Status: **shipped (testing b0b80e5 / main fe17e96, 2026-10-19)**
 
 ### Instructions from the user
 - Connect the Geronimo Metrics Report to the other reports, so it works as an end-of-week report using all the week's data. Use the GRN_Metrics sheet as reference, and ask which report each figure comes from.
@@ -113,7 +113,7 @@ Status: **awaiting user OK to ship** (same push as the rest of 2026-10-16/19).
 
 ## 2026-10-19 — Intro preview URL
 
-Status: **awaiting user OK to ship** (goes in the same push as the 2026-10-16 work).
+Status: **shipped (testing b0b80e5 / main fe17e96, 2026-10-19)**
 
 ### Instructions from the user
 - Make the intro animation testable with `<site>/?welcome=1`.
@@ -134,7 +134,7 @@ Status: **awaiting user OK to ship** (goes in the same push as the 2026-10-16 wo
 
 ## 2026-10-16 — Login intro animation + Geronimo Metrics Report
 
-Status: **awaiting user OK to ship** (nothing committed or pushed yet; both features go in one push).
+Status: **shipped (testing b0b80e5 / main fe17e96, 2026-10-19)**
 
 ### Instructions from the user
 - Add a login animation using our logo, inspired by https://www.newcastleaikido.com/. Show a preview before
