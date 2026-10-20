@@ -184,7 +184,7 @@ async function gmRenderExtras() {
   const box = document.getElementById('gmExtras');
   const friday = document.getElementById('gmWeek').value;
   const start = gmAddDays(friday, -6);
-  const tile = (label, value) => `<div class="past-due-metric"><span>${gmEsc(label)}</span><strong>${gmEsc(value)}</strong></div>`;
+  const tile = (label, value, tone = '') => `<div class="past-due-metric${tone && value ? ` is-${tone}` : ''}"><span>${gmEsc(label)}</span><strong>${gmEsc(value)}</strong></div>`; // tone: bad / warn / good, only when not 0
   const client = await gmClient();
   const jobs = [];
 
@@ -199,9 +199,10 @@ async function gmRenderExtras() {
     if (report.data && report.data.report_date >= start) {
       fuApplyTiers(tiers.data?.value);
       const result = fuBuild(report.data);
-      out.push(tile(`Red / Orange list · ${gmDate(report.data.report_date, { day: 'numeric', month: 'short' })}`, `${result.red.length} red · ${result.orange.length} orange`));
+      const on = gmDate(report.data.report_date, { day: 'numeric', month: 'short' });
+      out.push(tile(`Red (to call) · ${on}`, result.red.length, 'bad'), tile(`Orange (to call) · ${on}`, result.orange.length, 'warn'));
     }
-    if (!returns.error) out.push(tile('Back training (Red / Orange returns)', returns.count));
+    if (!returns.error) out.push(tile('Back training (Red / Orange returns)', returns.count, 'good'));
     return out;
   })());
 
@@ -210,19 +211,19 @@ async function gmRenderExtras() {
       .gte('ran_at', gmSydneyMidnight(start)).lt('ran_at', gmSydneyMidnight(gmAddDays(friday, 1)));
     const out = error ? [] : [
       tile('New past due bills', data.reduce((sum, row) => sum + row.bills_added, 0)),
-      tile('Past due bills cleared', data.reduce((sum, row) => sum + row.bills_cleared, 0))
+      tile('Past due bills cleared', data.reduce((sum, row) => sum + row.bills_cleared, 0), 'good')
     ];
     // Only today's balance is kept, so "owing" shows for the current week only.
     if (gmToday() >= start && gmToday() <= friday) {
       const owing = await client.from('past_due_member_log').select('amount_due').eq('status', 'PAST DUE');
-      if (!owing.error) out.push(tile(`Past due owing now · ${owing.data.length} bills`, gmFormat('money', owing.data.reduce((sum, row) => sum + Number(row.amount_due || 0), 0))));
+      if (!owing.error) out.push(tile(`Past due owing now · ${owing.data.length} bills`, gmFormat('money', owing.data.reduce((sum, row) => sum + Number(row.amount_due || 0), 0)), 'warn'));
     }
     return out;
   })());
 
   if (gmCan('ads.view')) jobs.push(gmAdWeek(client, start).then(ads => (ads ? [
     tile(`Ads delivering · ${ads.range}`, ads.active),
-    ...(ads.top ? [tile('Most leads', ads.top)] : [])
+    ...(ads.top ? [tile(`Most leads · ${ads.top.name}`, ads.top.leads)] : [])
   ] : [])));
 
   const results = await Promise.allSettled(jobs);
@@ -309,36 +310,58 @@ function gmWaveOptions() {
   }).join('');
 }
 
+// Wave tiles double as filters: click one to show only those people (click again, or All, to clear).
+let gmWaveFilter = 'all';
+const GM_WAVE_FILTERS = {
+  all: () => true,
+  yes: member => member.rolled_over === true,
+  no: member => member.rolled_over === false,
+  open: member => member.rolled_over === null,
+  notInducted: member => !member.inducted
+};
+const gmRolledChip = member => (member.rolled_over === true ? '<span class="fu-chip is-done">Yes</span>'
+  : member.rolled_over === false ? '<span class="fu-chip is-no">No</span>' : '<span class="fu-chip is-tried">In progress</span>');
+
 function gmRenderWaves() {
   gmWaveOptions();
   const month = document.getElementById('gmWave').value;
   const wave = gmMembers.filter(member => member.wave_month === month)
     .sort((a, b) => (a.induction_date || '9').localeCompare(b.induction_date || '9') || a.first_name.localeCompare(b.first_name));
-  const rolled = wave.filter(member => member.rolled_over === true).length;
+  const rolled = wave.filter(GM_WAVE_FILTERS.yes).length;
   const target = Math.round(wave.length * 0.8);
   const pct = wave.length ? rolled / wave.length : null;
-  document.getElementById('gmWaveMetrics').innerHTML = `
-    <div class="past-due-metric key${pct === null ? '' : pct >= 0.8 ? ' is-good' : ' is-bad'}"><span>Rollover % · target 80%</span><strong>${gmFormat('pct', pct)}</strong></div>
-    <div class="past-due-metric"><span>In the wave</span><strong>${wave.length}</strong></div>
-    <div class="past-due-metric"><span>Rolled over · target ${target}</span><strong>${rolled}</strong></div>
-    <div class="past-due-metric"><span>Inducted</span><strong>${wave.filter(member => member.inducted).length}</strong></div>`;
-  document.getElementById('gmWaveCount').textContent = `${wave.length} ${wave.length === 1 ? 'person' : 'people'}`;
+  const tile = (filter, label, value, extra = '') => `<button type="button" class="past-due-metric member-view-tile${extra}${gmWaveFilter === filter ? ' is-active' : ''}"
+      data-wave-filter="${filter}" aria-pressed="${gmWaveFilter === filter}"><span>${label}</span><strong>${value}</strong></button>`;
+  document.getElementById('gmWaveMetrics').innerHTML =
+    tile('all', `Rollover % · target 80% · ${wave.length} in the wave`, gmFormat('pct', pct), ` key${pct === null ? '' : pct >= 0.8 ? ' is-good' : ' is-bad'}`)
+    + tile('yes', `Rolled over · target ${target}`, rolled)
+    + tile('no', 'Did not roll over', wave.filter(GM_WAVE_FILTERS.no).length)
+    + tile('open', 'In progress', wave.filter(GM_WAVE_FILTERS.open).length)
+    + tile('notInducted', 'Not inducted yet', wave.filter(GM_WAVE_FILTERS.notInducted).length);
+
+  const query = document.getElementById('gmWaveSearch').value.trim().toLowerCase();
+  const shown = wave.filter(GM_WAVE_FILTERS[gmWaveFilter])
+    .filter(member => !query || `${member.first_name} ${member.last_name || ''} ${member.phone || ''} ${member.email || ''}`.toLowerCase().includes(query));
+  document.getElementById('gmWaveCount').textContent = shown.length === wave.length
+    ? `${wave.length} ${wave.length === 1 ? 'person' : 'people'}` : `${shown.length} of ${wave.length} people`;
 
   const box = document.getElementById('gmWaveTable');
   if (!wave.length) { box.innerHTML = '<p class="pd-notice">No one in this wave yet.</p>'; return; }
+  if (!shown.length) { box.innerHTML = '<p class="pd-notice">No one matches. Clear the search or pick another tile.</p>'; return; }
   const choice = member => (member.rolled_over === true ? 'true' : member.rolled_over === false ? 'false' : '');
-  box.innerHTML = `<table><thead><tr><th scope="col">Name</th><th scope="col">Inducted</th><th scope="col">Phone</th><th scope="col">Email</th>
-      <th scope="col">Goal</th><th scope="col">Why</th><th scope="col">Notes</th><th scope="col">Rolled over</th></tr></thead><tbody>
-    ${wave.map(member => `<tr>
+  box.innerHTML = `<table class="gm-waves"><thead><tr><th scope="col">Name</th><th scope="col">Inducted</th><th scope="col">Phone</th><th scope="col">Email</th>
+      <th scope="col">Goal</th><th scope="col">Why</th><th scope="col">Notes</th><th scope="col">Rolled over</th>${gmCanEdit ? '<th scope="col"><span class="sr-only">Edit</span></th>' : ''}</tr></thead><tbody>
+    ${shown.map(member => `<tr>
       <td>${gmCanEdit ? `<button type="button" class="gm-link" data-member="${member.id}">${gmEsc(`${member.first_name} ${member.last_name || ''}`.trim())}</button>` : gmEsc(`${member.first_name} ${member.last_name || ''}`.trim())}</td>
-      <td>${member.inducted ? '✓' : ''}${member.induction_date ? ` <small class="pd-sub">${gmDate(member.induction_date, { day: 'numeric', month: 'short' })}</small>` : ''}</td>
+      <td>${member.inducted ? '<span class="fu-chip is-done">Inducted</span>' : '<span class="fu-chip is-todo">Not yet</span>'}${member.induction_date ? `<small class="pd-sub">${gmDate(member.induction_date, { day: 'numeric', month: 'short' })}</small>` : ''}</td>
       <td>${member.phone ? `<a href="tel:${gmEsc(member.phone.replace(/[^\d+]/g, ''))}">${gmEsc(member.phone)}</a>` : ''}</td>
       <td>${member.email ? `<a href="mailto:${gmEsc(member.email)}">${gmEsc(member.email)}</a>` : ''}</td>
       <td>${gmEsc(member.goal)}</td><td>${gmEsc(member.why)}</td><td>${gmEsc(member.notes)}</td>
       <td>${gmCanEdit
-        ? `<select data-rolled="${member.id}" aria-label="Rolled over: ${gmEsc(member.first_name)}">
-            ${[['', 'Not yet'], ['true', 'Yes'], ['false', 'No']].map(([v, label]) => `<option value="${v}"${choice(member) === v ? ' selected' : ''}>${label}</option>`).join('')}</select>`
-        : { true: 'Yes', false: 'No', '': 'Not yet' }[choice(member)]}</td>
+        ? `<select class="gm-rolled is-${{ true: 'yes', false: 'no', '': 'open' }[choice(member)]}" data-rolled="${member.id}" aria-label="Rolled over: ${gmEsc(member.first_name)}">
+            ${[['', 'In progress'], ['true', 'Yes'], ['false', 'No']].map(([v, label]) => `<option value="${v}"${choice(member) === v ? ' selected' : ''}>${label}</option>`).join('')}</select>`
+        : gmRolledChip(member)}</td>
+      ${gmCanEdit ? `<td><button type="button" class="sop-action-button secondary pd-small" data-member="${member.id}" aria-label="Edit ${gmEsc(member.first_name)}">Edit</button></td>` : ''}
     </tr>`).join('')}</tbody></table>`;
 }
 
@@ -399,35 +422,18 @@ async function gmDeleteMember() {
   }
 }
 
-// Add every beginner-package starter from the Monday Board member lists to the wave of the month their
-// package began, and mark rollovers: yes once they hold a full membership, no once the package ended
-// without one. Only blanks are filled: a rolled-over answer staff already gave is kept.
-async function gmSyncWaves() {
+// The nightly job does this too (js/geronimoCore.js gmSyncWaves); the button runs it now.
+async function gmRunWaveSync() {
   const button = document.getElementById('gmSyncWaves');
   button.disabled = true;
   try {
     const client = await gmClient();
-    const facts = gmMemberFacts(await gmMemberHistory(client));
-    // A week's grace after the package ends: the rollover only shows on the next Monday list.
-    const rolled = item => (item.rolledOn ? true : item.end && item.end < gmAddDays(facts.latest, -7) ? false : null);
-    const rows = facts.packages.map(item => ({
-      wave_month: gmMonthStart(item.begin), member_number: item.number, first_name: item.first_name || 'Unknown',
-      last_name: item.last_name, induction_date: item.begin, rolled_over: rolled(item)
-    }));
-    const { data: added, error } = await client.from(GM_WAVES).upsert(rows, { onConflict: 'wave_month,member_number', ignoreDuplicates: true }).select();
+    const { added, updated } = await gmSyncWaves(client);
+    const { data, error } = await client.from(GM_WAVES).select('*');
     if (error) throw error;
-    const byKey = new Map(rows.map(row => [`${row.wave_month}|${row.member_number}`, row]));
-    const updates = gmMembers.filter(member => member.member_number && member.rolled_over === null)
-      .map(member => [member, byKey.get(`${member.wave_month}|${member.member_number}`)?.rolled_over ?? null])
-      .filter(([, value]) => value !== null);
-    for (const [member, value] of updates) {
-      const { data, error: updateError } = await client.from(GM_WAVES).update({ rolled_over: value }).eq('id', member.id).select().single();
-      if (updateError) throw updateError;
-      Object.assign(member, data);
-    }
-    gmMembers = [...gmMembers, ...added];
+    gmMembers = data;
     gmRenderWaves();
-    gmToast(`Added ${added.length} starter${added.length === 1 ? '' : 's'}, updated ${updates.length} rollover${updates.length === 1 ? '' : 's'}.`);
+    gmToast(`Added ${added} starter${added === 1 ? '' : 's'}, filled in details for ${updated} ${updated === 1 ? 'person' : 'people'}.`);
   } catch (error) {
     gmToast(`Could not update the waves: ${error.message}`, true);
   } finally {
@@ -582,13 +588,20 @@ async function gmInit() {
     gmRenderExtras();
   });
   const sync = document.getElementById('gmSyncWaves');
-  if (gmCan('monday.view')) sync.addEventListener('click', gmSyncWaves);
+  if (gmCan('monday.view')) sync.addEventListener('click', gmRunWaveSync);
   else sync.hidden = true;
   document.getElementById('gmEditWeek').addEventListener('click', () => gmOpenWeek().catch(error => gmToast(error.message, true)));
   document.getElementById('gmWeekCancel').addEventListener('click', () => document.getElementById('gmWeekDialog').close());
   document.getElementById('gmWeekForm').addEventListener('submit', gmSaveWeek);
 
   document.getElementById('gmWave').addEventListener('change', gmRenderWaves);
+  document.getElementById('gmWaveSearch').addEventListener('input', gmRenderWaves);
+  document.getElementById('gmWaveMetrics').addEventListener('click', event => {
+    const tile = event.target.closest('[data-wave-filter]');
+    if (!tile) return;
+    gmWaveFilter = gmWaveFilter === tile.dataset.waveFilter ? 'all' : tile.dataset.waveFilter;
+    gmRenderWaves();
+  });
   document.getElementById('gmAddMember').addEventListener('click', () => gmOpenMember(null));
   document.getElementById('gmWaveTable').addEventListener('click', event => {
     const button = event.target.closest('[data-member]');

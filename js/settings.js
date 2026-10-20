@@ -519,7 +519,7 @@ const SETTINGS_AUDIT_TABLES = {
   ad_review_leads: ['Ad Review', 'lead'], ad_review_playbook: ['Ad Review', 'playbook'],
   geronimo_weekly: ['Geronimo Metrics', 'week'], geronimo_wave_members: ['Geronimo Metrics', 'wave member'],
   geronimo_scoreboard: ['Geronimo Metrics', 'scoreboard day'],
-  sop_documents: ['SOPs', 'SOP'],
+  sop_documents: ['SOPs', 'SOP'], tasks: ['Home', 'task'],
   app_roles: ['Settings', 'role'], app_role_permissions: ['Settings', 'permission'], app_user_roles: ['Settings', 'user role'],
   bot_settings: ['Settings', 'bot setting'], app_settings: ['Settings', 'report rule']
 };

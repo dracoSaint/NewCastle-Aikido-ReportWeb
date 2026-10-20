@@ -159,7 +159,10 @@ function renderTable(container, block) {
           '<span class="stitch-meter' + (p >= 1 ? ' done' : '') + '" style="--p:' + p.toFixed(2) + '" aria-hidden="true"></span></td>';
         return;
       }
-      html += '<td class="' + cls + '"' + label + '>' + escapeHtml(gradingCell(block.headers[c], cell)) + '</td>';
+      // Eligible / Yes as a green chip, Not eligible / No as a grey one (same chips as the other reports).
+      const text = escapeHtml(gradingCell(block.headers[c], cell));
+      const chip = { eligible: 'is-done', yes: 'is-done', 'not-eligible': 'is-todo', no: 'is-todo' }[cls.trim().split(' ')[0]];
+      html += '<td class="' + cls + '"' + label + '>' + (chip && text !== '—' ? '<span class="fu-chip ' + chip + '">' + text + '</span>' : text) + '</td>';
     });
     html += '</tr>';
   });

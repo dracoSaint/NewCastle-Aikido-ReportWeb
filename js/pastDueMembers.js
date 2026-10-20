@@ -259,6 +259,7 @@ async function pastDueAddNote(member, text) {
     .select()
     .single();
   if (error) throw error;
+  window.portalNotifyMentions?.(text, `a Past Due note on ${member.member_name}`);
   pastDueNotes.unshift(data);
 }
 
@@ -266,6 +267,8 @@ async function pastDueEditNote(noteId, text) {
   const client = await pastDueClient();
   const { data, error } = await client.from(PAST_DUE_NOTES_TABLE).update({ note: text }).eq('id', noteId).select().single();
   if (error) throw error;
+  const before = pastDueNotes.find(note => String(note.id) === String(noteId));
+  window.portalNotifyMentions?.(text, `a Past Due note on ${before?.member_name || data.member_name}`, before?.note);
   pastDueNotes = pastDueNotes.map(note => (String(note.id) === String(noteId) ? data : note));
 }
 
@@ -310,7 +313,7 @@ function pastDueNotesHtml(member, notes, focusId) {
   const form = pastDueNotesReady
     ? `<form class="pd-note-form" data-action="add-note" data-requires="pastdue.edit">
         <label class="sr-only" for="${focusId('note')}">Add a note for ${escapeHtml(member.member_name)}</label>
-        <textarea id="${focusId('note')}" rows="2" maxlength="2000" required data-focus="${focusId('note')}" placeholder="Call made, promise to pay, payment plan…"></textarea>
+        <textarea id="${focusId('note')}" rows="2" maxlength="2000" required data-mention data-focus="${focusId('note')}" placeholder="Call made, promise to pay, payment plan… Type @ to tag someone"></textarea>
         <div class="pd-note-form-row"><small>Ctrl + Enter to save</small><button type="submit" class="sop-action-button primary pd-small">Add note</button></div>
       </form>`
     : '<p class="pd-notice">Member notes need a one-time database update: run <code>supabase/past_due_member_notes.sql</code>. Older bill notes are shown below.</p>';
@@ -550,7 +553,7 @@ function pastDueOnClick(event) {
     item.innerHTML = `
       <form class="pd-note-edit" data-action="save-note">
         <label class="sr-only" for="${fieldId}">Edit note</label>
-        <textarea id="${fieldId}" rows="3" maxlength="2000" required>${escapeHtml(note.note)}</textarea>
+        <textarea id="${fieldId}" rows="3" maxlength="2000" required data-mention>${escapeHtml(note.note)}</textarea>
         <div class="pd-note-form-row">
           <button type="button" class="pd-link" data-action="cancel-edit">Cancel</button>
           <button type="submit" class="sop-action-button primary pd-small">Save edit</button>

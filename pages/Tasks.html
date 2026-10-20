@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasks - Newcastle Aikido</title>
+  <link rel="stylesheet" href="../css/styles.css">
+  <script src="../js/auth.js"></script>
+</head>
+<body class="tasks-page">
+
+  <header data-title="Tasks">
+    <p>Every task, plus what's coming up this week. Today's tasks also show on the Home page.</p>
+  </header>
+
+  <main class="tasks-main">
+    <section class="home-tasks" aria-labelledby="tasksTitle">
+      <div class="home-tasks-head">
+        <h2 id="tasksTitle">All tasks <small id="taskSummary"></small></h2>
+        <div class="home-tasks-tools">
+          <div class="fu-segment" role="group" aria-label="Whose tasks">
+            <button type="button" data-scope="mine" aria-pressed="true">Mine</button>
+            <button type="button" data-scope="all" aria-pressed="false">Whole team</button>
+          </div>
+          <button type="button" class="sop-action-button primary" id="taskAdd">Add task</button>
+        </div>
+      </div>
+      <p class="task-status" id="taskStatus" role="status"></p>
+      <div id="taskLists" data-mode="all"><p class="task-empty">Loading tasks…</p></div>
+    </section>
+
+    <section class="home-tasks" aria-labelledby="upcomingTitle">
+      <div class="home-tasks-head">
+        <h2 id="upcomingTitle">Next 7 days</h2>
+      </div>
+      <div id="taskUpcoming"><p class="task-empty">Loading…</p></div>
+    </section>
+  </main>
+
+  <footer></footer>
+
+  <script src="../js/siteHeader.js"></script>
+  <script src="../js/siteMenu.js"></script>
+  <script src="../js/footer.js"></script>
+</body>
+</html>
