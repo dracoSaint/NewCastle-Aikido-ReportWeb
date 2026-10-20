@@ -16,7 +16,7 @@ import { env, exportSavedReport as exportReport, exportCsv, withZenPlanner, stud
 const require = createRequire(import.meta.url);
 const { fuAttendanceFromText, fuMembershipsFromText, fuNextReport, fuBuild, fuReturns, fuApplyTiers, fuParseTable, fuIso } = require('../js/followUpCore.js');
 const { BEGINNER_PACKAGE_LABELS } = require('../js/mondayImportCore.js');
-const { gmComputeWeek } = require('../js/geronimoCore.js');
+const { gmComputeWeek, gmSyncWaves } = require('../js/geronimoCore.js');
 
 // Geronimo Metrics (js/geronimoMetrics.js): the week's attendance and cancels, saved to geronimo_weekly.
 const addDays = (iso, days) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
@@ -168,6 +168,10 @@ async function main() {
 
   // Geronimo lock-in needs no Zen Planner, so it runs every night, even when the report below is already saved.
   try { console.log(`Geronimo lock-in: ${await lockGeronimo(supabase, weekFriday(reportDate))}`); } catch (error) { console.warn(`Geronimo lock-in skipped: ${error.message}`); }
+  try {
+    const { added, updated } = await gmSyncWaves(supabase, Boolean(process.env.DRY_RUN));
+    console.log(`Geronimo waves${process.env.DRY_RUN ? ' (DRY_RUN, not saved)' : ''}: ${added} starters added, ${updated} rollover/phone blanks filled`);
+  } catch (error) { console.warn(`Geronimo waves skipped: ${error.message}`); }
 
   const { data: already } = await supabase.from('follow_up_reports').select('id')
     .eq('report_date', reportDate).eq('attendance_file', AUTO_ATTENDANCE).limit(1);

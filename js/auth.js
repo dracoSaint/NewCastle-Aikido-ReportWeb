@@ -124,6 +124,9 @@
     // Role permissions: hide what this user's role can't use (js/access.js).
     if (session && !isBypassPage) {
       loadScript(new URL('js/access.js', siteRoot).href).catch(error => console.warn(error.message));
+      // Bell, @mentions (js/notifications.js); task list and the menu's open-task count (js/tasks.js).
+      loadScript(new URL('js/notifications.js', siteRoot).href).catch(error => console.warn(error.message));
+      loadScript(new URL('js/tasks.js', siteRoot).href).catch(error => console.warn(error.message));
     }
 
     // Setup Logout Button Event Listener

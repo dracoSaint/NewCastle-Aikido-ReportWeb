@@ -35,7 +35,7 @@
           <h2>From the other reports</h2>
         </div>
         <p class="pd-card-lede">The same week in Red / Orange Follow-Up, Past Due and Daily Ad Review.</p>
-        <div class="past-due-metrics gm-metrics" id="gmExtras"><div class="loading">Loading…</div></div>
+        <div class="past-due-metrics gm-metrics gm-extras" id="gmExtras"><div class="loading">Loading…</div></div>
       </div>
       <div class="card">
         <div class="card-heading-row">
@@ -54,7 +54,11 @@
           <span>Wave</span>
           <select id="gmWave"></select>
         </label>
-        <button type="button" class="sop-action-button secondary" id="gmSyncWaves" data-requires="geronimo.edit">Add starters from member list</button>
+        <label>
+          <span>Find</span>
+          <input id="gmWaveSearch" type="search" placeholder="Name, phone or email" autocomplete="off">
+        </label>
+        <button type="button" class="sop-action-button secondary" id="gmSyncWaves" data-requires="geronimo.edit">Update from member list</button>
         <button type="button" class="sop-action-button primary" id="gmAddMember" data-requires="geronimo.edit">Add person</button>
       </div>
       <div class="past-due-metrics gm-metrics" id="gmWaveMetrics"></div>
@@ -63,7 +67,7 @@
           <h2>Wave members</h2>
           <span class="member-count" id="gmWaveCount" role="status" aria-live="polite"></span>
         </div>
-        <p class="pd-card-lede">Rollover % is people rolled over out of everyone in the wave. Target is 80% of the wave. Starters from the Monday Board member list join the wave of the month their package began, and count there when they roll over.</p>
+        <p class="pd-card-lede">Rollover % is people rolled over out of everyone in the wave. Target is 80% of the wave. Every BECOME / beginner package from 2026 (including not started yet) is added every night from Zen Planner, into the wave of the month it begins, and counts there when they roll over. Inducted, rolled over, phone and email fill in from the reports where blank. Use Edit to correct anyone's details.</p>
         <div class="table-wrap" id="gmWaveTable"><div class="loading">Loading…</div></div>
       </div>
     </section>

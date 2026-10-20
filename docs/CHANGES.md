@@ -5,6 +5,90 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
+## Task alerts, priority, comments; Home at a glance; menu collapse; shortcuts (2026-10-20, not yet shipped)
+
+- **Due alerts:** the first time you open the portal each day, your bell gets one alert per one-off task assigned to you that is due today or overdue and not done (`notify_my_due_tasks()`; never twice a day).
+- **Done alerts:** ticking off a task someone else made sends them "<name> finished: <task>" (database trigger on `task_done`).
+- **Priority:** Normal / High in the task box. High tasks show a red HIGH label and sit first; then by due / start date (overdue first).
+- **Comments:** the Edit task box has a comment thread (`task_comments`) with @tags. A comment alerts the task's maker and the person it's for. Task rows show "2 comments". You can delete only your own.
+- **Home at a glance:** four live tiles, each linking to its report: Members this week (+/- vs last week), Red / Orange to call (orange, red and no record, as the report counts them), Past due (total of PAST DUE bills, exempt members left out, as the page), My tasks today (done / total). Tiles for reports your role can't open are hidden.
+- **Collapsible sidebar (wide screens):** the button next to Settings shrinks the menu to icons (hover shows the name); remembered in this browser.
+- **Keyboard shortcuts:** T tasks panel, N add a task, M menu, / or Ctrl K find a page, ? shows the list. Ignored while typing.
+- **Audit fixes:** task initials were split on the letter s (fixed); comment box padding; TASKS tab sits lower on phones so it covers less; every page checked at 1440 and 390 px: no errors, no sideways scroll.
+
+**Files:** `supabase/notifications_tasks.sql` (section 3), `js/tasks.js`, `js/homeGlance.js` (new), `js/siteMenu.js`, `js/notifications.js`, `index.html`, `css/styles.css`, `automation/tasks.check.mjs`.
+
+**Set-up:** re-run `supabase/notifications_tasks.sql` (adds priority, comments, the two alert functions). Until then saving a task fails on the priority column.
+
+**Check:** `node automation/tasks.check.mjs`. Give a colleague a task due today: next day they open the portal they get a Due alert; when they tick it you get a Done alert. Comment on a task. Press ? on any page.
+
+---
+
+## TASKS slide-out (2026-10-20, not yet shipped)
+
+- Home no longer has a Today's tasks section. Instead every page (except the Tasks page) has a dark **TASKS** tab on the right edge with the open-today count. Clicking it slides out today's list from the right: tick off, quick add, Mine / Whole team, Add task, Edit, and a link to all tasks.
+- It stays open as you move between pages (remembered in this browser) until you close it (× or Esc). On phones it covers the screen, so there it always starts closed.
+- **Files:** `js/tasks.js` (panel markup + open/close), `index.html`, `css/styles.css`.
+- **Check:** open the tab on any report, go to another page: it is still open; tick a task there.
+
+---
+
+## Sidebar menu and Tasks page (2026-10-20, not yet shipped)
+
+- **Sidebar (every page with the menu):** screens 1100 px and wider show a fixed left sidebar (264 px) instead of the burger. It has the logo, Home, then the TASKS, REPORTS and SOP categories, which open and close like an accordion; Settings is at the bottom. Every page has an icon, and the current page is highlighted. Which categories are open is remembered in that browser; the current page's category always opens. On narrower screens the same sidebar slides out from the menu button (Esc, ×, or a tap outside closes it).
+- **Task count:** the Task list link shows a red count of your tasks still open today (yours + whole team), on every page.
+- **Tasks page (`pages/Tasks.html`):** All tasks: Repeating (every repeating task; a tick box only on the days it is on), To do (every open one-off, any due date) and Done (ticked one-offs, with date and who). Then Next 7 days (repeating tasks on their days, one-off tasks on their due date). "Add a task" in the menu opens the Add task box there (`Tasks.html#new`). Home links to it ("All tasks"). Task notifications open the Tasks page.
+- **Home: today only:** repeating tasks that are on today, plus one-off tasks due today or overdue. One-offs due later only show on the Tasks page.
+- The task dialog markup lives in `js/tasks.js` (one copy for both pages). `js/auth.js` loads `js/tasks.js` on every signed-in page.
+
+- **Polish (same day):** quick add box (type, Enter: a one-off for you, due today; Add task still opens the full dialog); a green progress bar for today on Home; ticks show instantly; each task shows who it is for as initials (All = whole team); Next 7 days lists daily / weekday tasks once ("Every day or weekday") instead of under every day.
+
+**Files:** `js/siteMenu.js`, `js/tasks.js`, `js/auth.js`, `pages/Tasks.html` (new), `index.html`, `css/styles.css`, `automation/tasks.check.mjs`, `.impeccable/config.json`, `.claude/preview-shots.mjs`.
+
+**Check:** `node automation/tasks.check.mjs`. On a laptop: the sidebar is always open; open/close REPORTS and SOP, reload (it remembers). On a phone: the menu button opens it. Open Tasks: Today matches Home; Next 7 days lists what's coming.
+
+**Known limits:** the count refreshes on page load and after ticking, not live.
+
+---
+
+## Notification centre, @mentions and Home tasks (2026-10-20, not yet shipped)
+
+- **Bell (every signed-in page):** next to the profile button. A red count shows unread alerts. The panel lists the latest 30; clicking one marks it read and opens its page. "Mark all read" clears the count. Refreshes every 2 minutes and when the tab comes back into view.
+- **@mentions:** a tag matches the email name, first name or full name without spaces (`@leisa`, `@leisagraham`). Type `@` in a Red / Orange member note, a Past Due member note or a task's details. A list of people appears (arrow keys + Enter or Tab, or click). Works in every note box: the add-note boxes, the one-line top note and the Log contact note on Red / Orange, and the note edit boxes on both pages. Saving sends each tagged person a notification with the note text; an edit only alerts people newly tagged.
+- **Today's tasks (Home):** between Start here and the report list.
+  - **Repeating** (daily, weekdays Mon–Fri, weekly on the start date's weekday, monthly on its date or the month's last day): tick per day; tomorrow it comes back unticked.
+  - **To do** (one-off): stays until ticked, with due today / due date / days overdue (red).
+  - Mine (yours + whole-team tasks) or Whole team. Add task / Edit opens a dialog: task, details, for (a person or whole team), repeats, due / start date, Delete.
+  - Giving a task to someone else sends them a notification.
+- **Rules (database):** you only read, mark or clear your own notifications; the sender is stamped; links only point inside the portal. Everyone reads tasks; the creator, the assignee or a user admin (`access.manage`) can change or delete one; anyone can tick or untick. Tasks are in the audit log.
+
+**Files:** `supabase/notifications_tasks.sql` (new), `js/notifications.js` (new), `js/tasks.js` (new), `automation/tasks.check.mjs` (new), `index.html`, `js/auth.js`, `js/followUpReport.js`, `js/pastDueMembers.js`, `js/settings.js`, `css/styles.css`.
+
+**Set-up:** run `supabase/notifications_tasks.sql` in the Supabase SQL editor (safe to re-run).
+
+**Check:** `node automation/tasks.check.mjs`. On Home: add a task for yourself (shows under To do), tick it, add a daily one. Give one to a colleague, and tag them (`@name`) in a Red / Orange note; their bell shows 1.
+
+**Known limits:** alerts arrive within 2 minutes, not instantly. A tagged person sees the note text in the alert even without access to that report. Only the Red / Orange and Past Due notes logs and task details take tags (not the one-line top note).
+
+---
+
+## Site UI/UX pass (2026-10-19, not yet shipped)
+
+An audit of every page at 1440 and 390 px (no console errors or sideways scroll anywhere), then the fixes chosen by the user.
+
+- **Tab bars (all pages, phones):** the right-edge fade showing more tabs is wider (96px), so a cut-off tab clearly reads as scrollable.
+- **Grading:** Eligibility / Enough attendance show chips (green Eligible / Yes, grey Not eligible / No). On phones each member is a compact card: name and chip on one line, then the four figures. The page is 6,910 → 5,125 px.
+- **Red / Orange Follow-Up (phones):** tier cards are compact (name + phone on one line without labels; last class, days and contact side by side; no Note label). Each row is 315 → about 225 px; the page is 11,439 → 9,454 px.
+- **Daily Ad Review (phones):** Copy for Slack sits under the Executive summary heading instead of on top of it.
+- **Design-check warnings:** the Ad Review contrast warnings were a false positive (the dashed heading rule is a background-image; the text is on white), suppressed for that file. Cramped-padding on Ad Review / Monday Board was left unsuppressed (static scan of empty cards; a whole-file ignore would hide real ones). Nested-cards (Monday upload dialog), body clipped-overflow and design-system-radius were left as they were (pre-existing).
+- `.claude/preview-shots.mjs`: viewport shots now follow PRE scrolling.
+
+**Files:** `css/styles.css`, `js/gradingScripts.js`, `.impeccable/config.json`, `.claude/preview-shots.mjs`.
+
+**Check:** on a phone, open Grading, Red / Orange Follow-Up and Daily Ad Review; swipe the tab bar (the fade shows there are more tabs).
+
+---
+
 ## Monday Board: All Members tab (shipped 2026-10-19, b0b80e5)
 
 Every Zen Planner membership in any status (current, not started, hold, cancel pending, cancelled, completed): about 3,100 rows, one per membership.
@@ -82,7 +166,7 @@ Replaces the "2026 Newcastle Aikido GRN_Metrics" Google Sheet. Menu: REPORTS →
   - **Lock-in:** each night the bot fills the empty boxes of the two finished weeks before this one from the same figures and sets `locked_at` the first time ("locked" in the table). Saved figures never change; a late figure (e.g. rollover %) can still fill a blank.
   - **Edit** (any week, locked or not) opens the form with the saved figures; empty boxes get the app's figure, tagged "from the app". On an open week those stay live unless changed (only what you type is saved); on a closed week saving stores them. The calculations are in `js/geronimoCore.js`, shared by the page and the bot:
     - Scoreboard: organic leads; rolling 30-day revenue = average of the days entered that week; fallbacks for rollovers, memberships and cancels
-    - Monday Board weekly log: autopay members
+    - Autopay members = Zen Planner's autopay report: memberships with autopay ON and status Current, Not started, Hold, Cancelled or Cancel pending (counted from `membership_all`, synced nightly). That table is today's list only, so it is used for this week and last week; older weeks use the Monday Board weekly log total. On 2026-10-19: 189 (the Monday total was 163)
     - Monday Board member lists (`membership_data_log` weekly snapshots + `membership_data`), matched by member **name** because `number` is each membership's own id:
       - Suspended = HOLD count on that week's Monday list
       - Intro + Pack sales = beginner packages created that week (the 5 Monday Board packages)
@@ -95,9 +179,16 @@ Replaces the "2026 Newcastle Aikido GRN_Metrics" Google Sheet. Menu: REPORTS →
 
     It skips any source the role can't read.
   - Extra row "Expected 30 day revenue (Monday Board × pricing)": members per category × weekly fee × 30/7. Reference only, not stored.
-  - **From the other reports** card for the chosen week (live, nothing stored): Red / Orange list (red · orange) and returns, new and cleared past due bills (import runs), past due owing (current week only), ads delivering and the ad with most leads. Each tile needs that report's view switch.
+  - **From the other reports** card for the chosen week (live, nothing stored), numbers coloured red (Red list), amber (Orange, past due owing) or green (returns, bills cleared): Red and Orange counts (separate tiles) and returns, new and cleared past due bills (import runs), past due owing (current week only), ads delivering, and the ad with most leads (its lead count, name in the label). Each tile needs that report's view switch.
 - **Trial waves:** people per month: induction date, inducted, name, email, phone, goal, why, notes and rolled over. Rollover % against the 80% target. Add, edit and remove are in a dialog; Rolled over can be changed in the table.
-  - **Add starters from member list** (needs Monday Board view): adds every beginner-package holder to the wave of the month the package began (one row per membership, never duplicated), and fills blank Rolled over answers: Yes once they hold a full membership, No a week after the package ended without one. Answers staff gave are kept. A rollover always counts in the start month's wave.
+  - **Automatic every night** (Zen Planner job, `gmSyncWaves` in `js/geronimoCore.js`). The source is `membership_all` (every membership in any status), so Not started packages are included. Every beginner package beginning on or after 2026-01-01 joins the wave of the month it begins (one row per package, never duplicated). It fills blanks only:
+    - Rolled over: yes if the same person (by name) has a full membership (not Gratis) beginning on or after the package; no if the package is completed or cancelled without one; blank while it is running.
+    - Inducted: ticked once the package has begun and is current, on hold or completed. It is never unticked, so an untick on a started package comes back.
+    - Email and phone: from the Daily Ad Review lead with that name; phone also from the latest Red / Orange attendance export.
+
+    Anything staff typed is kept. **Update from member list** runs the same sync immediately.
+  - **Colours and filters:** Rolled over shows green Yes, red No, amber In progress (the picker takes its answer's colour; read-only roles see chips). Inducted shows an Inducted / Not yet chip. The tiles (Rollover %, Rolled over, Did not roll over, In progress, Not inducted yet) are filters: click to show only those, click again to clear. Find searches name, phone and email.
+  - **Edit** button on every row (and clicking the name) opens the form to change name, induction date, inducted, email, phone, goal, why, notes, rolled over, or remove the person.
 - **Scoreboard:** one row per day: rollovers, memberships, organic leads, cancels, kickstarts, and the rolling 30-day revenue from the bank. Each box saves when you tab out. Net = rollovers + memberships − cancels, with month totals; revenue shows the month's average.
 
 **Nightly bot** (`automation/zenplanner-followup.mjs`, after the Red / Orange report)
@@ -138,7 +229,7 @@ Replaces the "2026 Newcastle Aikido GRN_Metrics" Google Sheet. Menu: REPORTS →
 - The current week shows a "to date" column with figures before anything is saved; the week of 16/10 shows "locked" after the next nightly run.
 - Bot dry run lock-in on 2026-10-19 would save for 16/10: autopay 159, suspended 13, intro packs 8, sales value $3,100, Meta leads 16, spend $482.11.
 - Edit week ending 16/10/2026: expect Intro + Pack sales 8, rollovers 0, Facebook spend $482.11 (the 16 Oct import). This week (ending 23/10) shows $466.60 from the 19 Oct import. Checked against live data on 2026-10-19.
-- Trial waves > Add starters from member list: about 59 starters across Jul–Oct; September has about 30.
+- Trial waves > Update from member list: about 59 starters across Jul–Oct; September has about 30. Run on 2026-10-19: 146 added (202 starters Jan–Oct 2026), 49 rows filled in; open rollovers only for running packages (Sep 9, Oct 12). Emails: 0 matched (only 29 Ad Review leads).
 - Bot dry run (`DRY_RUN=1 FORCE_RUN=true node --env-file=automation/.env automation/zenplanner-followup.mjs`) prints `Geronimo week ending …: not saved (DRY_RUN): {"attendance":…,"weekly_cancels":…,"cancels_mtd":…}`. On 2026-10-19: attendance 7, cancels 1 this week, 6 in October (12 drops minus 4 Administrative Drop and 2 beginner packages).
 
 **Known limits**

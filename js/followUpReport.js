@@ -102,7 +102,7 @@ function fuNoteField(row) {
   const value = fuNoteDrafts.get(row.key) ?? row.note;
   const dirty = fuNoteEditing.has(row.key) || value !== row.note;
   return `<div class="fu-note-field${dirty ? ' is-dirty' : ''}">
-      <input type="text" maxlength="300" data-note="${key}" value="${fuEsc(value)}" placeholder="Add a note" aria-label="Note for ${fuEsc(row.name)}">
+      <input type="text" maxlength="300" data-note="${key}" data-mention value="${fuEsc(value)}" placeholder="Add a note" aria-label="Note for ${fuEsc(row.name)}">
       <button type="button" class="fu-icon-btn is-save" data-note-save="${key}" aria-label="Save note" title="Save (Enter)">${fuIcon('save')}</button>
       <button type="button" class="fu-icon-btn" data-note-cancel="${key}" aria-label="Don't save note" title="Cancel (Esc)">${fuIcon('cancel')}</button>
     </div>`;
@@ -114,7 +114,7 @@ function fuNotesHtml(row, id) {
   const form = fuNotesReady
     ? `<form class="pd-note-form" data-add-note="${fuEsc(row.key)}" data-requires="followup.edit">
         <label class="sr-only" for="${id}-add">Add a note for ${fuEsc(row.name)}</label>
-        <textarea id="${id}-add" rows="2" maxlength="2000" required placeholder="Call back Tuesday, injured, travelling…"></textarea>
+        <textarea id="${id}-add" rows="2" maxlength="2000" required data-mention placeholder="Call back Tuesday, injured, travelling… Type @ to tag someone"></textarea>
         <div class="pd-note-form-row"><small>Ctrl + Enter to save</small><button type="submit" class="sop-action-button primary pd-small">Add note</button></div>
       </form>`
     : '<p class="pd-notice">The notes log needs a one-time database update: run <code>supabase/follow_up_member_notes.sql</code>.</p>';
@@ -468,14 +468,17 @@ async function fuAddNote(key, text) {
   const client = await fuClient();
   const { error } = await client.from(FU_NOTES).insert({ member_key: key, member_name: row?.name || key, note: text });
   if (error) throw error;
+  window.portalNotifyMentions?.(text, `a Red / Orange note on ${row?.name || key}`);
   await fuLoadNotes();
 }
 
 // Note log changes; RLS answers a refused edit or delete with 0 rows, so check what came back.
 async function fuChangeNote(id, change) {
   const client = await fuClient();
+  const before = fuNotes.find(note => note.id === id);
   const query = change === null ? client.from(FU_NOTES).delete() : client.from(FU_NOTES).update({ note: change });
   const { data, error } = await query.eq('id', id).select('id');
+  if (data?.length && change !== null) window.portalNotifyMentions?.(change, `a Red / Orange note on ${before?.member_name || 'a member'}`, before?.note);
   if (error) throw error;
   if (!data?.length) throw new Error(change === null ? 'Only the person who wrote a note can delete it.' : 'The note was not saved. You may not have edit access.');
   await fuLoadNotes();
@@ -629,6 +632,7 @@ async function fuSaveContact(event) {
       report_id: fuCurrent.id
     });
     if (error) throw error;
+    window.portalNotifyMentions?.(document.getElementById('fuContactNote').value, `a Red / Orange contact note on ${row.name}`);
     document.getElementById('fuContactDialog').close();
     await fuLoadContacts();
     fuRender();
@@ -820,7 +824,7 @@ function fuInit() {
       item.innerHTML = `
         <form class="pd-note-edit" data-save-note="${note.id}">
           <label class="sr-only" for="fuEditNote-${note.id}">Edit note</label>
-          <textarea id="fuEditNote-${note.id}" rows="3" maxlength="2000" required>${fuEsc(note.note)}</textarea>
+          <textarea id="fuEditNote-${note.id}" rows="3" maxlength="2000" required data-mention>${fuEsc(note.note)}</textarea>
           <div class="pd-note-form-row">
             <button type="button" class="pd-link" data-cancel-edit>Cancel</button>
             <button type="submit" class="sop-action-button primary pd-small">Save edit</button>

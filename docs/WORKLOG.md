@@ -17,7 +17,114 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ---
 
-## 2026-10-19 — Monday Board: All Members tab
+## 2026-10-20 — Notification centre, @mentions, Home task list
+
+Status: **awaiting user OK** (local, not pushed; batched with the 2026-10-19 local work).
+
+### Instructions from the user
+- Add a notification centre, a way to tag users in comments / notes, and a task list. The Home page shows today's tasks: repeating tasks and new tasks.
+
+### Decisions
+- Tags are `@` + the person's email name (`@leisa`), picked from a list while typing. On Red / Orange and Past Due member notes (add, not edit) and task details.
+- Notifications: bell in the header on every signed-in page, latest 30, polled every 2 min (no Realtime). You only see your own.
+- Tasks: one-off (shows until ticked, overdue in red) or daily / weekdays / weekly / monthly (ticked per day). For one person or the whole team. Everyone sees every task; the creator, the assignee or a user admin can change or delete it; anyone can tick.
+- Giving someone a task sends them a notification. No separate tasks page: Home is the task list.
+- The bot account is left out of the people list.
+
+### Done
+- See `docs/CHANGES.md` → "Notification centre, @mentions and Home tasks".
+- Also fixed: inputs with no `type` (Geronimo person dialog, task title) had no input styling.
+- `.claude/preview-shots.mjs`: `INIT="js"` runs before page scripts (used to preview fake tasks without writing live data).
+
+### Later the same day: sidebar menu + Tasks page
+- User: replace the burger menu with an accordion type showing icons, and add a stand-alone Tasks page and menu category, connected to Home's today's tasks.
+- User chose: fixed sidebar (desktop), slide-out on phones; Tasks page shows Today + Next 7 days.
+- Done: see `docs/CHANGES.md` → "Sidebar menu and Tasks page".
+- User: the Tasks page lists every task; Home shows only the day's tasks. Done: Tasks page = All tasks (Repeating / To do / Done) + Next 7 days; Home drops one-offs due later.
+- User: improve the UI/UX (scoped to the task screens). Done: quick add, progress bar, instant ticks, initials, Next 7 days without daily repeats.
+- User: turn Home's today's tasks into a hidden slide-out with a TASKS tab that stays with you on every page. Done: see CHANGES "TASKS slide-out". Phones start closed (decision: it would cover every page).
+- User: improve overall UI/UX, functionality and features. Chose all: due + done alerts, priority, task comments, Home at a glance, collapsible sidebar, keyboard shortcuts, full audit ("Other" ticked with no text). Decision: due alerts are sent when you first open the portal each day, not by the nightly bot (it runs at night, so "today" would be wrong). Done: see CHANGES. Audit found and fixed: Past Due tile counted cleared bills; Red/Orange tile left out no-record members; initials bug.
+
+### Open items
+- **Re-run `supabase/notifications_tasks.sql`** (adds the bot exclusion, priority, comments and the alert functions; saving a task fails until then).
+- Click through: add a task for yourself and for someone else, tick it, tag someone in a note, check their bell.
+- Later, if asked: notify on note edits, a full tasks page / history, instant (Realtime) alerts.
+
+## 2026-10-19 — Site UI/UX pass (audit, then fixes)
+
+Status: **not yet shipped** (local).
+
+### Instructions from the user
+- Improve the UI/UX. Chose: audit all pages first, then fix all four proposed groups.
+
+### Decisions
+- Audit with `PREVIEW_AS=bot` at 1440/390: no errors or overflow. The main problems were phone length and small inconsistencies.
+- Fixes in CSS where possible; the only JS change is Grading chips (`renderTable`).
+- Design warnings: suppressed only the verified Ad Review contrast false positive. Left cramped-padding (whole-file ignore too broad).
+
+### Done
+- See `docs/CHANGES.md` → "Site UI/UX pass".
+
+### Open items
+- Ship with the next push.
+
+## 2026-10-19 — Geronimo UI: yes/no colours, wave filters, tidy extras
+
+Status: **not yet shipped** (local).
+
+### Instructions from the user
+- Add colour indicators for yes / no etc. and improve the UI/UX and interactivity to make things easier.
+
+### Decisions
+- Scope: the Geronimo page, where the yes/no answers are. A site-wide pass was offered, not done.
+- Reused `fu-chip` (green/amber/neutral) plus a new red `is-no`; tiles reuse `member-view-tile`.
+- `.claude/preview-shots.mjs`: `PREVIEW_AS=bot` signs in as the bot for pages the preview role can't open (view only).
+
+### Done
+- Trial waves: coloured Rolled over picker/chips, Inducted chips, clickable filter tiles, Find box.
+- Weekly: the extras card had no padding (the cramped-padding warning) and long text in the number font. It is now padded, with separate Red / Orange tiles, the top ad as a number, and coloured counts.
+- Fixed: the key tile's number went white-on-white when another tile was picked; the search box had a 21px stray margin.
+- Viewed with live data at 1440 and 390 px (bot login). No sideways scroll.
+
+### Open items
+- Ship with the next push. Offer the same pass on other pages.
+
+## 2026-10-19 — Geronimo trial waves: edit button, nightly sync, phones
+
+Status: **not yet shipped** (local).
+
+### Instructions from the user
+- Add an edit function for trial wave members (phone and other details). Asked whether wave members are automatic.
+
+### Decisions
+- Edit already existed (click the name): added a visible Edit button per row.
+- Waves were button-only. `gmSyncWaves` moved to `js/geronimoCore.js` and runs nightly in the Zen Planner job; the button (renamed "Update from member list") runs it now.
+- Blank phones fill from the latest Red / Orange attendance export, by name (the member list has no phones). Blanks only, so staff edits win.
+- Follow-up (user: make waves automatic from start dates or Not started, filled from the pulled data): the source is now `membership_all` (any status), with 2026 packages only. It fills rolled over (from status and later full memberships), inducted (tick only), and email/phone (Ad Review leads, Red / Orange). Ran it for real: 146 added, 49 filled.
+
+### Done
+- Dry run: 0 starters to add (already synced), 39 rollover/phone blanks to fill. The geronimo-core check passes.
+
+### Open items
+- Ship with the next push (together with the autopay change).
+ from the Zen Planner autopay report
+
+Status: **not yet shipped** (local).
+
+### Instructions from the user
+- Use the Zen Planner autopay members report (membership grid: autopay ON; status Current, Not started, Hold, Cancelled, Cancel pending) for Autopay members.
+
+### Decisions
+- No new export: the report is a filter of `membership_all` (All Members, synced nightly), so `gmComputeWeek` counts it there.
+- It is a current snapshot, so it only applies to this week and last week; older weeks keep the Monday Board total.
+
+### Done
+- `js/geronimoCore.js`. Live check: 189 for this and last week (Monday total 163); 9 Oct keeps 162. Week ending 16 Oct keeps its saved sheet value.
+- Affects average visits and churn (both divide by autopay members).
+
+### Open items
+- Ship with the next push.
+
 
 Status: **shipped (testing b0b80e5 / main fe17e96, 2026-10-19)**
 
