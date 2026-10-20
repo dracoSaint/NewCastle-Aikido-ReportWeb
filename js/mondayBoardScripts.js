@@ -1,14 +1,4 @@
 const MONDAY_BOARD_SHEET_NAME = 'DASHBOARD';
-const MEMBER_LIST_TABLE = 'membership_data';
-const MEMBER_LIST_PREVIOUS_TABLE = 'membership_data_previous';
-const MEMBER_LIST_LOG_TABLE = 'membership_data_log';
-const MEMBER_WEEKLY_LOG_TABLE = 'membership_weekly_log';
-const TARGET_BEGINNER_PACKAGES = [
-  'become - 6 week transformation journey',
-  'blue zone- new beginnings 6 week life change introduction only',
-  'chiisai kai beginners package',
-  'junior beginner package'
-];
 const PREFERRED_BEGINNER_PACKAGE_LABELS = TARGET_BEGINNER_PACKAGES;
 
 const MONDAY_PAGE_CONFIGS = {
@@ -25,253 +15,6 @@ const MONDAY_PAGE_CONFIGS = {
 
 let mondayJsonpCounter = 0;
 const mondaySheetCache = {};
-
-function normalizeHeaderName(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
-
-function parseCsvLine(line) {
-  const cells = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const next = line[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === ',' && !inQuotes) {
-      cells.push(current);
-      current = '';
-      continue;
-    }
-
-    if ((char === '\t' || char === ';') && !inQuotes) {
-      cells.push(current);
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  cells.push(current);
-  return cells.map(value => value.trim());
-}
-
-function parseUploadedCsv(text) {
-  const cleanText = String(text || '').replace(/\r\n?/g, '\n').trim();
-  if (!cleanText) return [];
-
-  const lines = cleanText.split('\n').filter(line => line.trim() !== '');
-  if (lines.length < 2) return [];
-
-  const delimiter = cleanText.includes('\t') ? '\t' : ',';
-  const parsedLines = lines.map(line => {
-    if (delimiter === ',') return parseCsvLine(line);
-    return parseCsvLine(line.replace(/,/g, '\t'));
-  });
-
-  const headers = parsedLines[0].map(header => normalizeHeaderName(header));
-  return parsedLines.slice(1).map(row => {
-    const obj = {};
-    headers.forEach((header, index) => {
-      const rawValue = row[index] ?? '';
-      obj[header] = rawValue.trim();
-    });
-    return obj;
-  }).filter(row => Object.values(row).some(value => String(value || '').trim() !== ''));
-}
-
-function formatCsvDateValue(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  const match = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if (!match) return raw;
-  const [, day, month, year] = match;
-  const yearFull = year.length === 2 ? `20${year}` : year;
-  return `${yearFull}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
-function normalizeSupabaseNullableValue(value) {
-  if (value === null || value === undefined) return null;
-  const trimmed = String(value).trim();
-  return trimmed === '' ? null : trimmed;
-}
-
-function normalizeMembershipCsvRow(row) {
-  const normalized = {};
-
-  const fieldMap = {
-    number: 'number',
-    'first_name': 'first_name',
-    'first name': 'first_name',
-    'last_name': 'last_name',
-    'last name': 'last_name',
-    'membership_label': 'membership_label',
-    'membership label': 'membership_label',
-    'mbr_status': 'mbr_status',
-    'mbr. status': 'mbr_status',
-    'mbr_status_': 'mbr_status',
-    'mbr_create_date': 'mbr_create_date',
-    'mbr. create date': 'mbr_create_date',
-    'mbr_begin_date': 'mbr_begin_date',
-    'mbr. begin date': 'mbr_begin_date',
-    'mbr_end_date': 'mbr_end_date',
-    'mbr. end date': 'mbr_end_date',
-    'att_limit': 'att_limit',
-    'att. limit': 'att_limit',
-    'att_limit_type': 'att_limit_type',
-    'att. limit type': 'att_limit_type',
-    'people_count': 'people_count',
-    'people (count)': 'people_count',
-    'autopay': 'autopay',
-    'autopay_': 'autopay'
-  };
-
-  Object.entries(row).forEach(([key, value]) => {
-    const canonical = fieldMap[normalizeHeaderName(key)] || normalizeHeaderName(key);
-    if (!canonical) return;
-    let cleaned = String(value ?? '').trim();
-
-    if (canonical.includes('date')) {
-      cleaned = formatCsvDateValue(cleaned);
-    }
-
-    if (canonical === 'number' || canonical === 'att_limit' || canonical === 'people_count') {
-      cleaned = cleaned === '' ? null : String(cleaned).replace(/[^0-9.-]/g, '');
-      if (cleaned === '') cleaned = null;
-    }
-
-    normalized[canonical] = cleaned;
-  });
-
-  if (!normalized.number && normalized['member_number']) {
-    normalized.number = normalized.member_number;
-  }
-
-  return {
-    number: normalizeSupabaseNullableValue(normalized.number),
-    first_name: normalizeSupabaseNullableValue(normalized.first_name),
-    last_name: normalizeSupabaseNullableValue(normalized.last_name),
-    membership_label: normalizeSupabaseNullableValue(normalized.membership_label),
-    mbr_status: normalizeSupabaseNullableValue(normalized.mbr_status),
-    mbr_create_date: normalizeSupabaseNullableValue(normalized.mbr_create_date),
-    mbr_begin_date: normalizeSupabaseNullableValue(normalized.mbr_begin_date),
-    mbr_end_date: normalizeSupabaseNullableValue(normalized.mbr_end_date),
-    att_limit: normalizeSupabaseNullableValue(normalized.att_limit),
-    att_limit_type: normalizeSupabaseNullableValue(normalized.att_limit_type),
-    people_count: normalizeSupabaseNullableValue(normalized.people_count),
-    autopay: normalizeSupabaseNullableValue(normalized.autopay),
-    report_date: null,
-    imported_at: null,
-    snapshot_label: 'CURRENT'
-  };
-}
-
-function normalizeMemberCleanString(str) {
-  return str ? String(str).toLowerCase().trim() : '';
-}
-
-function isTargetBeginnerPackage(label) {
-  const clean = normalizeMemberCleanString(label);
-  if (!clean) return false;
-
-  for (let i = 0; i < TARGET_BEGINNER_PACKAGES.length; i++) {
-    const pkg = TARGET_BEGINNER_PACKAGES[i];
-    if (clean === pkg || clean.indexOf(pkg) === 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function dedupeImportedMemberRows(rows) {
-  if (!Array.isArray(rows) || !rows.length) return [];
-
-  // 1. Group rows by Member Name (First Name + Last Name)
-  const membersGrouped = {};
-
-  rows.forEach((row, index) => {
-    const firstName = row.first_name || row['first_name'] || '';
-    const lastName = row.last_name || row['last_name'] || '';
-
-    if (!firstName && !lastName) {
-      return;
-    }
-
-    const firstNameClean = normalizeMemberCleanString(firstName).replace(/\s+/g, '');
-    const lastNameClean = normalizeMemberCleanString(lastName).replace(/\s+/g, '');
-    const personKey = `${firstNameClean}_${lastNameClean}`;
-
-    if (!membersGrouped[personKey]) {
-      membersGrouped[personKey] = [];
-    }
-    membersGrouped[personKey].push({ index, data: row });
-  });
-
-  // 2. Process Deduplication Rules
-  const rowsToDiscard = new Set();
-
-  for (const personKey in membersGrouped) {
-    const memberRecords = membersGrouped[personKey];
-    if (memberRecords.length <= 1) continue;
-
-    const beginnerRecords = [];
-    const otherRecords = [];
-
-    memberRecords.forEach(rec => {
-      const label = rec.data.membership_label || rec.data['membership_label'] || '';
-      if (isTargetBeginnerPackage(label)) {
-        beginnerRecords.push(rec);
-      } else {
-        otherRecords.push(rec);
-      }
-    });
-
-    // Rule: If beginner package(s) exist alongside other records, discard all other records
-    if (beginnerRecords.length > 0 && otherRecords.length > 0) {
-      otherRecords.forEach(oRec => {
-        rowsToDiscard.add(oRec.index);
-      });
-    }
-
-    // Secondary Check: Deduplicate remaining records with identical labels for the same person
-    const seenLabels = {};
-    memberRecords.forEach(rec => {
-      if (rowsToDiscard.has(rec.index)) return;
-      const cleanLabel = normalizeMemberCleanString(rec.data.membership_label || rec.data['membership_label'] || '');
-      if (seenLabels[cleanLabel]) {
-        rowsToDiscard.add(rec.index);
-      } else {
-        seenLabels[cleanLabel] = true;
-      }
-    });
-  }
-
-  // 3. Construct Cleaned Rows
-  const cleanedRows = [];
-  rows.forEach((row, index) => {
-    if (!rowsToDiscard.has(index)) {
-      cleanedRows.push(row);
-    }
-  });
-
-  return cleanedRows;
-}
 
 async function ensureSupabaseDataClient() {
   if (window.authReady) {
@@ -413,7 +156,7 @@ function buildEditableWeeklyLogTableHTML(rows) {
       html += '<td><input type="' + inputType + '" value="' + escapeHtml(castValue) + '" data-field="' + escapeHtml(column) + '" step="' + escapeHtml(step) + '" disabled /></td>';
     });
 
-    html += '<td>' +
+    html += '<td data-requires="monday.edit">' +
       '<button type="button" class="sop-action-button primary weekly-log-edit" data-row-id="' + escapeHtml(String(rowId)) + '">Edit</button>' +
       '<button type="button" class="sop-action-button secondary weekly-log-delete" data-row-id="' + escapeHtml(String(rowId)) + '" style="margin-left:8px;">Delete</button>' +
       '<button type="button" class="sop-action-button primary weekly-log-save hidden" data-row-id="' + escapeHtml(String(rowId)) + '" style="margin-left:8px;">Save</button>' +
@@ -688,229 +431,13 @@ async function loadMemberHistoryLog() {
   }
 }
 
-function getSelectedReportDate(reportDateValue) {
-  if (!reportDateValue) {
-    return new Date().toISOString().split('T')[0];
-  }
-
-  const selectedDate = new Date(`${reportDateValue}T12:00:00`);
-  if (Number.isNaN(selectedDate.getTime())) {
-    return new Date().toISOString().split('T')[0];
-  }
-
-  return selectedDate.toISOString().split('T')[0];
-}
-
-function getSelectedReportTimestamp(reportDateValue) {
-  if (!reportDateValue) {
-    return new Date().toISOString();
-  }
-
-  const selectedDate = new Date(`${reportDateValue}T12:00:00`);
-  if (Number.isNaN(selectedDate.getTime())) {
-    return new Date().toISOString();
-  }
-
-  return selectedDate.toISOString();
-}
-
-function buildWeeklySummaryLogFromRows(rows) {
-  const summary = buildCurrentReportSummary(rows || []);
-  const beginnerSummary = buildCurrentBeginnerPackageSummary(rows || []);
-
-  const payload = {
-    report_date: getSelectedReportDate(new Date().toISOString().split('T')[0]),
-    regular_adult: summary['Regular Adult']?.current || 0,
-    beginner_adult: summary['Beginner Adult']?.current || 0,
-    concession_adult: summary['Concession Adult']?.current || 0,
-    chiisai_kai: summary['Chiisai Kai']?.current || 0,
-    kids_8_14: summary['8-14 Junior Member']?.current || 0,
-    kids_15_17: summary['15-17 Junior Member']?.current || 0,
-    blue_zone: summary['Blue Zone Fitness ongoing']?.current || 0,
-    combat_pilates: summary['Combat Pilates']?.current || 0,
-    members_total: CURRENT_REPORT_ROW_LABELS.reduce((sum, label) => sum + (summary[label]?.current || 0), 0),
-    become_adult: beginnerSummary['BECOME - 6 Week transformation journey'] || 0,
-    become_chiisai: beginnerSummary['Chiisai Kai Beginners Package'] || 0,
-    become_kids: beginnerSummary['Junior Beginner Package'] || 0,
-    become_blue_zone: beginnerSummary['Blue Zone- New beginnings 6 week life change Introduction only'] || 0,
-    become_c_pilates: beginnerSummary['Combat Pilates Become'] || 0,
-    beginner_totals: BEGINNER_PACKAGE_LABELS.reduce((sum, label) => sum + (beginnerSummary[label] || 0), 0)
-  };
-
-  return payload;
-}
-
-async function saveWeeklyMemberSummaryLog(reportDateValue, rows) {
-  const client = await ensureSupabaseDataClient();
-  const selectedReportDate = getSelectedReportDate(reportDateValue);
-  const summary = buildWeeklySummaryLogFromRows(rows || []);
-
-  const payload = {
-    ...summary,
-    report_date: selectedReportDate,
-    uploaded_at: new Date().toISOString(),
-    snapshot_label: 'CURRENT'
-  };
-
-  const { error } = await client
-    .from(MEMBER_WEEKLY_LOG_TABLE)
-    .insert(payload);
-
-  if (error) throw error;
-}
-
-async function archiveCurrentMemberList(reportDateValue) {
-  const client = await ensureSupabaseDataClient();
-  const { data: currentRows, error: fetchError } = await client
-    .from(MEMBER_LIST_TABLE)
-    .select('*');
-
-  if (fetchError) throw fetchError;
-  if (!currentRows || currentRows.length === 0) return;
-
-  const selectedReportDate = getSelectedReportDate(reportDateValue);
-
-  const previousRows = currentRows.map((row) => {
-    const { csv_import_batch, ...safeRow } = row || {};
-    return {
-      ...safeRow,
-      report_date: row.report_date || selectedReportDate,
-      archived_at: getSelectedReportTimestamp(reportDateValue),
-      snapshot_label: 'LAST WEEK',
-      imported_at: row.imported_at || getSelectedReportTimestamp(reportDateValue)
-    };
-  });
-
-  try {
-    const { error: previousDeleteError } = await client
-      .from(MEMBER_LIST_PREVIOUS_TABLE)
-      .delete()
-      .neq('number', -1);
-
-    if (previousDeleteError) throw previousDeleteError;
-
-    const { error: previousInsertError } = await client
-      .from(MEMBER_LIST_PREVIOUS_TABLE)
-      .insert(currentRows.map(row => ({
-        ...row,
-        number: Number(row.number),
-        report_date: row.report_date || selectedReportDate
-      })));
-
-    if (previousInsertError) throw previousInsertError;
-  } catch (previousTableError) {
-    console.warn('membership_data_previous could not be updated; using membership_data_log instead.', previousTableError);
-  }
-
-  const { error: insertError } = await client
-    .from(MEMBER_LIST_LOG_TABLE)
-    .insert(previousRows);
-
-  if (insertError) throw insertError;
-}
-
-async function replaceCurrentMemberList(rows) {
-  const client = await ensureSupabaseDataClient();
-  const cleanRows = dedupeImportedMemberRows(rows.map(row => ({
-    ...row,
-    number: normalizeSupabaseNullableValue(row.number),
-    first_name: normalizeSupabaseNullableValue(row.first_name),
-    last_name: normalizeSupabaseNullableValue(row.last_name),
-    membership_label: normalizeSupabaseNullableValue(row.membership_label),
-    mbr_status: normalizeSupabaseNullableValue(row.mbr_status),
-    mbr_create_date: normalizeSupabaseNullableValue(row.mbr_create_date),
-    mbr_begin_date: normalizeSupabaseNullableValue(row.mbr_begin_date),
-    mbr_end_date: normalizeSupabaseNullableValue(row.mbr_end_date),
-    att_limit: normalizeSupabaseNullableValue(row.att_limit),
-    att_limit_type: normalizeSupabaseNullableValue(row.att_limit_type),
-    people_count: normalizeSupabaseNullableValue(row.people_count),
-    autopay: normalizeSupabaseNullableValue(row.autopay),
-    report_date: row.report_date || getSelectedReportDate(row.imported_at),
-    imported_at: row.imported_at || new Date().toISOString(),
-    snapshot_label: row.snapshot_label || 'CURRENT'
-  })));
-
-  const { data: existingRows, error: fetchError } = await client
-    .from(MEMBER_LIST_TABLE)
-    .select('*');
-
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  const incomingByNumber = new Map(cleanRows.map(row => [String(row.number || '').trim(), row]));
-  const existingByNumber = new Map((existingRows || []).map(row => [String(row.number || '').trim(), row]));
-
-  const rowsToInsert = cleanRows.filter(row => !existingByNumber.has(String(row.number || '').trim()));
-  const rowsToUpdate = cleanRows.filter(row => existingByNumber.has(String(row.number || '').trim()));
-  const rowsToDelete = (existingRows || [])
-    .map(row => String(row.number || '').trim())
-    .filter(number => number && !incomingByNumber.has(number));
-
-  if (rowsToDelete.length > 0) {
-    const { error: deleteError } = await client
-      .from(MEMBER_LIST_TABLE)
-      .delete()
-      .in('number', rowsToDelete);
-
-    if (deleteError) {
-      throw deleteError;
-    }
-  }
-
-  if (rowsToInsert.length > 0) {
-    const { error: insertError } = await client
-      .from(MEMBER_LIST_TABLE)
-      .insert(rowsToInsert);
-
-    if (insertError) {
-      throw insertError;
-    }
-  }
-
-  if (rowsToUpdate.length > 0) {
-    const updates = rowsToUpdate.map(row => ({
-      ...row,
-      number: String(row.number || '').trim()
-    }));
-
-    for (const row of updates) {
-      const { error: updateError } = await client
-        .from(MEMBER_LIST_TABLE)
-        .update({
-          first_name: row.first_name,
-          last_name: row.last_name,
-          membership_label: row.membership_label,
-          mbr_status: row.mbr_status,
-          mbr_create_date: row.mbr_create_date,
-          mbr_begin_date: row.mbr_begin_date,
-          mbr_end_date: row.mbr_end_date,
-          att_limit: row.att_limit,
-          att_limit_type: row.att_limit_type,
-          people_count: row.people_count,
-          autopay: row.autopay,
-          report_date: row.report_date || getSelectedReportDate(row.imported_at),
-          imported_at: row.imported_at,
-          snapshot_label: row.snapshot_label
-        })
-        .eq('number', row.number);
-
-      if (updateError) {
-        throw updateError;
-      }
-    }
-  }
-
-  return cleanRows;
-}
-
 let pendingCsvFile = null;
 
 function setUploadProgress(percent, label) {
   const bar = document.getElementById('csvProgressBar');
   const text = document.getElementById('csvProgressText');
 
-  if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+  if (bar) bar.style.transform = `scaleX(${Math.min(100, Math.max(0, percent)) / 100})`;
   if (text) text.textContent = label || `${Math.round(percent)}%`;
 }
 
@@ -951,27 +478,8 @@ async function processConfirmedCsvUpload(file, reportDateValue) {
   try {
     const text = await file.text();
     setUploadProgress(24, '24%');
-
-    const parsedRows = parseUploadedCsv(text)
-      .map(normalizeMembershipCsvRow)
-      .filter(row => row.number || row.first_name || row.last_name);
-
-    if (!parsedRows.length) {
-      throw new Error('No valid member rows were found in the CSV file.');
-    }
-
-    const finalRows = parsedRows.map(row => ({
-      ...row,
-      report_date: getSelectedReportDate(reportDateValue),
-      imported_at: getSelectedReportTimestamp(reportDateValue),
-      snapshot_label: 'CURRENT'
-    }));
-
-    setUploadProgress(46, '46%');
-    await archiveCurrentMemberList(reportDateValue);
-    setUploadProgress(72, '72%');
-    const cleanRows = await replaceCurrentMemberList(finalRows);
-    await saveWeeklyMemberSummaryLog(reportDateValue, cleanRows);
+    const client = await ensureSupabaseDataClient();
+    const cleanRows = await mondayImportCsv(client, text, reportDateValue, percent => setUploadProgress(percent, `${percent}%`));
     setUploadProgress(100, '100%');
 
     if (statusEl) statusEl.textContent = `${cleanRows.length} rows imported successfully.`;
@@ -997,7 +505,25 @@ async function handleMemberCsvUpload(event) {
   openCsvUploadModal(file);
 }
 
+// Starts the Zen Planner job through supabase/functions/run-pastdue-sync; it takes about 2 minutes.
+async function startMondaySync(button) {
+  const statusEl = document.getElementById('csvUploadStatus');
+  button.disabled = true;
+  if (statusEl) statusEl.textContent = 'Starting sync…';
+  try {
+    const client = await ensureSupabaseDataClient();
+    const { error } = await client.functions.invoke('run-pastdue-sync', { body: { job: 'monday' } });
+    if (error) throw new Error(await error.context?.text?.().catch(() => '') || error.message);
+    if (statusEl) statusEl.textContent = 'Sync started. This week\'s report will update in about 3 minutes; refresh the page then.';
+  } catch (error) {
+    if (statusEl) statusEl.textContent = error.message || 'Could not start the sync.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function initCsvUploadControls() {
+  document.getElementById('mondaySyncBtn')?.addEventListener('click', event => startMondaySync(event.currentTarget));
   const importButton = document.getElementById('importMemberCsvBtn');
   const csvInput = document.getElementById('memberCsvInput');
   const statusEl = document.getElementById('csvUploadStatus');
@@ -1194,25 +720,6 @@ function chartColors(count) {
     return Array.from({ length: count }, (_, index) => colors[index % colors.length]);
 }
 
-const CURRENT_REPORT_ROW_LABELS = [
-  'Regular Adult',
-  'Beginner Adult',
-  'Concession Adult',
-  'Chiisai Kai',
-  '8-14 Junior Member',
-  '15-17 Junior Member',
-  'Blue Zone Fitness ongoing',
-  'Combat Pilates'
-];
-
-const BEGINNER_PACKAGE_LABELS = [
-  'BECOME - 6 Week transformation journey',
-  'Chiisai Kai Beginners Package',
-  'Junior Beginner Package',
-  'Blue Zone- New beginnings 6 week life change Introduction only',
-  'Combat Pilates Become'
-];
-
 // NOTE: These are `let` so Supabase pricing_settings can override them at runtime.
 // Default values are preserved in DEFAULT_* copies for the reset feature.
 let REPORT_CATEGORY_GOALS = {
@@ -1287,78 +794,6 @@ const DEFAULT_BEGINNER_PACKAGE_GOALS      = Object.freeze({ ...BEGINNER_PACKAGE_
 const DEFAULT_BEGINNER_PACKAGE_FEE        = Object.freeze({ ...BEGINNER_PACKAGE_FEE });
 const DEFAULT_BEGINNER_PACKAGE_ROLLOVER_FEE = Object.freeze({ ...BEGINNER_PACKAGE_ROLLOVER_FEE });
 
-function normalizeReportCategory(value) {
-  const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  const lookup = {
-    'regular adult': 'Regular Adult',
-    'beginner adult': 'Beginner Adult',
-    'beginner': 'Beginner Adult',
-    'concession adult': 'Concession Adult',
-    'concession': 'Concession Adult',
-    'chiisai kai': 'Chiisai Kai',
-    '8-14 junior member': '8-14 Junior Member',
-    '8 14 junior member': '8-14 Junior Member',
-    '15-17 junior member': '15-17 Junior Member',
-    '15 17 junior member': '15-17 Junior Member',
-    'blue zone fitness ongoing': 'Blue Zone Fitness ongoing',
-    'blue zone': 'Blue Zone Fitness ongoing',
-    'combat pilates': 'Combat Pilates',
-    'combat pilates become': 'Combat Pilates'
-  };
-
-  return lookup[normalized] || String(value || '').trim();
-}
-
-function normalizeBeginnerPackageCategory(value) {
-  const normalized = String(value || '').trim();
-  const lookup = {
-    'become - 6 week transformation journey': 'BECOME - 6 Week transformation journey',
-    'become adult': 'BECOME - 6 Week transformation journey',
-    'chiisai kai beginners package': 'Chiisai Kai Beginners Package',
-    'junior beginner package': 'Junior Beginner Package',
-    'blue zone- new beginnings 6 week life change introduction only': 'Blue Zone- New beginnings 6 week life change Introduction only',
-    'blue zone new beginnings 6 week life change introduction only': 'Blue Zone- New beginnings 6 week life change Introduction only',
-    'combat pilates become': 'Combat Pilates Become'
-  };
-
-  return lookup[normalized.toLowerCase()] || normalized;
-}
-
-function buildCurrentReportSummary(rows) {
-  const summary = {};
-  CURRENT_REPORT_ROW_LABELS.forEach(label => {
-    summary[label] = { current: 0, hold: 0 };
-  });
-
-  (rows || []).forEach(row => {
-    const rowLabel = normalizeReportCategory(row.membership_label || row['membership_label'] || '');
-    const status = String(row.mbr_status || row['mbr_status'] || '').trim().toUpperCase();
-
-    if (!summary[rowLabel]) return;
-    if (status === 'CURRENT') summary[rowLabel].current += 1;
-    if (status === 'HOLD') summary[rowLabel].hold += 1;
-  });
-
-  return summary;
-}
-
-function buildCurrentBeginnerPackageSummary(rows) {
-  const summary = {};
-  BEGINNER_PACKAGE_LABELS.forEach(label => {
-    summary[label] = 0;
-  });
-
-  (rows || []).forEach(row => {
-    const label = normalizeBeginnerPackageCategory(row.membership_label || row['membership_label'] || '');
-    const status = String(row.mbr_status || row['mbr_status'] || '').trim().toUpperCase();
-    if (summary[label] !== undefined && status !== 'HOLD') {
-      summary[label] += 1;
-    }
-  });
-
-  return summary;
-}
-
 function buildReportSummariesFromWeeklyLogRow(row) {
   const summary = {};
   const memberFields = {
@@ -1393,25 +828,31 @@ function buildReportSummariesFromWeeklyLogRow(row) {
 
 function formatMoney(value) {
   const amount = Number(value || 0);
-  return `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `$${Number(amount).toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function formatReportDate(dateValue) {
   if (!dateValue) return '—';
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return String(dateValue);
-  return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+  return date.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function getTrendBadge(value, label) {
+function getTrendBadge(value) {
   const abs = Math.abs(value || 0);
   if (value > 0) {
-    return `<span class="report-status report-status-up"><span class="sr-only">Up </span>${abs} ${label}</span>`;
+    return `<span class="report-status report-status-up"><span class="sr-only">Up </span>${abs}</span>`;
   }
   if (value < 0) {
-    return `<span class="report-status report-status-down"><span class="sr-only">Down </span>${abs} ${label}</span>`;
+    return `<span class="report-status report-status-down"><span class="sr-only">Down </span>${abs}</span>`;
   }
-  return `<span class="report-status report-status-neutral">- ${label}</span>`;
+  return '<span class="report-muted" aria-label="No change">—</span>';
+}
+
+// Short of goal: how many to go, as plain text. At or over goal: a green "Met" mark.
+function getToAchieveCell(value) {
+  if (value < 0) return `${Math.abs(value)}`;
+  return `<span class="report-status report-status-up">Met${value > 0 ? ` +${value}` : ''}</span>`;
 }
 
 function getGoalBadge(value) {
@@ -1429,7 +870,10 @@ function renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSumm
   const currentReportContainer = document.getElementById(containerId);
   if (!currentReportContainer) return;
 
-  const displayDate = formatReportDate(reportDate);
+  const reportDay = new Date(String(reportDate).length === 10 ? `${reportDate}T12:00:00` : reportDate);
+  const displayDate = Number.isNaN(reportDay.getTime())
+    ? formatReportDate(reportDate)
+    : reportDay.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const memberRows = CURRENT_REPORT_ROW_LABELS.map(label => {
     const current = summary[label]?.current || 0;
@@ -1449,6 +893,8 @@ function renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSumm
       holds: hold,
       goal,
       toAchieve,
+      weeklyValue: weeklyIncome,
+      targetValue: targetIncome,
       weekly: formatMoney(weeklyIncome),
       target: formatMoney(targetIncome),
       totalRow: false
@@ -1468,8 +914,8 @@ function renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSumm
     holds: memberTotalHolds,
     goal: memberTotalGoal,
     toAchieve: memberTotalCurrent - memberTotalGoal,
-    weekly: '',
-    target: '',
+    weekly: formatMoney(memberRows.reduce((sum, row) => sum + row.weeklyValue, 0)),
+    target: formatMoney(memberRows.reduce((sum, row) => sum + row.targetValue, 0)),
     totalRow: true
   });
 
@@ -1493,7 +939,6 @@ function renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSumm
       toAchieve,
       income: formatMoney(incomeValue),
       rollover: current > 0 ? formatMoney(rolloverValue) : '$0',
-      packageIncome: '',
       totalRow: false
     };
   });
@@ -1514,108 +959,35 @@ function renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSumm
     toAchieve: beginnerTotalCurrent - beginnerTotalGoal,
     income: formatMoney(beginnerIncomeTotal),
     rollover: formatMoney(beginnerRolloverTotal),
-    packageIncome: formatMoney(beginnerIncomeTotal),
     totalRow: true
   });
 
-  const memberTableHtml = memberRows.map(row => `
-    <tr class="${row.totalRow ? 'report-summary-total' : ''}">
-      <td>${escapeHtml(row.label)}</td>
-      <td>${row.current}</td>
-      <td>${getTrendBadge(row.trend === 'up' ? row.delta : row.trend === 'down' ? -row.delta : 0, 'since last week')}</td>
-      <td>${row.holds}</td>
-      <td>${row.goal}</td>
-      <td>${getGoalBadge(row.toAchieve)}</td>
-      <td>${row.weekly}</td>
-      <td>${row.target}</td>
-    </tr>
-  `).join('');
-
-  const beginnerTableHtml = beginnerRows.map(row => `
-    <tr class="${row.totalRow ? 'report-summary-total' : ''}">
-      <td>${escapeHtml(row.label)}</td>
-      <td>${row.current}</td>
-      <td>${getTrendBadge(row.trend === 'up' ? row.delta : row.trend === 'down' ? -row.delta : 0, 'since last week')}</td>
-      <td>${row.holds}</td>
-      <td>${row.goal}</td>
-      <td>${getGoalBadge(row.toAchieve)}</td>
-      <td>${row.income}</td>
-      <td>${row.rollover}</td>
-      <td>${row.packageIncome}</td>
-    </tr>
-  `).join('');
+  // Both tables share these columns, so they line up; the last two differ per table.
+  const sharedColumns = ['Current #', 'Since last week', 'Holds', 'Goal #', 'To achieve #'];
+  const tableHtml = (title, moneyColumns, rows, money) => `
+    <div class="report-card-panel">
+      <table class="report-summary-table report-sheet-table stack">
+        <colgroup><col class="report-col-label">${'<col>'.repeat(7)}</colgroup>
+        <thead><tr><th>${title}</th>${[...sharedColumns, ...moneyColumns].map((name, index) => `<th${index >= sharedColumns.length ? ' class="num"' : ''}>${name}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(row => {
+          const cells = [row.current, getTrendBadge(row.trend === 'up' ? row.delta : row.trend === 'down' ? -row.delta : 0), row.holds, row.goal, getToAchieveCell(row.toAchieve), ...money(row)];
+          return `
+          <tr class="${row.totalRow ? 'report-summary-total' : ''}">
+            <td>${escapeHtml(row.label)}</td>
+            ${cells.map((cell, index) => `<td${index >= sharedColumns.length ? ' class="num"' : ''} data-label="${[...sharedColumns, ...moneyColumns][index]}">${cell}</td>`).join('')}
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>`;
 
   currentReportContainer.innerHTML = `
     <div class="report-sheet-shell">
-      <div class="report-summary-grid">
-        <div class="report-card-panel">
-          <table class="report-summary-table report-sheet-table">
-            <thead>
-              <tr>
-                <th>Member Type</th>
-                <th>Current #</th>
-                <th>Since Last week</th>
-                <th>Holds</th>
-                <th>Goal #</th>
-                <th>To Achieve #</th>
-                <th>Current Weekly $</th>
-                <th>Target Weekly $</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${memberTableHtml}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="report-summary-grid report-grid-secondary">
-        <div class="report-card-panel">
-          <table class="report-summary-table report-sheet-table">
-            <thead>
-              <tr>
-                <th>Become Packages</th>
-                <th>Current #</th>
-                <th>Since Last week</th>
-                <th>Holds</th>
-                <th>Goal #</th>
-                <th>To Achieve #</th>
-                <th>Income</th>
-                <th>Roll-over Income</th>
-                <th>30 day Package Income</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${beginnerTableHtml}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="report-metadata">
-        <div><strong>Report Date:</strong> ${displayDate}</div>
-        <div><strong>Last Updated:</strong> ${new Date(reportDate).toLocaleString('en-CA')}</div>
-      </div>
+      <p class="report-metadata">Report for <strong>${displayDate}</strong></p>
+      ${tableHtml('Member type', ['Current weekly $', 'Target weekly $'], memberRows, row => [row.weekly, row.target])}
+      ${tableHtml('Become packages', ['Income', 'Roll-over income'], beginnerRows, row => [row.income, row.rollover])}
     </div>
   `;
-}
-
-function renderLastMondayReportSummary(summary, beginnerSummary, reportDate) {
-  const lastReportContainer = document.getElementById('last_mondayReport-content');
-  if (!lastReportContainer) return;
-
-  const clonedSummary = JSON.parse(JSON.stringify(summary || {}));
-  const clonedBeginnerSummary = JSON.parse(JSON.stringify(beginnerSummary || {}));
-
-  renderCurrentMondayReportSummary(clonedSummary, clonedSummary, clonedBeginnerSummary, clonedBeginnerSummary, reportDate);
-
-  const hasCurrentContainer = document.getElementById('current_mondayReport-content');
-  if (hasCurrentContainer) {
-    const target = document.getElementById('last_mondayReport-content');
-    if (target) {
-      target.innerHTML = target.innerHTML;
-    }
-  }
 }
 
 function getReportDateValue(row) {
@@ -1695,7 +1067,7 @@ async function loadCurrentMondayReportSummary() {
     const beginnerSummary = buildCurrentBeginnerPackageSummary(currentRows || []);
     const lastWeekBeginnerSummary = buildCurrentBeginnerPackageSummary(previousSnapshotRows.length ? previousSnapshotRows : currentRows || []);
 
-    renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSummary, lastWeekBeginnerSummary, new Date());
+    renderCurrentMondayReportSummary(summary, lastWeekSummary, beginnerSummary, lastWeekBeginnerSummary, currentRows?.[0]?.report_date || new Date());
   } catch (error) {
     console.error('Failed to load current Monday report summary:', error);
     container.innerHTML = '<div class="error">' + escapeHtml(error.message || 'Unable to load this week report.') + '</div>';
@@ -1764,7 +1136,7 @@ function renderMondayBoardCharts(data) {
     const lastFilled = totals.findLastIndex(value => value !== null && value !== undefined && value !== '');
     const dateCount = lastFilled >= 0 ? lastFilled + 1 : columnCount;
     const labels = dashboardDateLabels(data.rows, dateCount);
-    renderMondayKeyFigure(totals[dateCount - 1], dateCount > 1 ? totals[dateCount - 2] : null);
+    renderMondayKeyFigure({ members_total: totals[dateCount - 1] }, dateCount > 1 ? { members_total: totals[dateCount - 2] } : null);
 
     const memberTrendChartConfigs = [
         { label: 'Total members', rowLabel: 'MEMBERS TOTALS', borderColor: '#2F3237', backgroundColor: 'rgba(47, 50, 55, 0.06)' },
@@ -1848,62 +1220,63 @@ function renderMondayBoardCharts(data) {
     document.querySelectorAll('.chart-card .loading').forEach(loading => loading.remove());
 }
 
-function renderMondayBoardChartsFromLog(logRows) {
-    if (!Array.isArray(logRows) || !logRows.length) {
-        throw new Error('No weekly log data available.');
-    }
+// Series on the Overview charts. Total only has a trend line, not a doughnut slice.
+const MONDAY_MEMBER_SERIES = [
+    { label: 'Total members', key: 'members_total', color: '#2F3237', bg: 'rgba(47, 50, 55, 0.06)', total: true },
+    { label: 'Regular Adult', key: 'regular_adult', color: '#7C2D2E', bg: 'rgba(124, 45, 46, 0.06)' },
+    { label: 'Beginner', key: 'beginner_adult', color: '#2F6B4A', bg: 'rgba(47, 107, 74, 0.07)' },
+    { label: 'Concession', key: 'concession_adult', color: '#7A5C9E', bg: 'rgba(122, 92, 158, 0.07)' },
+    { label: 'Chiisai Kai 4-7', key: 'chiisai_kai', color: '#C8961E', bg: 'rgba(200, 150, 30, 0.07)' },
+    { label: 'Kids 8-14', key: 'kids_8_14', color: '#82A5E0', bg: 'rgba(130, 165, 224, 0.10)' },
+    { label: 'Kids 15-17', key: 'kids_15_17', color: '#C77B6B', bg: 'rgba(199, 123, 107, 0.08)' },
+    { label: 'Blue Zone', key: 'blue_zone', color: '#3E8E9A', bg: 'rgba(62, 142, 154, 0.07)' },
+    { label: 'Combat Pilates', key: 'combat_pilates', color: '#8A5D0C', bg: 'rgba(138, 93, 12, 0.07)' }
+];
+const MONDAY_BEGINNER_SERIES = [
+    { label: 'Become Adult', key: 'become_adult' },
+    { label: 'Become Chiisai', key: 'become_chiisai' },
+    { label: 'Become Kids', key: 'become_kids' },
+    { label: 'Become Blue Zone', key: 'become_blue_zone' },
+    { label: 'Become C-Pilates', key: 'become_c_pilates' }
+];
 
+let mondayLogRows = [];
+
+function drawChart(id, config) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    Chart.getChart(canvas)?.destroy();
+    new Chart(canvas, config);
+}
+
+// logRows: weekly log rows, oldest first. keys: the series to show (all when omitted).
+function renderMondayBoardChartsFromLog(logRows, keys = null) {
+    const show = series => !keys || keys.has(series.key);
+    const members = MONDAY_MEMBER_SERIES.filter(show);
+    const beginners = MONDAY_BEGINNER_SERIES.filter(show);
+    const latest = logRows[logRows.length - 1] || {};
+    const value = (row, key) => Number(row?.[key] || 0);
     const labels = logRows.map(row => formatReportDate(row.report_date));
-    renderMondayKeyFigure(logRows[logRows.length - 1]?.members_total, logRows.length > 1 ? logRows[logRows.length - 2]?.members_total : null);
 
-    const memberTrendConfigs = [
-        { label: 'Total members', key: 'members_total', color: '#2F3237', bg: 'rgba(47, 50, 55, 0.06)' },
-        { label: 'Regular Adult Members', key: 'regular_adult', color: '#7C2D2E', bg: 'rgba(124, 45, 46, 0.06)' },
-        { label: 'Beginner', key: 'beginner_adult', color: '#2F6B4A', bg: 'rgba(47, 107, 74, 0.07)' },
-        { label: 'Concession', key: 'concession_adult', color: '#7A5C9E', bg: 'rgba(122, 92, 158, 0.07)' },
-        { label: 'Chiisai Kai 4-7', key: 'chiisai_kai', color: '#C8961E', bg: 'rgba(200, 150, 30, 0.07)' },
-        { label: 'Kids 8-14', key: 'kids_8_14', color: '#82A5E0', bg: 'rgba(130, 165, 224, 0.10)' },
-        { label: 'Kids 15-17', key: 'kids_15_17', color: '#C77B6B', bg: 'rgba(199, 123, 107, 0.08)' },
-        { label: 'Blue Zone', key: 'blue_zone', color: '#3E8E9A', bg: 'rgba(62, 142, 154, 0.07)' },
-        { label: 'Combat Pilates', key: 'combat_pilates', color: '#8A5D0C', bg: 'rgba(138, 93, 12, 0.07)' }
-    ];
+    renderMondayKeyFigure(latest, logRows.length > 1 ? logRows[logRows.length - 2] : null);
 
-    const beginnerTrendConfigs = [
-        { label: 'Become Adult', key: 'become_adult', color: '#2F3237' },
-        { label: 'Become Chiisai', key: 'become_chiisai', color: '#7C2D2E' },
-        { label: 'Become Kids', key: 'become_kids', color: '#2F6B4A' },
-        { label: 'Become Blue Zone', key: 'become_blue_zone', color: '#C8961E' },
-        { label: 'Become C-Pilates', key: 'become_c_pilates', color: '#7A5C9E' }
-    ];
+    // The total sits on its own chart so the membership types below keep a readable scale.
+    const total = MONDAY_MEMBER_SERIES.find(series => series.total);
+    drawChart('totalTrendChart', {
+        type: 'line',
+        data: { labels, datasets: [{ label: total.label, data: logRows.map(row => value(row, total.key)), borderColor: total.color, backgroundColor: total.bg, fill: true, tension: 0.3 }] },
+        options: { ...chartOptions('Total members'), plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: { ticks: { precision: 0 } } } }
+    });
 
-    const memberRows = [
-        { label: 'Regular Adult', value: Number(logRows[logRows.length - 1]?.regular_adult || 0) },
-        { label: 'Beginner', value: Number(logRows[logRows.length - 1]?.beginner_adult || 0) },
-        { label: 'Concession', value: Number(logRows[logRows.length - 1]?.concession_adult || 0) },
-        { label: 'Chiisai Kai 4-7', value: Number(logRows[logRows.length - 1]?.chiisai_kai || 0) },
-        { label: 'Kids 8-14', value: Number(logRows[logRows.length - 1]?.kids_8_14 || 0) },
-        { label: 'Kids 15-17', value: Number(logRows[logRows.length - 1]?.kids_15_17 || 0) },
-        { label: 'Blue Zone', value: Number(logRows[logRows.length - 1]?.blue_zone || 0) },
-        { label: 'Combat Pilates', value: Number(logRows[logRows.length - 1]?.combat_pilates || 0) }
-    ];
-
-    const beginnerRows = [
-        { label: 'Become Adult', value: Number(logRows[logRows.length - 1]?.become_adult || 0) },
-        { label: 'Become Chiisai', value: Number(logRows[logRows.length - 1]?.become_chiisai || 0) },
-        { label: 'Become Kids', value: Number(logRows[logRows.length - 1]?.become_kids || 0) },
-        { label: 'Become Blue Zone', value: Number(logRows[logRows.length - 1]?.become_blue_zone || 0) },
-        { label: 'Become C-Pilates', value: Number(logRows[logRows.length - 1]?.become_c_pilates || 0) }
-    ];
-
-    new Chart(document.getElementById('membersTrendChart'), {
+    drawChart('membersTrendChart', {
         type: 'line',
         data: {
             labels,
-            datasets: memberTrendConfigs.map(config => ({
-                label: config.label,
-                data: logRows.map(row => Number(row[config.key] || 0)),
-                borderColor: config.color,
-                backgroundColor: config.bg,
+            datasets: members.filter(series => !series.total).map(series => ({
+                label: series.label,
+                data: logRows.map(row => value(row, series.key)),
+                borderColor: series.color,
+                backgroundColor: series.bg,
                 fill: true,
                 tension: 0.3
             }))
@@ -1911,14 +1284,15 @@ function renderMondayBoardChartsFromLog(logRows) {
         options: chartOptions('Members by week')
     });
 
-    new Chart(document.getElementById('beginnerTrendChart'), {
+    const beginnerColors = chartColors(MONDAY_BEGINNER_SERIES.length);
+    drawChart('beginnerTrendChart', {
         type: 'line',
         data: {
             labels,
-            datasets: beginnerTrendConfigs.map((config, index) => ({
-                label: config.label,
-                data: logRows.map(row => Number(row[config.key] || 0)),
-                borderColor: chartColors(beginnerTrendConfigs.length)[index],
+            datasets: beginners.map(series => ({
+                label: series.label,
+                data: logRows.map(row => value(row, series.key)),
+                borderColor: beginnerColors[MONDAY_BEGINNER_SERIES.indexOf(series)],
                 backgroundColor: 'transparent',
                 tension: 0.3
             }))
@@ -1926,35 +1300,78 @@ function renderMondayBoardChartsFromLog(logRows) {
         options: chartOptions('Beginner progression')
     });
 
-    new Chart(document.getElementById('membershipBreakdownChart'), {
+    const slices = members.filter(series => !series.total);
+    drawChart('membershipBreakdownChart', {
         type: 'doughnut',
         data: {
-            labels: memberRows.map(row => row.label),
-            datasets: [{
-                data: memberRows.map(row => row.value),
-                backgroundColor: chartColors(memberRows.length),
-                borderWidth: 2,
-                borderColor: '#ffffff'
-            }]
+            labels: slices.map(series => series.label),
+            datasets: [{ data: slices.map(series => value(latest, series.key)), backgroundColor: chartColors(slices.length), borderWidth: 2, borderColor: '#ffffff' }]
         },
         options: chartOptions('Current membership breakdown', 'doughnut')
     });
 
-    new Chart(document.getElementById('beginnerBreakdownChart'), {
+    drawChart('beginnerBreakdownChart', {
         type: 'doughnut',
         data: {
-            labels: beginnerRows.map(row => row.label),
-            datasets: [{
-                data: beginnerRows.map(row => row.value),
-                backgroundColor: chartColors(beginnerRows.length),
-                borderWidth: 2,
-                borderColor: '#ffffff'
-            }]
+            labels: beginners.map(series => series.label),
+            datasets: [{ data: beginners.map(series => value(latest, series.key)), backgroundColor: chartColors(beginners.length), borderWidth: 2, borderColor: '#ffffff' }]
         },
         options: chartOptions('Current beginner packages breakdown', 'doughnut')
     });
 
     document.querySelectorAll('.chart-card .loading').forEach(loading => loading.remove());
+}
+
+// Overview filters: weeks between From and To (report dates), and the ticked membership types.
+function applyOverviewFilters() {
+    const from = document.getElementById('overviewFrom')?.value || '';
+    const to = document.getElementById('overviewTo')?.value || '';
+    const boxes = [...document.querySelectorAll('#overviewTypes input')];
+    const keys = new Set(boxes.filter(box => box.checked).map(box => box.value));
+    const rows = mondayLogRows.filter(row => {
+        const date = String(row.report_date || '').slice(0, 10);
+        return (!from || date >= from) && (!to || date <= to);
+    });
+
+    const weekStart = weeks => String(mondayLogRows[Math.max(0, mondayLogRows.length - weeks)]?.report_date || '').slice(0, 10);
+    document.querySelectorAll('#overviewRange button').forEach(button => {
+        const weeks = Number(button.dataset.weeks);
+        button.setAttribute('aria-pressed', String(!to && (weeks ? from === weekStart(weeks) : !from)));
+    });
+
+    const count = document.getElementById('overviewTypesCount');
+    if (count) count.textContent = keys.size === boxes.length ? 'All' : `${keys.size} of ${boxes.length}`;
+    const status = document.getElementById('overviewFilterStatus');
+    if (status) {
+        status.textContent = !rows.length
+            ? 'No weeks in this date range.'
+            : rows.length === mondayLogRows.length
+                ? `All ${rows.length} weeks.`
+                : `${rows.length} of ${mondayLogRows.length} weeks: ${formatReportDate(rows[0].report_date)} to ${formatReportDate(rows[rows.length - 1].report_date)}.`;
+    }
+    renderMondayBoardChartsFromLog(rows, keys);
+}
+
+function initOverviewFilters() {
+    const form = document.getElementById('overviewFilters');
+    const list = document.getElementById('overviewTypes');
+    if (!form || !list || list.childElementCount) return;
+    const group = (title, series) => `<fieldset><legend>${title}</legend>${series.map(item =>
+        `<label><input type="checkbox" value="${item.key}" checked> ${escapeHtml(item.label)}</label>`).join('')}</fieldset>`;
+    list.innerHTML = group('Members', MONDAY_MEMBER_SERIES) + group('Become packages', MONDAY_BEGINNER_SERIES);
+    form.addEventListener('change', applyOverviewFilters);
+    // Presets: start the range N weeks back from the latest report.
+    document.getElementById('overviewRange')?.addEventListener('click', event => {
+        const button = event.target.closest('button[data-weeks]');
+        if (!button) return;
+        const weeks = Number(button.dataset.weeks);
+        document.getElementById('overviewFrom').value = weeks ? String(mondayLogRows[Math.max(0, mondayLogRows.length - weeks)]?.report_date || '').slice(0, 10) : '';
+        document.getElementById('overviewTo').value = '';
+        applyOverviewFilters();
+    });
+    form.addEventListener('submit', event => event.preventDefault());
+    // Reset fires before the fields clear, so redraw on the next tick.
+    form.addEventListener('reset', () => setTimeout(applyOverviewFilters));
 }
 
 async function loadOverviewFromWeeklyLog() {
@@ -1967,19 +1384,25 @@ async function loadOverviewFromWeeklyLog() {
   if (error) throw error;
   if (!data || !data.length) throw new Error('No weekly log data found in Supabase.');
 
-  renderMondayBoardChartsFromLog(data);
+  mondayLogRows = data;
+  initOverviewFilters();
+  applyOverviewFilters();
 }
 
-// Members this week on the indigo plate; last week and the change beside it.
-function renderMondayKeyFigure(current, previous) {
+// latest / previous: the last two weekly log rows. Each figure carries its change on last week.
+function renderMondayKeyFigure(latest, previous) {
     const el = document.getElementById('mondayKeyFigure');
-    if (!el || current === null || current === undefined || current === '') return;
-    const now = Number(current) || 0;
-    const prev = previous === null || previous === undefined || previous === '' ? null : Number(previous) || 0;
-    const change = prev === null ? '' : getGoalBadge(now - prev);
-    el.innerHTML = `<div class="past-due-metric key"><span>Total members this week</span><strong>${now}</strong></div>` +
-        `<div class="past-due-metric"><span>Last week</span><strong>${prev === null ? '—' : prev}</strong></div>` +
-        `<div class="past-due-metric"><span>Change</span><strong>${change || '—'}</strong></div>`;
+    if (!el || latest?.members_total === null || latest?.members_total === undefined || latest.members_total === '') return;
+    const card = (label, key, extraClass = '') => {
+        if (latest[key] === undefined || latest[key] === null) return '';
+        const now = Number(latest[key]) || 0;
+        const before = previous ? Number(previous[key]) || 0 : null;
+        const change = before === null ? '' : `<small class="metric-change">${getGoalBadge(now - before)} vs ${before} last week</small>`;
+        return `<div class="past-due-metric${extraClass}"><span>${label}</span><strong>${now}${change}</strong></div>`;
+    };
+    el.innerHTML = card('Total members this week', 'members_total', ' key') +
+        card('Beginners on packages', 'beginner_totals') +
+        card('Regular adults', 'regular_adult');
 }
 
 function chartOptions(title, type = 'line') {
@@ -2636,6 +2059,8 @@ function loadMondayTab(key) {
     loadMemberHistoryLog();
   } else if (key === 'pricingSettings') {
     renderPricingSettingsTab();
+  } else if (key === 'allMembers') {
+    // js/allMembers.js loads this tab itself.
   } else {
     loadMondayPage(key);
   }
@@ -2647,7 +2072,7 @@ function initMondayBoardPage() {
     const updatedLine = document.getElementById('updatedLine');
     if (updatedLine) {
       const now = new Date();
-      updatedLine.textContent = 'Last updated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+      updatedLine.textContent = 'Last updated: ' + now.toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
 
     initCsvUploadControls();

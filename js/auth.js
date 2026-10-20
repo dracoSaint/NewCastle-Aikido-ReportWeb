@@ -28,6 +28,13 @@
 
   const isBypassPage = isLoginPage || isResetPage || isRegisterPage;
 
+  // ?welcome=1 on any page previews the login intro (js/login.js).
+  const isWelcomePreview = new URLSearchParams(window.location.search).get('welcome') === '1';
+  if (isWelcomePreview && !isLoginPage) {
+    window.location.replace(loginUrl + '?welcome=1');
+    return;
+  }
+
   if (isInviteLink && !isRegisterPage) {
     window.location.replace(registerUrl + window.location.hash);
     return;
@@ -48,6 +55,14 @@
     window.location.replace(loginUrl);
     return;
   }
+
+  // Where to land after signing in: Settings > Preferences "Start page", or Home. Only portal
+  // pages (pages/....html) are accepted, so a stored value can't send anyone off-site.
+  function startUrl(user) {
+    const page = user?.user_metadata?.start_page;
+    return /^pages\/[A-Za-z]+(\/[A-Za-z]+)?\.html$/.test(page || '') ? new URL(page, siteRoot).href : homeUrl;
+  }
+  window.portalStartUrl = startUrl;
 
   // Function to load a script dynamically with duplicate checking
   function loadScript(src) {
@@ -97,10 +112,21 @@
       localStorage.removeItem(tokenKey);
       window.location.replace(loginUrl);
       return;
-    } else if (session && isLoginPage) {
+    } else if (session && isLoginPage && !isWelcomePreview) {
       // User is authenticated but trying to access the login page
-      window.location.replace(homeUrl);
+      window.location.replace(startUrl(session.user));
       return;
+    }
+
+    // Settings > Preferences.
+    document.documentElement.classList.toggle('reduce-motion', Boolean(session?.user?.user_metadata?.reduce_motion));
+
+    // Role permissions: hide what this user's role can't use (js/access.js).
+    if (session && !isBypassPage) {
+      loadScript(new URL('js/access.js', siteRoot).href).catch(error => console.warn(error.message));
+      // Bell, @mentions (js/notifications.js); task list and the menu's open-task count (js/tasks.js).
+      loadScript(new URL('js/notifications.js', siteRoot).href).catch(error => console.warn(error.message));
+      loadScript(new URL('js/tasks.js', siteRoot).href).catch(error => console.warn(error.message));
     }
 
     // Setup Logout Button Event Listener

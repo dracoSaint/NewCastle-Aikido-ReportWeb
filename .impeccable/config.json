@@ -101,6 +101,78 @@
         ],
         "createdAt": "2026-10-06T00:46:30.254Z",
         "reason": "Legacy base-layer body stack (line ~56), overridden by the brand layer's Arimo; not rendered"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/PastDueMembers.html"
+        ],
+        "createdAt": "2026-10-09T00:55:39.370Z",
+        "reason": "Claude measured rendered page: .card has no padding by design, children (h2, .pd-card-lede, .pd-tool-body, tables) inset themselves; no text within 8px of any card edge at 1440 and 390 on all tabs"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "pages/Tasks.html"
+        ],
+        "createdAt": "2026-10-20T00:00:00.000Z",
+        "reason": "Claude: page has no box/text-shadow or inline styles; finding comes from shared css/styles.css (same shell as index.html), not this file"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/GeronimoMetrics.html"
+        ],
+        "createdAt": "2026-10-16T00:54:33.922Z",
+        "reason": "Claude: page has no box/text-shadow or inline styles; finding comes from shared css/styles.css, not this file"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-10-18T22:31:56.907Z",
+        "reason": "Claude: only a link was added; the glow comes from shared css/styles.css, same false positive suppressed for GeronimoMetrics.html on 2026-10-16"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/MondayBoardReport.html"
+        ],
+        "createdAt": "2026-10-19T01:00:07.400Z",
+        "reason": "Claude: glow comes from shared css/styles.css (#0f1830 shadow), same false positive suppressed for index.html and GeronimoMetrics.html"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/DailyAdReview.html"
+        ],
+        "createdAt": "2026-10-19T03:23:17.971Z",
+        "reason": "Claude: verified on live render 2026-10-19: #0f1830 shadow from shared css/styles.css, same false positive as index/Geronimo/Monday"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/DailyAdReview.html"
+        ],
+        "createdAt": "2026-10-19T03:45:11.104Z",
+        "reason": "Claude: verified on live render 2026-10-19: the #c3d3f0 'background' is the 2px dashed rule under card headings (background-image); the grey .member-count text sits on white"
+      },
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          "pages/REPORTs/DailyAdReview.html"
+        ],
+        "createdAt": "2026-10-19T03:45:11.309Z",
+        "reason": "Claude: verified on live render 2026-10-19: the #c3d3f0 'background' is the 2px dashed rule under card headings (background-image); the grey .member-count text sits on white"
       }
     ]
   }

@@ -14,6 +14,8 @@ Stack: static HTML/JS/CSS + Supabase (browser client), deployed by Netlify on pu
 **Netlify build credits are limited: never push without the user's OK; batch changes into one push.**
 Always on: ponytail `full` (minimal code), caveman (terse replies), security-guidance hook. Don't switch levels.
 
+0. **Catch up** — at session start, read the latest entry of `docs/WORKLOG.md` (instructions, decisions,
+   open items) before anything else; `docs/CHANGES.md` explains each shipped/pending feature.
 1. **Locate** — `graphify query "<question>"`; broad sweeps → caveman `cavecrew-investigator` agent.
 2. **Build** — pick by change type:
    | Change | Use |
@@ -27,13 +29,25 @@ Always on: ponytail `full` (minimal code), caveman (terse replies), security-gui
    | UI (`pages/`, `css/styles.css`, `index.html`) | `/impeccable shape` (plan) → build → `/impeccable polish` |
    | Slow page / query | agent-skills `performance-optimization` |
 3. **Preview locally** — `npm start` (http://127.0.0.1:8000), then
-   `node .claude/preview-shots.mjs .claude/shots 1440 900` and `... 390 844`: view the PNGs, fix any
-   console errors or horizontal overflow it prints. Screenshots are layout only (no real login) —
-   ask the user to check data-backed pages in their logged-in browser.
+   `ONLY=<page> node .claude/preview-shots.mjs .claude/shots 1440 900`; fix any console errors or
+   horizontal overflow it prints. Logs in for real (live data, view only) via `.claude/preview.env`. Save tokens: iterate on one page, one width, viewport shots (the default);
+   run `... 390 844` and `FULL=1` only for the final check. Ask the user to click through data pages too.
 4. **Review the diff** — `/caveman-review` (bugs), `/ponytail-review` (bloat);
    + `/impeccable audit <page>` if UI changed; + `/security-review` if auth, RLS or input handling changed.
    Fix findings, repeat step 3 for anything visual.
-5. **Hand over** — `graphify update .`; list what changed + what the user should click through. Wait for OK.
-6. **Ship (only after OK)** — `/ship` checklist, `/caveman-commit` message, one commit, one push.
+5. **Hand over** — `graphify update .`; update the docs (below); list what changed + what the user should
+   click through. Wait for OK.
+6. **Ship (only after OK)** — `/ship` checklist, `/caveman-commit` message, one commit, one push; then mark
+   the WORKLOG entry `shipped (<commit>)`.
+
+**Docs (every time work finishes or anything changes, before hand-over):**
+- `docs/WORKLOG.md` — add/extend today's entry (template at top): user's instructions, decisions, what was
+  done, open items. Newest first. Absolute dates.
+- `docs/CHANGES.md` — per feature: what it does, files, set-up steps, how to check, known limits.
+
+**Token hygiene** (context size drives cost, not plugins):
+- One feature per session; `/clear` after each push. Back after 1h+ idle on a long session? Start fresh, don't resume (cache rebuild costs 100k–450k).
+- Files over ~400 lines (e.g. `js/pastDueMembers.js`, `css/styles.css`): Grep `-n` for the symbol, then Read only that line range.
+- No subagents for reviews or small searches; run step 4 inline.
 
 Skip other agent-skills (TDD, CI/CD, ADRs, specs, API design, observability, interview/idea) unless asked.

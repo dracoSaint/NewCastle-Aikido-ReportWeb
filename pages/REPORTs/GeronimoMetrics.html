@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Newcastle Aikido - Geronimo Metrics Report</title>
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+
+<body class="geronimo-page">
+  <header>
+    <p id="updatedLine">Weekly KPIs, trial waves and the daily scoreboard</p>
+    <nav class="site-nav">
+      <button data-tab="weekly" class="active">Weekly</button>
+      <button data-tab="waves">Trial waves</button>
+      <button data-tab="scoreboard">Scoreboard</button>
+    </nav>
+  </header>
+
+  <main class="geronimo-main">
+    <!-- Weekly: the sheet's Dashboard, one column per week ending Friday. -->
+    <section class="tab-panel active" id="tab-weekly">
+      <div class="ar-toolbar">
+        <label>
+          <span>Week ending</span>
+          <select id="gmWeek"></select>
+        </label>
+        <button type="button" class="sop-action-button primary" id="gmEditWeek" data-requires="geronimo.edit">Enter this week</button>
+      </div>
+      <p class="pd-card-lede" id="gmWeekState" role="status"></p>
+      <div class="past-due-metrics gm-metrics" id="gmWeekMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>From the other reports</h2>
+        </div>
+        <p class="pd-card-lede">The same week in Red / Orange Follow-Up, Past Due and Daily Ad Review.</p>
+        <div class="past-due-metrics gm-metrics gm-extras" id="gmExtras"><div class="loading">Loading…</div></div>
+      </div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Weekly figures</h2>
+          <span class="member-count" id="gmWeekCount" role="status" aria-live="polite"></span>
+        </div>
+        <p class="pd-card-lede">Newest week first. Percentages and averages are worked out from the figures, as the sheet did. Targets in brackets.</p>
+        <div class="table-wrap gm-grid-wrap" id="gmWeekTable"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- Trial waves: the people inducted each month and whether they rolled over. -->
+    <section class="tab-panel" id="tab-waves">
+      <div class="ar-toolbar">
+        <label>
+          <span>Wave</span>
+          <select id="gmWave"></select>
+        </label>
+        <label>
+          <span>Find</span>
+          <input id="gmWaveSearch" type="search" placeholder="Name, phone or email" autocomplete="off">
+        </label>
+        <button type="button" class="sop-action-button secondary" id="gmSyncWaves" data-requires="geronimo.edit">Update from member list</button>
+        <button type="button" class="sop-action-button primary" id="gmAddMember" data-requires="geronimo.edit">Add person</button>
+      </div>
+      <div class="past-due-metrics gm-metrics" id="gmWaveMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Wave members</h2>
+          <span class="member-count" id="gmWaveCount" role="status" aria-live="polite"></span>
+        </div>
+        <p class="pd-card-lede">Rollover % is people rolled over out of everyone in the wave. Target is 80% of the wave. Every BECOME / beginner package from 2026 (including not started yet) is added every night from Zen Planner, into the wave of the month it begins, and counts there when they roll over. Inducted, rolled over, phone and email fill in from the reports where blank. Use Edit to correct anyone's details.</p>
+        <div class="table-wrap" id="gmWaveTable"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- Scoreboard: daily gains and losses. -->
+    <section class="tab-panel" id="tab-scoreboard">
+      <div class="ar-toolbar">
+        <label>
+          <span>Month</span>
+          <select id="gmMonth"></select>
+        </label>
+      </div>
+      <div class="past-due-metrics gm-metrics" id="gmScoreMetrics"></div>
+      <div class="card">
+        <div class="card-heading-row">
+          <h2>Daily scoreboard</h2>
+        </div>
+        <p class="pd-card-lede">Net = rollovers + memberships − cancels. Changes save as you leave each box.</p>
+        <div class="table-wrap" id="gmScoreTable"><div class="loading">Loading…</div></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Enter or edit one week's figures. -->
+  <dialog class="fu-dialog gm-dialog" id="gmWeekDialog" aria-labelledby="gmWeekTitle">
+    <form method="dialog" id="gmWeekForm">
+      <h2 id="gmWeekTitle">Week ending</h2>
+      <p class="fu-dialog-sub" id="gmWeekSub">Boxes marked “from the app” come from the other reports. On the current week they keep updating unless you change them; anything you type is saved and wins.</p>
+      <div id="gmWeekFields"></div>
+      <div class="fu-dialog-actions">
+        <button type="button" class="sop-action-button secondary" value="cancel" id="gmWeekCancel">Cancel</button>
+        <button type="submit" class="sop-action-button primary">Save week</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Add or edit one wave member. -->
+  <dialog class="fu-dialog gm-dialog" id="gmMemberDialog" aria-labelledby="gmMemberTitle">
+    <form method="dialog" id="gmMemberForm">
+      <h2 id="gmMemberTitle">Add person</h2>
+      <div class="gm-fields">
+        <label><span>First name</span><input name="first_name" required maxlength="80" autocomplete="off"></label>
+        <label><span>Last name</span><input name="last_name" maxlength="80" autocomplete="off"></label>
+        <label><span>Induction date</span><input name="induction_date" type="date"></label>
+        <label class="gm-check"><input name="inducted" type="checkbox"><span>Inducted</span></label>
+        <label><span>Email</span><input name="email" type="email" maxlength="160" autocomplete="off"></label>
+        <label><span>Phone</span><input name="phone" maxlength="40" autocomplete="off"></label>
+        <label class="gm-wide"><span>Specific goal</span><input name="goal" maxlength="300"></label>
+        <label class="gm-wide"><span>What is their why?</span><input name="why" maxlength="300"></label>
+        <label class="gm-wide"><span>Notes</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>
+        <label><span>Rolled over</span>
+          <select name="rolled_over"><option value="">Not yet</option><option value="true">Yes</option><option value="false">No</option></select>
+        </label>
+      </div>
+      <div class="fu-dialog-actions">
+        <button type="button" class="sop-action-button danger" id="gmMemberDelete" hidden>Remove</button>
+        <button type="button" class="sop-action-button secondary" value="cancel" id="gmMemberCancel">Cancel</button>
+        <button type="submit" class="sop-action-button primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <p class="pd-toast" id="gmToast" role="status" aria-live="polite" hidden></p>
+
+  <footer></footer>
+
+  <script src="../../js/config.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/siteHeader.js"></script>
+  <script src="../../js/siteMenu.js"></script>
+  <script src="../../js/followUpCore.js"></script>
+  <script src="../../js/geronimoCore.js"></script>
+  <script src="../../js/geronimoMetrics.js"></script>
+  <script src="../../js/footer.js"></script>
+</body>
+
+</html>

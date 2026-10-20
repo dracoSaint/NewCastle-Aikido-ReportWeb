@@ -21,18 +21,47 @@
       <button data-tab="current_mondayReport">This Week's Report</button>
       <button data-tab="last_mondayReport">Last Week's Report</button>
       <button data-tab="current_memberList">Current Member List</button>
+      <button data-tab="allMembers">All Members</button>
       <button data-tab="memberHistoryLog">Member History Log</button>
-      <button data-tab="pricingSettings" id="pricingSettingsTab">Pricing Settings</button>
+      <button data-tab="pricingSettings" data-requires="monday.edit" id="pricingSettingsTab">Pricing Settings</button>
     </nav>
   </header>
 
   <main>
     <section class="tab-panel active" id="tab-overview">
+      <form class="card chart-card-wide member-toolbar overview-filters" id="overviewFilters" aria-label="Filter the dashboard">
+        <div class="fu-segment" id="overviewRange" role="group" aria-label="Weeks shown">
+          <button type="button" data-weeks="4" aria-pressed="false">4 weeks</button>
+          <button type="button" data-weeks="8" aria-pressed="false">8 weeks</button>
+          <button type="button" data-weeks="12" aria-pressed="false">12 weeks</button>
+          <button type="button" data-weeks="" aria-pressed="true">All</button>
+        </div>
+        <details class="overview-types">
+          <summary>Custom range</summary>
+          <div class="overview-types-list overview-range-list">
+            <label class="overview-date"><span>From</span><input type="date" id="overviewFrom"></label>
+            <label class="overview-date"><span>To</span><input type="date" id="overviewTo"></label>
+          </div>
+        </details>
+        <details class="overview-types">
+          <summary>Membership types: <span id="overviewTypesCount">All</span></summary>
+          <div class="overview-types-list" id="overviewTypes"></div>
+        </details>
+        <button type="reset" class="sop-action-button secondary">Reset</button>
+        <span id="overviewFilterStatus" class="overview-filter-status" role="status"></span>
+      </form>
       <div class="past-due-metrics key-strip chart-card-wide" id="mondayKeyFigure" aria-live="polite"></div>
       <div class="card chart-card chart-card-wide">
-        <h2>Membership Trend</h2>
+        <h2>Total Members</h2>
+        <div class="chart-wrap chart-wrap-short">
+          <canvas id="totalTrendChart" aria-label="Total members by week"></canvas>
+          <div class="loading">Loading dashboard...</div>
+        </div>
+      </div>
+      <div class="card chart-card chart-card-wide">
+        <h2>Membership Types</h2>
         <div class="chart-wrap">
-          <canvas id="membersTrendChart" aria-label="Total members by week"></canvas>
+          <canvas id="membersTrendChart" aria-label="Members by membership type, by week"></canvas>
           <div class="loading">Loading dashboard...</div>
         </div>
       </div>
@@ -101,7 +130,8 @@
           <div class="member-toolbar-actions">
             <button type="button" class="sop-action-button secondary" id="exportMemberCsvBtn">Export CSV</button>
             <input id="memberCsvInput" type="file" accept=".csv,text/csv" hidden>
-            <button id="importMemberCsvBtn" type="button" class="sop-action-button primary">Upload CSV</button>
+            <button id="importMemberCsvBtn" data-requires="monday.edit" type="button" class="sop-action-button secondary">Upload CSV</button>
+            <button id="mondaySyncBtn" data-requires="sync.run" type="button" class="sop-action-button primary" title="Pulls the membership report from Zen Planner. Runs automatically every Monday at 7am.">Sync data</button>
           </div>
           <span id="csvUploadStatus" class="csv-upload-status" role="status"></span>
         </div>
@@ -148,11 +178,87 @@
         </div>
     </section>
 
+    <!-- All Members: every Zen Planner membership, any status (js/allMembers.js) -->
+    <section class="tab-panel" id="tab-allMembers">
+      <div class="past-due-metrics key-strip member-summary am-status" id="amStatus" aria-label="Filter by status"></div>
+
+      <div class="card member-list-card">
+        <div class="card-heading-row">
+          <h2>All members</h2>
+          <span class="member-count" id="amCount" role="status" aria-live="polite"></span>
+        </div>
+        <p class="pd-card-lede" id="amSynced">Every membership in Zen Planner: current, not started, hold, cancelled, cancel pending and completed. Refreshed nightly.</p>
+
+        <form class="member-toolbar am-filters" id="amFilters" aria-label="Filter all members">
+          <label class="member-search">
+            <span class="sr-only">Search by name or number</span>
+            <input id="amSearch" type="search" placeholder="Search name or number" autocomplete="off">
+          </label>
+          <label>
+            <span class="sr-only">Status</span>
+            <select id="amStatusFilter">
+              <option value="">All statuses</option>
+              <option value="CURRENT">Current</option>
+              <option value="NOT STARTED">Not started</option>
+              <option value="HOLD">Hold</option>
+              <option value="CANCEL PENDING">Cancel pending</option>
+              <option value="CANCELED">Cancelled</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Membership</span>
+            <select id="amLabelFilter"><option value="">All memberships</option></select>
+          </label>
+          <label>
+            <span class="sr-only">Autopay</span>
+            <select id="amAutopayFilter">
+              <option value="">Any autopay</option>
+              <option value="ON">Autopay on</option>
+              <option value="OFF">Autopay off</option>
+              <option value="ERROR">Autopay error</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Date to filter on</span>
+            <select id="amDateField">
+              <option value="mbr_begin_date">Begins</option>
+              <option value="mbr_end_date">Ends</option>
+            </select>
+          </label>
+          <label><span class="sr-only">From</span><input id="amFrom" type="date" aria-label="From date"></label>
+          <label><span class="sr-only">To</span><input id="amTo" type="date" aria-label="To date"></label>
+          <label>
+            <span class="sr-only">Sort</span>
+            <select id="amSort">
+              <option value="begin_desc">Newest start first</option>
+              <option value="begin_asc">Oldest start first</option>
+              <option value="end_asc">Ending soonest</option>
+              <option value="end_desc">Ending latest</option>
+              <option value="name">Last name A–Z</option>
+            </select>
+          </label>
+          <div class="member-toolbar-actions">
+            <button type="button" class="sop-action-button secondary" id="amClear">Clear filters</button>
+            <button type="button" class="sop-action-button secondary" id="amExport">Export CSV</button>
+          </div>
+        </form>
+
+        <div class="table-wrap" id="amTable"><div class="loading">Loading memberships…</div></div>
+
+        <div class="am-pager">
+          <button type="button" class="sop-action-button secondary" id="amPrev" disabled>Previous</button>
+          <span id="amPageInfo" role="status" aria-live="polite"></span>
+          <button type="button" class="sop-action-button secondary" id="amNext" disabled>Next</button>
+        </div>
+      </div>
+    </section>
+
     <section class="tab-panel" id="tab-memberHistoryLog">
       <div class="card">
         <div class="card-heading-row">
           <h2>Member History Log</h2>
-          <button type="button" class="monday-report-button primary" id="addWeeklyLogBtn">Add Log</button>
+          <button type="button" class="monday-report-button primary" id="addWeeklyLogBtn" data-requires="monday.edit">Add Log</button>
         </div>
         <div class="table-wrap" id="memberHistoryLog-wrap">
           <div class="loading">Loading...</div>
@@ -182,7 +288,9 @@
   <script src="../../js/siteMenu.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="../../js/config.js"></script>
+  <script src="../../js/mondayImportCore.js"></script>
   <script src="../../js/mondayBoardScripts.js"></script>
+  <script src="../../js/allMembers.js"></script>
 </body>
 
 <script src="../../js/footer.js"></script>

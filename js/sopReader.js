@@ -489,22 +489,13 @@ async function deleteSopDocument(itemId) {
   await deleteSopFromSupabase(itemId);
 }
 
-let noticeTimer;
-function showMissingFileNotice() {
-  let notice = document.querySelector('.feature-notice');
-  if (!notice) {
-    notice = document.createElement('div');
-    notice.className = 'feature-notice';
-    notice.setAttribute('role', 'status');
-    notice.setAttribute('aria-live', 'polite');
-    document.body.appendChild(notice);
-  }
+// Phones get Google's reflowing mobile view; the desktop preview is a fixed-width page.
+const SOP_NARROW = window.matchMedia('(max-width: 760px)');
 
-  notice.textContent = "Sorry, this feature isn't finished yet. Please check back in a bit! ☹️";
-  notice.classList.add('visible');
-
-  clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => notice.classList.remove('visible'), 3000);
+// Accept a bare document ID or a full Google Docs / Drive link.
+function extractDocId(value) {
+  const text = String(value || '').trim();
+  return (text.match(/\/d\/([\w-]{10,})/) || text.match(/[?&]id=([\w-]{10,})/) || [, text])[1];
 }
 
 function getSopById(id) {
@@ -523,7 +514,7 @@ function getCategoryNameByItemId(itemId) {
 }
 
 function getDrivePreviewUrl(fileId) {
-  return 'https://docs.google.com/document/d/' + encodeURIComponent(fileId) + '/preview';
+  return 'https://docs.google.com/document/d/' + encodeURIComponent(fileId) + (SOP_NARROW.matches ? '/mobilebasic' : '/preview');
 }
 
 function getFirstAvailableSopId() {
@@ -665,7 +656,7 @@ function renderSopDocument(item) {
 
   title.textContent = item.label;
   openLink.hidden = !item.driveFileId;
-  openLink.href = item.driveFileId ? 'https://drive.google.com/file/d/' + encodeURIComponent(item.driveFileId) + '/view' : '#';
+  openLink.href = item.driveFileId ? 'https://docs.google.com/document/d/' + encodeURIComponent(item.driveFileId) + '/edit' : '#';
   deleteBtn.hidden = false;
   editBtn.hidden = false;
 
@@ -673,13 +664,37 @@ function renderSopDocument(item) {
     frame.hidden = true;
     frame.src = 'about:blank';
     status.hidden = false;
-    status.innerHTML = '<strong>Google Drive file not connected yet.</strong><span>Add the Drive file ID for this SOP in the form below.</span>';
+    status.innerHTML = '<strong>No Google Doc linked to this SOP yet.</strong><span>Use “Edit SOP” and paste the document link.</span>';
     return;
   }
 
   status.hidden = true;
   frame.hidden = false;
-  frame.src = getDrivePreviewUrl(item.driveFileId);
+  const src = getDrivePreviewUrl(item.driveFileId);
+  if (frame.src !== src) frame.src = src;
+}
+
+function filterSopMenu(menu, query) {
+  const needle = query.trim().toLowerCase();
+  let matches = 0;
+  menu.querySelectorAll('.sop-accordion-group').forEach(group => {
+    let groupMatches = 0;
+    group.querySelectorAll('.sop-menu-item').forEach(item => {
+      const show = !needle || item.textContent.toLowerCase().includes(needle);
+      item.hidden = !show;
+      if (show) groupMatches += 1;
+    });
+    group.hidden = groupMatches === 0;
+    group.classList.toggle('searching', Boolean(needle));
+    matches += groupMatches;
+  });
+  let empty = menu.querySelector('.sop-search-empty');
+  if (!empty) {
+    empty = document.createElement('p');
+    empty.className = 'sop-search-empty';
+    menu.append(empty);
+  }
+  empty.textContent = needle && !matches ? `No procedures match “${query.trim()}”.` : '';
 }
 
 function escapeSopHtml(value) {
@@ -741,21 +756,38 @@ async function initSopReader() {
     menu.querySelectorAll('[data-sop-id]').forEach(button => {
       button.addEventListener('click', () => {
         const item = getSopById(button.dataset.sopId);
-
-        if (!item || (!item.driveFileId || item.driveFileId.trim() === '')) {
-          showMissingFileNotice();
-        }
+        if (!item) return;
 
         menu.querySelectorAll('.sop-menu-item').forEach(menuItem => menuItem.classList.remove('active'));
         button.classList.add('active');
         syncSelectedSopState(item.id);
         renderSopDocument(item);
+        // On stacked layouts the reader sits above the list: bring it into view.
+        if (window.matchMedia('(max-width: 1080px)').matches) {
+          reader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       });
     });
 
+    filterSopMenu(menu, searchInput?.value || '');
     const selectedItem = getSopById(validSelectedId);
     renderSopDocument(selectedItem);
   }
+
+  const reader = document.querySelector('.sop-reader');
+  const searchInput = document.getElementById('sopSearch');
+  searchInput?.addEventListener('input', () => filterSopMenu(menu, searchInput.value));
+
+  document.getElementById('sopBrowseBtn')?.addEventListener('click', () => {
+    document.querySelector('.sop-sidebar')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    searchInput?.focus({ preventScroll: true });
+  });
+
+  // Swap between the phone and desktop Google views when the screen size class changes.
+  SOP_NARROW.addEventListener('change', () => {
+    const selectedId = new URLSearchParams(window.location.search).get('sop');
+    if (selectedId) renderSopDocument(getSopById(selectedId));
+  });
 
   addSopBtn.addEventListener('click', () => openSopModal('add', null));
 
@@ -809,7 +841,7 @@ async function initSopReader() {
       ? document.getElementById('sopNewCategoryInput').value.trim()
       : categorySelect.value.trim();
     const title = document.getElementById('sopTitleInput').value.trim();
-    const driveFileId = document.getElementById('sopDriveIdInput').value.trim();
+    const driveFileId = extractDocId(document.getElementById('sopDriveIdInput').value);
 
     if (!selectedCategory) {
       window.alert('Please select or create a category.');

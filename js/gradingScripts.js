@@ -19,8 +19,8 @@ let jsonpCounter = 0;
 const sheetCache = {};
 
 const HEADER_FALLBACKS = {
-  homeAdults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
-  homeJuniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
+  homeAdults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Eligibility'],
+  homeJuniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Eligibility'],
   adults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
   juniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
   members: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Enough Att. For Rank?', 'Last Test Date']
@@ -122,7 +122,20 @@ function classify(headerLower, cellLower) {
   return '';
 }
 
+// Name first: First Name + Last Name become one "Name" column at the front.
+function nameFirst(block) {
+  const first = block.headers.findIndex(h => /^first name$/i.test(h));
+  const last = block.headers.findIndex(h => /^last name$/i.test(h));
+  if (first < 0 || last < 0) return block;
+  const rest = block.headers.map((_, i) => i).filter(i => i !== first && i !== last);
+  return {
+    headers: ['Name', ...rest.map(i => block.headers[i])],
+    rows: block.rows.map(r => [[r[first], r[last]].filter(Boolean).join(' '), ...rest.map(i => r[i])])
+  };
+}
+
 function renderTable(container, block) {
+  block = nameFirst(block);
   if (!block.rows.length) {
     container.innerHTML = '<div class="empty">No data found.</div>';
     return;
@@ -142,16 +155,27 @@ function renderTable(container, block) {
       const needed = neededIdx >= 0 ? parseFloat(row[neededIdx]) : NaN;
       if (c === sinceIdx && needed > 0 && !isNaN(parseFloat(cell))) {
         const p = Math.min(parseFloat(cell) / needed, 1);
-        html += '<td class="measure ' + cls + '"' + label + '>' + escapeHtml(cell) +
+        html += '<td class="measure ' + cls + '"' + label + '>' + escapeHtml(cell) + ' / ' + escapeHtml(row[neededIdx]) +
           '<span class="stitch-meter' + (p >= 1 ? ' done' : '') + '" style="--p:' + p.toFixed(2) + '" aria-hidden="true"></span></td>';
         return;
       }
-      html += '<td class="' + cls + '"' + label + '>' + escapeHtml(cell) + '</td>';
+      // Eligible / Yes as a green chip, Not eligible / No as a grey one (same chips as the other reports).
+      const text = escapeHtml(gradingCell(block.headers[c], cell));
+      const chip = { eligible: 'is-done', yes: 'is-done', 'not-eligible': 'is-todo', no: 'is-todo' }[cls.trim().split(' ')[0]];
+      html += '<td class="' + cls + '"' + label + '>' + (chip && text !== '—' ? '<span class="fu-chip ' + chip + '">' + text + '</span>' : text) + '</td>';
     });
     html += '</tr>';
   });
   html += '</tbody></table>';
   container.innerHTML = html;
+}
+
+// Blank cells show a dash; sheet dates (d/m/yyyy text) are padded to 06/12/2025 so the column lines up.
+function gradingCell(header, cell) {
+  const value = String(cell ?? '').trim();
+  if (!value) return '—';
+  if (!/date/i.test(header || '')) return value;
+  return value.replace(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, (_, d, m, y) => `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`);
 }
 
 function escapeHtml(v) {
@@ -185,13 +209,15 @@ function renderGradingKeyFigure(adults, juniors) {
 
 function setUpdatedNow() {
   const now = new Date();
-  document.getElementById('updatedLine').textContent = 'Last updated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+  document.getElementById('updatedLine').textContent = 'Last updated: ' + now.toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function loadHome() {
   fetchSheetRaw(HOME_SHEET_NAME).then(rawRows => {
     const adults = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_ADULTS_COLS.start, HOME_ADULTS_COLS.end, 'homeAdults');
     const juniors = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_JUNIORS_COLS.start, HOME_JUNIORS_COLS.end, 'homeJuniors');
+    // The sheet labels the last overview column "Weekly Hour Goal", but it holds Eligible / Not eligible.
+    [adults, juniors].forEach(block => { block.headers = block.headers.map(h => (/weekly hour goal/i.test(h) ? 'Eligibility' : h)); });
     renderTable(document.getElementById('home-adults-wrap'), adults);
     renderTable(document.getElementById('home-juniors-wrap'), juniors);
     renderGradingKeyFigure(adults, juniors);
@@ -201,15 +227,43 @@ function loadHome() {
   });
 }
 
-function loadPage(key) {
+function pageBlock(key) {
   const config = PAGE_CONFIGS[key];
-  fetchSheetRaw(config.sheetName).then(rawRows => {
+  return fetchSheetRaw(config.sheetName).then(rawRows => {
     const headers = getHeaders(rawRows, config.headerRow, key);
     const rows = rawRows.slice(config.dataStartRow - 1)
       .map(row => normalizeRow(row, headers.length).slice(0, headers.length))
       .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
-    renderTable(document.getElementById(key + '-wrap'), { headers, rows });
-  }).catch(err => showError(key + '-wrap', err));
+    return { headers, rows };
+  });
+}
+
+function loadPage(key) {
+  pageBlock(key)
+    .then(block => renderTable(document.getElementById(key + '-wrap'), block))
+    .catch(err => showError(key + '-wrap', err));
+}
+
+// Members within 3 hours of the hours needed: who to line up for the next grading.
+const CLOSE_HOURS = 3;
+function loadCloseToEligible() {
+  const wrap = document.getElementById('home-close-wrap');
+  if (!wrap) return;
+  Promise.all(['adults', 'juniors'].map(key => pageBlock(key).then(block => ({ key, block: nameFirst(block) }))))
+    .then(groups => {
+      const rows = groups.flatMap(({ key, block }) => {
+        const since = block.headers.findIndex(h => /since test/i.test(h));
+        const needed = block.headers.findIndex(h => /hours needed/i.test(h));
+        const rank = block.headers.findIndex(h => /^rank$/i.test(h));
+        return block.rows
+          .map(r => ({ r, short: parseFloat(r[needed]) - parseFloat(r[since]) }))
+          .filter(({ short }) => short > 0 && short <= CLOSE_HOURS)
+          .map(({ r }) => [r[0], key === 'adults' ? 'Adult' : 'Junior', rank >= 0 ? r[rank] : '', r[since], r[needed]]);
+      }).sort((a, b) => (b[3] / b[4]) - (a[3] / a[4]));
+      renderTable(wrap, { headers: ['Name', 'Group', 'Rank', 'Att. Since Test', 'Hours Needed'], rows });
+      if (!rows.length) wrap.innerHTML = '<div class="empty">Nobody is within ' + CLOSE_HOURS + ' hours yet.</div>';
+    })
+    .catch(err => showError('home-close-wrap', err));
 }
 
 function showError(elId, err) {
@@ -220,7 +274,7 @@ const loaded = {};
 function loadTab(key) {
   if (loaded[key]) return;
   loaded[key] = true;
-  if (key === 'home') loadHome();
+  if (key === 'home') { loadHome(); loadCloseToEligible(); }
   else loadPage(key);
 }
 
