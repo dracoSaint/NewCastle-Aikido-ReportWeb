@@ -14,3 +14,5 @@ supabase/.temp/
 
 # Local data backups (member personal data): never commit
 .claude/backups/
+dist/
+.wrangler/

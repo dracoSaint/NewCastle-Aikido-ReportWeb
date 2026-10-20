@@ -10480,3 +10480,37 @@ html.reduce-motion *::after {
 .shortcut-list kbd { display: inline-block; min-width: 22px; padding: 2px 7px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 6px; background: var(--paper); font: 600 .8rem var(--font-ui); text-align: center; }
 .fu-dialog .task-comment-form { padding: 0; gap: 8px; }
 @media (max-width: 760px) { .task-tab { top: auto; bottom: 96px; transform: none; } }
+
+/* Task: page link, and the Past Due follow-ups listed under a task that opens that report */
+.task-link { justify-self: start; margin-top: 2px; color: var(--ai-600); font-size: .8rem; font-weight: 600; text-decoration: none; }
+.task-link:hover { text-decoration: underline; }
+.task-sub { grid-column: 1 / -1; display: grid; gap: 2px; margin: 4px 0 0; padding: 0 0 0 32px; list-style: none; }
+.task-sub a { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 2px 12px; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--paper); color: var(--ink-2); font-size: .82rem; text-decoration: none; }
+.task-sub a:hover { background: var(--ai-50); }
+.task-sub strong { overflow: hidden; color: var(--ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.task-sub small { grid-column: 1 / -1; color: var(--ink-3); font-size: .75rem; }
+.task-sub-empty, .task-sub-more { grid-column: 1 / -1; margin: 4px 0 0 32px; color: var(--ink-3); font-size: .8rem; }
+.task-sub-more { color: var(--ai-600); font-weight: 600; text-decoration: none; }
+
+/* Sidebar: Today card and Recent pages (js/siteMenu.js), filling the space under the menu */
+.drawer-today { flex: none; display: grid; gap: 2px; margin: 0 12px 10px; padding: 12px; border-radius: var(--radius); background: var(--ai-50); }
+.drawer-today-date { margin: 0 0 6px; color: var(--ink); font: 400 1.05rem var(--font-head); letter-spacing: .02em; }
+.drawer-today-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-2); font: 500 .85rem var(--font-ui); text-align: left; text-decoration: none; cursor: pointer; }
+.drawer-today-row:hover { background: var(--paper); color: var(--ink); }
+.drawer-today-row:focus-visible { outline: 2px solid var(--ai-600); outline-offset: 1px; }
+.drawer-today-row strong { color: var(--ink); font-weight: 700; }
+.drawer-today-row strong.is-attention, #drawerPastDue strong { color: var(--beni); }
+.drawer-today-bar { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: var(--ai-100); overflow: hidden; }
+.drawer-today-bar span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--moss); transition: width .3s var(--ease-out); }
+.drawer-recent { flex: none; margin: 0 12px 10px; }
+.drawer-recent h3 { margin: 0 0 4px; padding: 0 8px; color: var(--ink-3); font: 700 .72rem var(--font-ui); letter-spacing: .06em; text-transform: uppercase; }
+.drawer-recent-list { display: grid; }
+.drawer-recent-list a { overflow: hidden; padding: 6px 8px; border-radius: var(--radius-sm); color: var(--ink-2); font-size: .85rem; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-recent-list a:hover { background: var(--ai-50); color: var(--ink); }
+html.menu-collapsed .drawer-today, html.menu-collapsed .drawer-recent { display: none; }
+@media (max-height: 760px) { .drawer-recent { display: none; } }
+@media (prefers-reduced-motion: reduce) { .drawer-today-bar span { transition: none; } }
+/* The menu never shrinks for the Today card: the whole sidebar scrolls instead; the footer sits at the bottom when there is room. */
+.page-drawer { overflow-y: auto; }
+.page-drawer .drawer-nav { flex: 0 0 auto; overflow: visible; }
+.page-drawer .drawer-today { margin-top: auto; }

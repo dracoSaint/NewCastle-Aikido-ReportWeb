@@ -72,8 +72,11 @@
     return new URL(path, siteRoot).href;
   }
 
-  const here = window.location.href.split('#')[0].toLowerCase();
-  const isHere = url => url.toLowerCase() === here;
+  // Compared without ".html" or a trailing "index": hosts with pretty URLs (Cloudflare Pages) serve
+  // /pages/Tasks.html as /pages/Tasks and index.html as /.
+  const bare = url => url.split('#')[0].toLowerCase().replace(/\.html(?=$|\?)/, '').replace(/\/index(?=$|\?)/, '/');
+  const here = bare(window.location.href);
+  const isHere = url => bare(url) === here;
 
   function getNavigationItems() {
     return [
@@ -153,6 +156,19 @@
           <a href="${homeUrl}" title="Home"${isHere(homeUrl) ? ' class="active" aria-current="page"' : ''}>${icon('home')}<span>Home</span></a>
           ${groups}
         </nav>
+        <section class="drawer-today" aria-label="Today">
+          <p class="drawer-today-date">${new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          <button type="button" class="drawer-today-row" id="drawerTasks">
+            <span>My tasks today</span><strong data-today="tasks">–</strong>
+            <span class="drawer-today-bar" aria-hidden="true"><span></span></span>
+          </button>
+          <button type="button" class="drawer-today-row" id="drawerAlerts"><span>Unread alerts</span><strong data-today="alerts">–</strong></button>
+          <a class="drawer-today-row" id="drawerPastDue" href="${getMenuUrl('pages/REPORTs/PastDueMembers.html')}" hidden><span>Past Due follow-ups</span><strong data-today="pastdue"></strong></a>
+        </section>
+        <section class="drawer-recent" id="drawerRecent" aria-labelledby="drawerRecentTitle" hidden>
+          <h3 id="drawerRecentTitle">Recent</h3>
+          <div class="drawer-recent-list"></div>
+        </section>
         <div class="drawer-footer">
           <a class="drawer-settings${isHere(settingsUrl) ? ' active' : ''}" href="${settingsUrl}" aria-label="Settings">
             <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -203,10 +219,60 @@
     });
 
     initCollapse();
+    initToday();
+    initRecent();
     initQuickSwitcher();
     initShortcuts();
 
     initUnfinishedFeatureNotice();
+  }
+
+  // Sidebar "Today" card: tasks done (js/tasks.js), unread alerts (js/notifications.js) and Past Due
+  // follow-ups due (js/tasks.js, only once a task that opens Past Due has loaded them).
+  function initToday() {
+    const value = name => document.querySelector(`[data-today="${name}"]`);
+    window.addEventListener('portal-tasks', ({ detail }) => {
+      value('tasks').textContent = detail.total ? `${detail.done} / ${detail.total}` : 'None';
+      document.querySelector('.drawer-today-bar span').style.width = `${detail.total ? (detail.done / detail.total) * 100 : 0}%`;
+    });
+    window.addEventListener('portal-unread', ({ detail }) => {
+      value('alerts').textContent = detail;
+      value('alerts').classList.toggle('is-attention', detail > 0);
+    });
+    window.addEventListener('portal-pastdue', ({ detail }) => {
+      document.getElementById('drawerPastDue').hidden = !detail;
+      value('pastdue').textContent = detail;
+    });
+    document.getElementById('drawerTasks').addEventListener('click', () => {
+      if (document.getElementById('taskTab')) window.portalTasks?.toggle();
+      else window.location.href = getMenuUrl('pages/Tasks.html');
+    });
+    // Stop the click here, or the page's "click outside closes the bell" would shut it again.
+    document.getElementById('drawerAlerts').addEventListener('click', event => {
+      event.stopPropagation();
+      document.getElementById('notifyBtn')?.click();
+    });
+  }
+
+  // Sidebar "Recent": the last pages opened from the menu, newest first (this browser only).
+  const RECENT_KEY = 'portal-recent-pages';
+  function initRecent() {
+    const pages = [{ label: 'Tasks', url: getMenuUrl('pages/Tasks.html') }, ...getNavigationItems()];
+    const current = pages.find(page => isHere(page.url.split('#')[0]));
+    let recent = [];
+    try { recent = JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch {}
+    recent = recent.filter(url => pages.some(page => page.url === url));
+    if (current) {
+      recent = [current.url, ...recent.filter(url => url !== current.url)].slice(0, 6);
+      try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch {}
+    }
+    const shown = recent.filter(url => url !== current?.url).slice(0, 4);
+    const box = document.getElementById('drawerRecent');
+    box.hidden = !shown.length;
+    box.querySelector('.drawer-recent-list').innerHTML = shown.map(url => {
+      const page = pages.find(item => item.url === url);
+      return `<a href="${url}" title="${page.label}">${page.label}</a>`;
+    }).join('');
   }
 
   // Wide screens: the sidebar can shrink to icons only (remembered in this browser).

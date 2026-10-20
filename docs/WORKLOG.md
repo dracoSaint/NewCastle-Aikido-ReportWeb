@@ -17,6 +17,28 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ---
 
+## 2026-10-21 — Task page links, Past Due follow-ups in today's tasks
+
+Status: **awaiting user OK** (local, not pushed).
+
+### Instructions from the user
+- In today's tasks, under the Past Due report task, show members with overdue or close follow-ups. Link tasks to their pages, especially repeating ones.
+
+### Decisions
+- A task gets an optional "Opens" page. A task that opens Past Due lists follow-ups overdue / today / next 3 days under it (3 so a Friday covers Monday).
+- The follow-up rule moved to `js/pastDueCore.js` so the report and the task list can't drift apart.
+- Member rows link to `PastDueMembers.html?member=<name>` (Past Due tab, searched).
+- Not done (not asked): the same kind of list for Red / Orange.
+- User (later): migrate hosting to Cloudflare; adjust code or give instructions. Done: pretty-URL fixes (access, menu, mention links), `npm run build` to `dist/` (site files only), `_headers`, `npm run preview` (Wrangler). Tested on Wrangler: sign-in page, Home, reports, SOP links, Tasks, Settings, `?member=` link all work; no errors. Set-up steps in CHANGES "Cloudflare Pages hosting". Decision: Cloudflare deploys the `production` branch; Netlify stays on `main` (not turned off). Open: user creates the Pages project (production branch `production`) and adds Supabase redirect URLs; production is behind main, fast-forward with `git push origin main:production` when wanted.
+- User (later): too much unused space on the left; populate it. Done: sidebar Today card (date, tasks progress, unread alerts, Past Due follow-ups due) and Recent pages; the sidebar now scrolls as a whole so the menu never shrinks. See CHANGES "Sidebar Today card and Recent pages".
+
+### Done
+- See `docs/CHANGES.md` → "Task page links and Past Due follow-ups in the task list".
+
+### Open items
+- Re-run `supabase/notifications_tasks.sql` (now also adds `tasks.link`).
+- Click through: make a weekday task opening Past Due; open the TASKS tab; click a member.
+
 ## 2026-10-20 — Notification centre, @mentions, Home task list
 
 Status: **shipped (50e4b5f, main e548f01)**, 2026-10-20.

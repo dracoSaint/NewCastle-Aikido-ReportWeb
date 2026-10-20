@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 
 const [outDir = 'shots', width = '1440', height = '900'] = process.argv.slice(2);
 mkdirSync(outDir, { recursive: true });
-const BASE = 'http://127.0.0.1:8000/';
+const BASE = process.env.BASE || 'http://127.0.0.1:8000/'; // BASE=http://127.0.0.1:8788/ for npm run preview (Cloudflare)
 const PAGES = {
   login: 'pages/login.html',
   home: 'index.html',
@@ -22,6 +22,7 @@ const PAGES = {
   monday: 'pages/REPORTs/MondayBoardReport.html',
   followup: 'pages/REPORTs/FollowUpReport.html',
   pastdue: 'pages/REPORTs/PastDueMembers.html',
+  pastduemember: 'pages/REPORTs/PastDueMembers.html?member=Denise%20Nguyen',
   sop: 'pages/SOPs/SOPDocuments.html?sop=billing-account-query',
   ads: 'pages/REPORTs/DailyAdReview.html',
   geronimo: 'pages/REPORTs/GeronimoMetrics.html',

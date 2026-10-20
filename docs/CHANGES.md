@@ -5,6 +5,57 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
+## Cloudflare Pages hosting (2026-10-21, not yet shipped)
+
+Moving the site from Netlify to Cloudflare Pages. The site is static (no server code); the bots stay on GitHub Actions and the data stays in Supabase, so neither changes.
+
+**Code changes (work on both hosts):**
+- Cloudflare serves `/pages/Tasks.html` as `/pages/Tasks` (308 redirect; query strings kept). Three checks assumed ".html" and now accept both: the No access page (`js/access.js`), the menu's current-page highlight and Recent (`js/siteMenu.js`), and the page link stored on @mention alerts (`js/notifications.js`; the database only accepts `….html` links).
+- `npm run build` copies only the site (`index.html`, `css`, `js`, `imgs`, `pages`, `_headers`) into `dist/`, so `automation/`, `docs/`, `supabase/` and `CLAUDE.md` are not published.
+- `_headers`: nosniff, `X-Frame-Options: SAMEORIGIN` (the SOP Library frames its own pages), referrer and permissions policies.
+- `npm run preview` builds and serves `dist/` with Cloudflare's own dev server (Wrangler) on http://127.0.0.1:8788, pretty URLs included. `.claude/preview-shots.mjs` takes `BASE=http://127.0.0.1:8788/`.
+
+**Set-up (once, in this order):**
+1. Cloudflare dashboard > Workers & Pages > Create > Pages > Connect to Git > pick `dracoSaint/NewCastle-Aikido-ReportWeb`.
+2. Build settings: Framework preset None; Build command `npm run build`; Build output directory `dist`; Root directory empty. **Production branch `production`** (Netlify keeps publishing `main`; both stay live). No environment variables are needed (the Supabase URL and publishable key are public, in `js/config.js`).
+3. Preview deployments: set to "None" or "Custom: testing" so pushes to `main` / `staging` don't use up Cloudflare builds. Branch flow: `testing` → `main` (Netlify) → `production` (Cloudflare): `git push origin main:production` once main is checked.
+4. Supabase > Authentication > URL Configuration:
+   - Add to Redirect URLs: `https://<project>.pages.dev/**` and `https://*.<project>.pages.dev/**` (and the custom domain below, if any). Without this, password reset and invite links fail.
+   - Change Site URL to the Cloudflare address only when you switch over for good (it is where sign-up / invite emails send people).
+5. Optional custom domain: Pages project > Custom domains > Set up a domain (DNS on Cloudflare is easiest), then add it to Supabase Redirect URLs too.
+6. Test the `pages.dev` site: sign in, open each report, tick a task, tag someone, reset a password.
+7. Netlify stays on (decision 2026-10-21). Keep the Supabase Site URL on the Netlify address until staff move over; then change it to the Cloudflare one.
+
+**Known limits:** a push to `main` builds on Netlify only; a push to `production` builds on Cloudflare only (500 builds a month on the free plan). Bookmarks with `.html` keep working on Cloudflare (they redirect).
+
+---
+
+## Sidebar Today card and Recent pages (2026-10-21, not yet shipped)
+
+- The empty space under the sidebar menu now holds:
+  - **Today card:** the date; My tasks today (done / total, green bar; click opens the TASKS panel, or the Tasks page there); Unread alerts (red when any; click opens the bell); Past Due follow-ups due today or overdue (shown only when a task that opens Past Due has loaded them; click opens the report).
+  - **Recent:** the last 4 menu pages you opened (this browser only). Hidden on short screens (under 760 px tall).
+- Both hide when the sidebar is collapsed to icons. The menu no longer shrinks: on small screens the whole sidebar scrolls.
+- **Files:** `js/siteMenu.js`, `js/notifications.js` (`portal-unread` event), `js/tasks.js` (`portal-pastdue` event), `css/styles.css`.
+- **Check:** open a few reports, then look at Recent; tick a task and watch the bar; click Unread alerts.
+
+---
+
+## Task page links and Past Due follow-ups in the task list (2026-10-21, not yet shipped)
+
+- **Opens:** a task can open a report (Edit task > Opens: Past Due, Red / Orange, Monday Board, Ad Review, Geronimo, Grading, SOP Library). The task shows "Open <report> →". Meant for repeating tasks such as "Check the Red / Orange list".
+- **Past Due follow-ups:** under a task that opens Past Due Members, today's list shows the members whose follow-up is overdue, due today or due in the next 3 days (soonest first; up to 8, then "+N more"): name, balance owing, when, and the SOP step. Same rule as the report's Next follow-up column (now shared: `pastDueMemberFollowUp` and `pastDueOpenMembers` in `js/pastDueCore.js`). Only for roles that can view Past Due.
+- **Member links:** clicking a member opens Past Due Members on the Past Due tab, already searched to that name (`PastDueMembers.html?member=<name>`).
+- Home's Past due tile uses the same shared `pastDueOpenMembers`.
+
+**Files:** `js/tasks.js`, `js/pastDueCore.js`, `js/pastDueMembers.js`, `js/homeGlance.js`, `supabase/notifications_tasks.sql` (section 4: `tasks.link`), `css/styles.css`, `automation/pastdue-core.check.mjs`.
+
+**Set-up:** re-run `supabase/notifications_tasks.sql` (adds the `link` column; saving a task fails until then).
+
+**Check:** `node automation/pastdue-core.check.mjs`. Make a weekday task "Past Due follow-ups" that opens Past Due Members; open the TASKS tab: the members due show under it; click one.
+
+---
+
 ## Task alerts, priority, comments; Home at a glance; menu collapse; shortcuts (shipped 2026-10-20, 50e4b5f)
 
 - **Due alerts:** the first time you open the portal each day, your bell gets one alert per one-off task assigned to you that is due today or overdue and not done (`notify_my_due_tasks()`; never twice a day).

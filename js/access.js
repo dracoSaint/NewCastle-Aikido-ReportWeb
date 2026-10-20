@@ -61,7 +61,9 @@ const ACCESS_PAGES = {
     };
 
     // A page the role can't view: say so instead of showing an empty report.
-    const file = Object.keys(ACCESS_PAGES).find(name => window.location.pathname.endsWith(name));
+    // Hosts with pretty URLs (Cloudflare Pages) drop ".html" from the address, so match both.
+    const path = window.location.pathname.replace(/\.html$/, '');
+    const file = Object.keys(ACCESS_PAGES).find(name => path.endsWith(name.replace(/\.html$/, '')));
     if (file && !can(`${ACCESS_PAGES[file]}.view`)) {
       const show = () => {
         const main = document.querySelector('main');

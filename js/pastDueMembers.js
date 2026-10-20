@@ -203,19 +203,10 @@ function pastDueLastNoteTime(member) {
 
 const pastDueLocalDate = value => new Date(value).toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
 
-// A staff-set date holds until a note is added on or after it; otherwise the SOP decides
-// (pastDueSopFollowUp). Escalated members are with Darius, so the SOP pauses for them.
+// The rule lives in js/pastDueCore.js (pastDueMemberFollowUp), shared with the task list.
 function pastDueFollowUp(member) {
   const latest = pastDueNotesFor(member)[0];
-  const lastAction = latest ? pastDueLocalDate(latest.created_at) : null;
-  const manual = member.bills.map(bill => bill.next_follow_up).filter(Boolean).sort().pop();
-  if (manual && !(lastAction >= manual)) return { date: manual, step: 'Set by staff' };
-  if (member.bills.some(pastDueIsEscalated)) return { date: null, step: 'With Darius' };
-  const oldestDue = member.bills.map(bill => pastDueDateValue(bill.due_date)).filter(Boolean).sort()[0];
-  const next = pastDueSopFollowUp(oldestDue, lastAction);
-  if (!next) return { date: null, step: 'No due date' };
-  // Missed steps: name the step the member is at today, not the first one missed.
-  return next.date < pastDueLocalDate(Date.now()) ? { ...next, step: pastDueSopStep(pastDueOldest(member.bills)) } : next;
+  return pastDueMemberFollowUp(member.bills, latest ? pastDueLocalDate(latest.created_at) : null, pastDueLocalDate(Date.now()));
 }
 
 const pastDueIsFollowUpDue = member => {
@@ -1248,6 +1239,12 @@ function initPastDuePage() {
   };
   buttons.forEach(button => button.addEventListener('click', () => showTab(button.dataset.tab)));
   document.querySelectorAll('[data-show-tab]').forEach(link => link.addEventListener('click', () => showTab(link.dataset.showTab)));
+  // ?member=<name> (from the task list's follow-ups): open the Past Due tab searched to that member.
+  const linkedMember = new URLSearchParams(location.search).get('member');
+  if (linkedMember && document.getElementById('nameSearchPastDue')) {
+    document.getElementById('nameSearchPastDue').value = linkedMember.slice(0, 80);
+    showTab('pastDue');
+  }
 
   const stageFilter = document.getElementById('pastDueStageFilter');
   if (stageFilter) stageFilter.insertAdjacentHTML('beforeend', pastDueOptionList(PAST_DUE_STAGES));

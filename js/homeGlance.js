@@ -1,6 +1,6 @@
 // Home "At a glance" tiles (index.html): live numbers from the reports, each linking to its report.
 // Tiles for reports the role can't view are hidden (data-requires, js/access.js) and never queried.
-// Uses followUpCore.js (fuBuild) and pastDueCore.js (pastDueIdentity), loaded before this file.
+// Uses followUpCore.js (fuBuild) and pastDueCore.js (pastDueOpenMembers), loaded before this file.
 (async function () {
   const set = (name, value, sub) => {
     const tile = document.querySelector(`[data-glance="${name}"]`);
@@ -44,15 +44,8 @@
     client.from('past_due_exempted_members').select('member_key, member_number, member_name')
   ]).then(([log, exempt]) => {
     if (log.error) return set('pastdue', '—', '');
-    const keys = new Set((exempt.data || []).flatMap(item => [item.member_key, item.member_number, item.member_name].map(pastDueIdentity).filter(Boolean)));
-    const members = new Map();
-    log.data.filter(row => ![row.member_key, row.member_number, row.member_name].map(pastDueIdentity).some(key => key && keys.has(key))).forEach(row => {
-      const key = pastDueIdentity(row.member_name) || row.member_key;
-      if (!members.has(key)) members.set(key, []);
-      members.get(key).push(row);
-    });
-    const owing = [...members.values()].map(bills => bills.filter(bill => bill.status === 'PAST DUE')).filter(bills => bills.length);
-    const total = owing.flat().reduce((sum, bill) => sum + (parseFloat(bill.amount) || 0), 0);
+    const owing = pastDueOpenMembers(log.data, exempt.data);
+    const total = owing.flatMap(member => member.bills).reduce((sum, bill) => sum + (parseFloat(bill.amount) || 0), 0);
     set('pastdue', money(total), `${owing.length} ${owing.length === 1 ? 'member' : 'members'} owing`);
   }));
 

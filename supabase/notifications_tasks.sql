@@ -198,3 +198,8 @@ end
 $$;
 revoke all on function public.notify_my_due_tasks() from public, anon;
 grant execute on function public.notify_my_due_tasks() to authenticated;
+
+-- 4. A page a task opens (added 2026-10-21): only portal pages, same rule as notification links.
+alter table public.tasks add column if not exists link text
+  check (link ~ '^(index\.html|pages/[A-Za-z/]+\.html)(\?[A-Za-z0-9=&_.%-]*)?$');
+grant insert (link), update (link) on table public.tasks to authenticated;
