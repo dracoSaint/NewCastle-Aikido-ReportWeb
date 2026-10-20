@@ -5,7 +5,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Task alerts, priority, comments; Home at a glance; menu collapse; shortcuts (2026-10-20, not yet shipped)
+## Task alerts, priority, comments; Home at a glance; menu collapse; shortcuts (shipped 2026-10-20, 50e4b5f)
 
 - **Due alerts:** the first time you open the portal each day, your bell gets one alert per one-off task assigned to you that is due today or overdue and not done (`notify_my_due_tasks()`; never twice a day).
 - **Done alerts:** ticking off a task someone else made sends them "<name> finished: <task>" (database trigger on `task_done`).
@@ -24,7 +24,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## TASKS slide-out (2026-10-20, not yet shipped)
+## TASKS slide-out (shipped 2026-10-20, 50e4b5f)
 
 - Home no longer has a Today's tasks section. Instead every page (except the Tasks page) has a dark **TASKS** tab on the right edge with the open-today count. Clicking it slides out today's list from the right: tick off, quick add, Mine / Whole team, Add task, Edit, and a link to all tasks.
 - It stays open as you move between pages (remembered in this browser) until you close it (× or Esc). On phones it covers the screen, so there it always starts closed.
@@ -33,7 +33,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Sidebar menu and Tasks page (2026-10-20, not yet shipped)
+## Sidebar menu and Tasks page (shipped 2026-10-20, 50e4b5f)
 
 - **Sidebar (every page with the menu):** screens 1100 px and wider show a fixed left sidebar (264 px) instead of the burger. It has the logo, Home, then the TASKS, REPORTS and SOP categories, which open and close like an accordion; Settings is at the bottom. Every page has an icon, and the current page is highlighted. Which categories are open is remembered in that browser; the current page's category always opens. On narrower screens the same sidebar slides out from the menu button (Esc, ×, or a tap outside closes it).
 - **Task count:** the Task list link shows a red count of your tasks still open today (yours + whole team), on every page.
@@ -51,7 +51,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Notification centre, @mentions and Home tasks (2026-10-20, not yet shipped)
+## Notification centre, @mentions and Home tasks (shipped 2026-10-20, 50e4b5f)
 
 - **Bell (every signed-in page):** next to the profile button. A red count shows unread alerts. The panel lists the latest 30; clicking one marks it read and opens its page. "Mark all read" clears the count. Refreshes every 2 minutes and when the tab comes back into view.
 - **@mentions:** a tag matches the email name, first name or full name without spaces (`@leisa`, `@leisagraham`). Type `@` in a Red / Orange member note, a Past Due member note or a task's details. A list of people appears (arrow keys + Enter or Tab, or click). Works in every note box: the add-note boxes, the one-line top note and the Log contact note on Red / Orange, and the note edit boxes on both pages. Saving sends each tagged person a notification with the note text; an edit only alerts people newly tagged.
@@ -72,7 +72,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Site UI/UX pass (2026-10-19, not yet shipped)
+## Site UI/UX pass (shipped 2026-10-20, 50e4b5f)
 
 An audit of every page at 1440 and 390 px (no console errors or sideways scroll anywhere), then the fixes chosen by the user.
 

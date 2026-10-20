@@ -19,7 +19,7 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ## 2026-10-20 — Notification centre, @mentions, Home task list
 
-Status: **awaiting user OK** (local, not pushed; batched with the 2026-10-19 local work).
+Status: **shipped (50e4b5f, main e548f01)**, 2026-10-20.
 
 ### Instructions from the user
 - Add a notification centre, a way to tag users in comments / notes, and a task list. The Home page shows today's tasks: repeating tasks and new tasks.
@@ -52,7 +52,7 @@ Status: **awaiting user OK** (local, not pushed; batched with the 2026-10-19 loc
 
 ## 2026-10-19 — Site UI/UX pass (audit, then fixes)
 
-Status: **not yet shipped** (local).
+Status: **shipped (50e4b5f, main e548f01)**.
 
 ### Instructions from the user
 - Improve the UI/UX. Chose: audit all pages first, then fix all four proposed groups.
@@ -70,7 +70,7 @@ Status: **not yet shipped** (local).
 
 ## 2026-10-19 — Geronimo UI: yes/no colours, wave filters, tidy extras
 
-Status: **not yet shipped** (local).
+Status: **shipped (50e4b5f, main e548f01)**.
 
 ### Instructions from the user
 - Add colour indicators for yes / no etc. and improve the UI/UX and interactivity to make things easier.
@@ -91,7 +91,7 @@ Status: **not yet shipped** (local).
 
 ## 2026-10-19 — Geronimo trial waves: edit button, nightly sync, phones
 
-Status: **not yet shipped** (local).
+Status: **shipped (50e4b5f, main e548f01)**.
 
 ### Instructions from the user
 - Add an edit function for trial wave members (phone and other details). Asked whether wave members are automatic.
@@ -109,7 +109,7 @@ Status: **not yet shipped** (local).
 - Ship with the next push (together with the autopay change).
  from the Zen Planner autopay report
 
-Status: **not yet shipped** (local).
+Status: **shipped (50e4b5f, main e548f01)**.
 
 ### Instructions from the user
 - Use the Zen Planner autopay members report (membership grid: autopay ON; status Current, Not started, Hold, Cancelled, Cancel pending) for Autopay members.
