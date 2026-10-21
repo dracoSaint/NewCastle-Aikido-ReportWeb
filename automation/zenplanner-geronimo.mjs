@@ -22,16 +22,17 @@ const { gmComputeWeek, gmSyncWaves } = require('../js/geronimoCore.js');
 const addDays = (iso, days) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
 const weekFriday = iso => addDays(iso, (5 - new Date(`${iso}T00:00:00Z`).getUTCDay() + 7) % 7); // weeks run Saturday to Friday
 
-// Attendance > "on or after" the week's Saturday, attendances only, totals by program: read the grid's Total row.
+// Attendance > "on or after" the Saturday after last Friday (the week's first day), attendances only, totals by
+// program: read the grid's Total row. The user's report link (Oct 2026), date as Zen Planner shows it: DD/MM/YYYY.
 async function weekAttendance(page, saturday) {
   const [y, m, d] = saturday.split('-');
-  const mdy = `${m}/${d}/${y.slice(2)}`;
+  const dmy = `${d}/${m}/${y}`;
   await page.goto(`${STUDIO}#/main/iframe/zenplanner/studio/attendance/index.cfm?ATTENDANCEDATE=today&_w=Aggregate&_s=`
     + `&_c=attendanceDate%252CfirstName%252ClastName%252CprogramId&_g=programId&_f1=attendanceDate&_o1=on+or+after`
-    + `&_v1=${encodeURIComponent(encodeURIComponent(mdy))}&_f2=isAttendance&_o2=is+true&_v2=true`);
+    + `&_v1=${encodeURIComponent(encodeURIComponent(dmy))}&_f2=isAttendance&_o2=is+true&_v2=true`);
   // Wait for the frame showing this date (another attendance page may still be loaded).
   const decoded = url => { try { return decodeURIComponent(decodeURIComponent(url)); } catch { return url; } };
-  const frame = await studioFrame(page, url => url.includes('/attendance/index.cfm') && decoded(url).includes(`_v1=${mdy}`));
+  const frame = await studioFrame(page, url => url.includes('/attendance/index.cfm') && decoded(url).includes(`_v1=${dmy}`));
   const total = frame.locator('#idSearchResultsGrid tr').last().locator('td, th').last();
   await total.waitFor({ timeout: 60000 });
   const count = Number((await total.textContent()).replace(/[^\d]/g, ''));
