@@ -12,12 +12,13 @@
 
 <header>
   <p id="updatedLine">Loading...</p>
-  <button id="openSpreadsheet" onclick="window.open('https://docs.google.com/spreadsheets/d/1EmS3-3mxova9vQSavu-bYR05sGyve-q5CE2Xq12FLis/edit?gid=680756908#gid=680756908', '_blank')">Open Spreadsheet</button>
+  <button type="button" id="gradingSyncBtn" data-requires="sync.run" title="Pulls ranks and attendance from Zen Planner (about 3 minutes).">Sync now</button>
   <nav class="site-nav">
     <button data-tab="home" class="active">Overview</button>
     <button data-tab="adults">Regular Adult Grading</button>
     <button data-tab="juniors">Juniors Grading</button>
     <button data-tab="members">Member List</button>
+    <button data-tab="ranks">Ranks &amp; Dates</button>
   </nav>
 </header>
 
@@ -29,6 +30,7 @@
       <input type="search" id="filterInput" placeholder="Search by name" autocomplete="off">
     </label>
   </div>
+  <p class="task-status" id="gradingStatus" role="status"></p>
 
   <section class="tab-panel active" id="tab-home">
     <div class="past-due-metrics key-strip" id="gradingKeyFigure" aria-live="polite"></div>
@@ -44,7 +46,7 @@
     </div>
     <div class="card">
       <h2>Close to eligible</h2>
-      <p class="page-lede">Within 3 hours of the hours needed, closest first.</p>
+      <p class="pd-card-lede">Within 3 hours of the hours needed, closest first.</p>
       <div class="table-wrap" id="home-close-wrap"><div class="loading">Loading...</div></div>
     </div>
   </section>
@@ -70,13 +72,33 @@
     </div>
   </section>
 
+  <section class="tab-panel" id="tab-ranks">
+    <div class="card">
+      <h2>Testing dates</h2>
+      <p class="pd-card-lede">Each rank tests on its group's date. Weeks left and weekly hour goals count down to it.</p>
+      <div id="ranks-dates"></div>
+    </div>
+    <div id="ranks-unknown" hidden></div>
+    <div class="groups two-col">
+      <div class="card">
+        <h2>Regular Adult ranks</h2>
+        <div class="table-wrap" id="ranks-adults"></div>
+      </div>
+      <div class="card">
+        <h2>Junior ranks</h2>
+        <div class="table-wrap" id="ranks-juniors"></div>
+      </div>
+    </div>
+    <div class="grading-save-bar"><button type="button" class="sop-action-button primary" id="ranksSave" hidden>Save changes</button></div>
+  </section>
+
 </main>
 
 <footer></footer>
 
 <script src="../../js/siteHeader.js"></script>
 <script src="../../js/siteMenu.js"></script>
-<script src="../../js/config.js"></script>
+<script src="../../js/gradingCore.js"></script>
 <script src="../../js/gradingScripts.js"></script>
 </body>
 

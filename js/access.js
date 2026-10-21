@@ -10,7 +10,7 @@ const ACCESS_PERMISSIONS = [
   { group: 'Red / Orange Follow-Up', items: [['followup.view', 'View'], ['followup.edit', 'Log contacts, notes, uploads']] },
   { group: 'Daily Ad Review', items: [['ads.view', 'View'], ['ads.edit', 'Imports, actions, playbook']] },
   { group: 'Geronimo Metrics', items: [['geronimo.view', 'View'], ['geronimo.edit', 'Weekly figures, waves, scoreboard']] },
-  { group: 'Grading Report', items: [['grading.view', 'View']] },
+  { group: 'Grading Report', items: [['grading.view', 'View'], ['grading.edit', 'Rank hours and testing dates']] },
   { group: 'SOPs', items: [['sops.view', 'View'], ['sops.edit', 'Add, edit, delete SOPs']] },
   { group: 'Bots', items: [['sync.run', 'Press Sync buttons'], ['bots.manage', 'Bot schedules and report rules']] },
   { group: 'Admin', items: [['access.manage', 'Users, roles and permissions'], ['audit.view', 'View the audit log']] },

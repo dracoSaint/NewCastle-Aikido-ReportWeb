@@ -3801,7 +3801,8 @@ header p.page-meta {
   gap: 10px;
 }
 
-#openSpreadsheet {
+#openSpreadsheet,
+#gradingSyncBtn {
   display: inline-flex;
   align-items: center;
   margin: 0;
@@ -3819,7 +3820,8 @@ header p.page-meta {
   transition: background 0.15s ease;
 }
 
-#openSpreadsheet:hover {
+#openSpreadsheet:hover,
+#gradingSyncBtn:hover {
   background: rgba(255, 255, 255, 0.12);
   transform: none;
   box-shadow: none;
@@ -6237,6 +6239,7 @@ header p.page-meta,
 .profile-btn,
 .login-btn,
 #openSpreadsheet,
+#gradingSyncBtn,
 .csv-picker-button,
 .sop-open-link,
 .start-tile-go {
@@ -6984,8 +6987,14 @@ th[aria-sort="descending"] .sort-mark {
     content: none;
   }
 
+  /* Attendance (with its stitch meter) and long belt names get two of the four columns. */
   :is(#home-adults-wrap, #home-juniors-wrap, #home-close-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td.measure {
     order: -1;
+    grid-column: span 2;
+  }
+
+  :is(#home-adults-wrap, #home-juniors-wrap, #home-close-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td[data-label="Rank"] {
+    grid-column: span 2;
   }
 
   /* Past Due: the expander and name lead the record. */
@@ -10514,3 +10523,16 @@ html.menu-collapsed .drawer-today, html.menu-collapsed .drawer-recent { display:
 .page-drawer { overflow-y: auto; }
 .page-drawer .drawer-nav { flex: 0 0 auto; overflow: visible; }
 .page-drawer .drawer-today { margin-top: auto; }
+
+/* Grading: Ranks & Dates tab */
+.grading-dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.grading-date { display: grid; gap: 4px; font-size: .875rem; font-weight: 600; color: var(--ink); }
+.grading-rank-table input[type="number"] { width: 90px; min-height: 36px; text-align: right; }
+.grading-rank-table select { min-height: 36px; max-width: 100%; }
+.grading-save-bar { display: flex; justify-content: flex-end; margin-top: 12px; }
+#gradingStatus:empty { display: none; }
+/* Grading: card intro lines */
+#tab-home .card > .pd-card-lede, #tab-ranks .card > .pd-card-lede { margin-bottom: 14px; }
+#tab-ranks .grading-dates { padding: 0 20px 20px; }
+#ranks-unknown { margin-bottom: 16px; }
+#tab-home > .card, #tab-ranks > .groups, #tab-ranks > .grading-save-bar { margin-top: 16px; }

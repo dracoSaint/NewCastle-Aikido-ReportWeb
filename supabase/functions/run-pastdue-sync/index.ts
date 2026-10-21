@@ -9,7 +9,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const REPO = 'https://api.github.com/repos/dracoSaint/NewCastle-Aikido-ReportWeb/actions/workflows';
-const JOBS: Record<string, string> = { pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml', followup: 'zenplanner-followup.yml' };
+const JOBS: Record<string, string> = { pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml', followup: 'zenplanner-followup.yml', grading: 'zenplanner-grading.yml' };
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
@@ -43,7 +43,7 @@ Deno.serve(async req => {
       'User-Agent': 'zenplanner-sync'
     },
     // The follow-up job skips a day already saved unless forced; a button press always re-pulls.
-    body: JSON.stringify({ ref: 'main', ...(job === 'followup' ? { inputs: { force: true } } : {}) })
+    body: JSON.stringify({ ref: 'production', ...(job === 'followup' ? { inputs: { force: true } } : {}) })
   });
   if (!res.ok) console.error('GitHub dispatch failed', workflow, res.status, await res.text());
   return new Response(res.ok ? 'started' : 'Could not start the sync.', { status: res.ok ? 200 : 502, headers: cors });
