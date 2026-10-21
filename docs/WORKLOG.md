@@ -19,7 +19,7 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ## 2026-10-21 — Grading report bot (Zen Planner → portal)
 
-Status: **awaiting user OK** (local, not pushed).
+Status: **shipped to production (4aee7ed)**; first sync on GitHub 2026-10-21: 213 students, 29 adults + 6 juniors eligible.
 
 ### Instructions from the user
 - A bot that automatically updates the Grading report from their Zen Planner grid URL; add the sheet's functions (Grading Report sheet, RANK & REQUIRED HRS tab). Plan first, then "start build".
