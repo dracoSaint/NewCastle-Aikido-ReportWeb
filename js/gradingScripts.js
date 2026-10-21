@@ -305,14 +305,18 @@ let gradingTab = 'home';
 async function gradingLoad() {
   await window.authReady;
   const client = window.supabaseClient;
-  const [members, ranks, dates] = await Promise.all([
+  const [members, ranks, dates, blueZone] = await Promise.all([
     client.from('grading_members').select('*'),
     client.from('grading_ranks').select('*'),
-    client.from('grading_test_dates').select('*').order('test_group')
+    client.from('grading_test_dates').select('*').order('test_group'),
+    // Blue Zone exemption (the sync applies it too); a role without the member list just relies on the sync.
+    client.from('membership_all').select('first_name, last_name, membership_label, mbr_status').ilike('membership_label', '%blue zone%').in('mbr_status', ['CURRENT', 'HOLD'])
   ]);
   const error = members.error || ranks.error || dates.error;
   if (error) throw new Error(/does not exist|schema cache/i.test(error.message) ? 'The Grading report needs a one-time database update: run supabase/grading.sql in Supabase.' : error.message);
-  gradingMembers = gradingOneProgram(members.data.filter(gradingIncluded)); // same rules as the sync, for rows saved before a rule changed
+  const exempt = gradingBlueZoneKeys(blueZone.data);
+  // Same rules as the sync, for rows saved before a rule changed.
+  gradingMembers = gradingOneProgram(members.data.filter(gradingIncluded)).filter(member => !exempt.has(member.member_key));
   gradingRanks = ranks.data;
   gradingDates = dates.data;
   const synced = gradingMembers.map(member => member.synced_at).sort().pop();

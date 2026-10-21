@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { gradingStatus, gradingFromExport, gradingRankKey, gradingIncluded, gradingOneProgram } = require('../js/gradingCore.js');
+const { gradingStatus, gradingFromExport, gradingRankKey, gradingIncluded, gradingOneProgram, gradingBlueZoneKeys } = require('../js/gradingCore.js');
 const { fuParseTable, fuIso } = require('../js/followUpCore.js');
 
 const dates = [
@@ -65,4 +65,12 @@ const dual = gradingOneProgram([
   { member_key: 'adult', program: 'adults', age: 30 }
 ]);
 assert.deepEqual(dual.map(row => row.member_key + ':' + row.program), ['kid:juniors', 'noage:juniors', 'teen:adults', 'adult:adults']);
+// Blue Zone exemption: Current or Hold Blue Zone memberships only, matched by name.
+const blue = gradingBlueZoneKeys([
+  { first_name: 'Noela', last_name: 'Melia', membership_label: 'Blue Zone Fitness ongoing', mbr_status: 'CURRENT' },
+  { first_name: 'Ann', last_name: 'Lee', membership_label: 'Blue Zone- New beginnings 6 week life change Introduction only', mbr_status: 'HOLD' },
+  { first_name: 'Old', last_name: 'Member', membership_label: 'Blue Zone Fitness ongoing', mbr_status: 'CANCELED' },
+  { first_name: 'Bo', last_name: 'B', membership_label: 'Regular Adult', mbr_status: 'CURRENT' }
+]);
+assert.deepEqual([...blue].sort(), ['ann lee', 'noela melia']);
 console.log('grading-core check passed');

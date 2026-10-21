@@ -12,7 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import { STUDIO, env, studioFrame, exportCsv, withZenPlanner } from './zenplanner.mjs';
 
 const { fuParseTable, fuIso } = createRequire(import.meta.url)('../js/followUpCore.js');
-const { gradingFromExport } = createRequire(import.meta.url)('../js/gradingCore.js');
+const { gradingFromExport, gradingBlueZoneKeys } = createRequire(import.meta.url)('../js/gradingCore.js');
 
 // The user's saved grid (Students in the two grading programs), filters double-encoded as Zen Planner expects.
 const GRID = 'zenplanner/studio/personProgram/index.cfm?%255Fo1=is&%255Fv1=STUDENT&%255Fo2=is%2520one%2520of&%255Ff1=status'
@@ -42,12 +42,19 @@ async function main() {
   const { error: signInError } = await supabase.auth.signInWithPassword({ email: env('BOT_EMAIL').trim(), password: env('BOT_PASSWORD') });
   if (signInError) throw new Error(`Portal sign-in failed for BOT_EMAIL: ${signInError.message}`);
 
+  // Blue Zone Fitness members (Current or Hold, from the nightly memberships list) are left out.
+  const { data: blueZone, error: blueZoneError } = await supabase.from('membership_all')
+    .select('first_name, last_name, membership_label, mbr_status').ilike('membership_label', '%blue zone%').in('mbr_status', ['CURRENT', 'HOLD']);
+  if (blueZoneError) throw new Error(`Blue Zone list not read, nothing changed: ${blueZoneError.message}`);
+  const exempt = gradingBlueZoneKeys(blueZone);
+  const kept = rows.filter(row => !exempt.has(row.member_key));
+
   const syncedAt = new Date().toISOString();
-  const { error } = await supabase.from('grading_members').upsert(rows.map(row => ({ ...row, synced_at: syncedAt })), { onConflict: 'member_key,program' });
+  const { error } = await supabase.from('grading_members').upsert(kept.map(row => ({ ...row, synced_at: syncedAt })), { onConflict: 'member_key,program' });
   if (error) throw new Error(`Not saved: ${error.message}`);
-  // Students no longer in the grid (graded out of the program, left, changed status) drop off.
+  // Students no longer in the grid (graded out of the program, left, changed status, Blue Zone) drop off.
   const { error: removeError } = await supabase.from('grading_members').delete().lt('synced_at', syncedAt);
-  console.log(`Saved ${rows.length} students${removeError ? `; old rows not removed: ${removeError.message}` : ''}.`);
+  console.log(`Saved ${kept.length} students (${rows.length - kept.length} Blue Zone left out)${removeError ? `; old rows not removed: ${removeError.message}` : ''}.`);
 }
 
 main().catch(error => {
