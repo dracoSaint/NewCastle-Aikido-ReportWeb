@@ -5,7 +5,8 @@
 // - weeks left = whole weeks until the rank's testing-date group date (grading_test_dates);
 // - weekly hour goal = hours still needed / weeks left, rounded up;
 // - left out: Blue Zone Fitness members, and juniors aged 17 or more (gradingIncluded);
-// - under 17 and in both programs: Juniors only (gradingOneProgram).
+// - under 17 and in both programs: Juniors only (gradingOneProgram);
+// - a Current or Hold Blue Zone Fitness membership: left out (gradingBlueZoneKeys).
 
 // Rank names compared loosely: case, spacing and punctuation ignored ("10th kyu Red White Belt").
 const gradingRankKey = name => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -50,6 +51,15 @@ function gradingFromExport(text, parseTable, toIso) {
   return gradingOneProgram(members);
 }
 
+// Blue Zone Fitness members are exempt (user's rule, 2026-10-21): anyone with a Current or Hold Blue Zone
+// membership in Zen Planner's memberships list (membership_all, synced nightly), matched by name, is left
+// out of the Grading report in both programs. Returns the set of member keys to leave out.
+function gradingBlueZoneKeys(memberships) {
+  return new Set((memberships || [])
+    .filter(row => /blue\s*zone/i.test(row.membership_label || '') && ['CURRENT', 'HOLD'].includes(String(row.mbr_status || '').toUpperCase()))
+    .map(row => `${row.first_name || ''} ${row.last_name || ''}`.trim().replace(/\s+/g, ' ').toLowerCase()));
+}
+
 // Someone under 17 (or with no age in Zen Planner) who is in both Juniors and Regular Adult is listed
 // in Juniors only (user's rule, 2026-10-21). An under-17 who is only in Regular Adult stays there.
 function gradingOneProgram(rows) {
@@ -80,5 +90,5 @@ function gradingStatus(member, ranks, dates, today) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { gradingRankKey, gradingProgram, gradingFromExport, gradingStatus, gradingIncluded, gradingOneProgram };
+  module.exports = { gradingRankKey, gradingProgram, gradingFromExport, gradingStatus, gradingIncluded, gradingOneProgram, gradingBlueZoneKeys };
 }
