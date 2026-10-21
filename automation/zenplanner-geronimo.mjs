@@ -127,7 +127,10 @@ async function main() {
   const { week, everyMembership } = await withZenPlanner(async (page, step) => {
     const week = { week_ending: friday };
     step('attendance');
-    try { week.attendance = await weekAttendance(page, addDays(friday, -6)); } catch (error) { console.warn(`Attendance skipped: ${error.message}`); }
+    // The first Zen Planner page after signing in sometimes loads too slowly (seen on GitHub): try twice.
+    for (let attempt = 1; attempt <= 2 && week.attendance === undefined; attempt++) {
+      try { week.attendance = await weekAttendance(page, addDays(friday, -6)); } catch (error) { console.warn(`Attendance attempt ${attempt} failed: ${error.message}`); }
+    }
     step('cancels');
     try { Object.assign(week, await weekCancels(page, friday)); } catch (error) { console.warn(`Cancels skipped: ${error.message}`); }
     step('all memberships');
