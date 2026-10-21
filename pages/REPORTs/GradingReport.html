@@ -12,6 +12,7 @@
 
 <header>
   <p id="updatedLine">Loading...</p>
+  <button type="button" id="gradingPrintBtn" title="Print the eligibility list for the dojo board, or download it as a spreadsheet.">Print / Export</button>
   <button type="button" id="gradingSyncBtn" data-requires="sync.run" title="Pulls ranks and attendance from Zen Planner (about 3 minutes).">Sync now</button>
   <nav class="site-nav">
     <button data-tab="home" class="active">Overview</button>
@@ -93,6 +94,33 @@
   </section>
 
 </main>
+
+<!-- Print / Export choices. -->
+<dialog class="fu-dialog" id="gradingPrintDialog" aria-labelledby="gradingPrintTitle">
+  <form method="dialog" id="gradingPrintForm">
+    <h2 id="gradingPrintTitle">Print or export</h2>
+    <p class="fu-dialog-sub">For the dojo board: one page per testing group, eligible members highlighted green and marked ✓ ELIGIBLE.</p>
+    <fieldset class="fu-outcomes">
+      <legend>Testing group</legend>
+      <div id="gradingPrintGroups"></div>
+    </fieldset>
+    <fieldset class="fu-outcomes">
+      <legend>Members</legend>
+      <div>
+        <label class="fu-outcome"><input type="radio" name="who" value="all" checked><span>Everyone</span></label>
+        <label class="fu-outcome"><input type="radio" name="who" value="eligible"><span>Eligible only</span></label>
+      </div>
+    </fieldset>
+    <div class="fu-dialog-actions">
+      <button type="button" class="sop-action-button secondary" id="gradingPrintCancel">Cancel</button>
+      <button type="button" class="sop-action-button secondary" id="gradingCsvBtn">Download CSV</button>
+      <button type="submit" class="sop-action-button primary">Print</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Filled just before printing (js/gradingScripts.js gradingPrint); only this shows on paper. -->
+<div id="gradingPrint" class="grading-print" aria-hidden="true"></div>
 
 <footer></footer>
 

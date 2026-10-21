@@ -4,7 +4,8 @@
 // - eligible = attendance since the last test reaches the hours needed;
 // - weeks left = whole weeks until the rank's testing-date group date (grading_test_dates);
 // - weekly hour goal = hours still needed / weeks left, rounded up;
-// - left out: Blue Zone Fitness members, and juniors aged 17 or more (gradingIncluded).
+// - left out: Blue Zone Fitness members, and juniors aged 17 or more (gradingIncluded);
+// - under 17 and in both programs: Juniors only (gradingOneProgram).
 
 // Rank names compared loosely: case, spacing and punctuation ignored ("10th kyu Red White Belt").
 const gradingRankKey = name => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -17,7 +18,7 @@ const gradingProgram = name => (/junior/i.test(String(name || '')) ? 'juniors' :
 function gradingFromExport(text, parseTable, toIso) {
   const rows = parseTable(text, 'first_name') || [];
   const find = (row, test) => Object.keys(row).find(test);
-  return rows.map(row => {
+  const members = rows.map(row => {
     const key = {
       program: find(row, k => /program/.test(k) && !/status/.test(k)),
       status: find(row, k => /status/.test(k)),
@@ -46,6 +47,14 @@ function gradingFromExport(text, parseTable, toIso) {
       last_test_date: toIso(row[key.lastTest]) || null
     };
   }).filter(row => row.member_key && gradingIncluded(row));
+  return gradingOneProgram(members);
+}
+
+// Someone under 17 (or with no age in Zen Planner) who is in both Juniors and Regular Adult is listed
+// in Juniors only (user's rule, 2026-10-21). An under-17 who is only in Regular Adult stays there.
+function gradingOneProgram(rows) {
+  const juniors = new Set(rows.filter(row => row.program === 'juniors').map(row => row.member_key));
+  return rows.filter(row => !(row.program === 'adults' && juniors.has(row.member_key) && (row.age == null || row.age <= GRADING_JUNIOR_MAX_AGE)));
 }
 
 // Who the report counts (user's rules, 2026-10-21): Blue Zone Fitness members are left out, and the
@@ -67,9 +76,9 @@ function gradingStatus(member, ranks, dates, today) {
   const eligible = needed != null && since >= needed;
   const short = needed == null ? null : Math.max(0, needed - since);
   const weeklyGoal = needed == null || eligible || weeksLeft == null ? null : weeksLeft > 0 ? Math.ceil(short / weeksLeft) : short;
-  return { rankFound: Boolean(rank), order: rank ? rank.sort_order : 999, needed, short, eligible, testDate, weeksLeft, weeklyGoal };
+  return { rankFound: Boolean(rank), order: rank ? rank.sort_order : 999, testGroup: rank ? rank.test_group : null, needed, short, eligible, testDate, weeksLeft, weeklyGoal };
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { gradingRankKey, gradingProgram, gradingFromExport, gradingStatus, gradingIncluded };
+  module.exports = { gradingRankKey, gradingProgram, gradingFromExport, gradingStatus, gradingIncluded, gradingOneProgram };
 }

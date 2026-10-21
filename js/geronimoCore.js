@@ -212,10 +212,14 @@ const GM_WAVES_FROM = '2026-01-01'; // waves start with the 2026 sheet
 
 // Trial waves, run nightly by the Zen Planner job and by the Trial waves button. Source: every Zen Planner
 // membership in any status (membership_all, synced nightly), so future starters ("Not started") are in too.
-// Every beginner package beginning in 2026 or later joins the wave of the month it begins (one row per
-// package, never duplicated). Filled from the data pulled, blanks only, so anything staff typed is kept:
+// Each person whose first beginner package begins in 2026 or later joins the wave of that month (one row
+// per person: a re-created or follow-on package is the same trial; rows doubled up before this rule are
+// merged, keeping what staff typed). Same name = same person (ponytail: two different people with one name
+// would share a row; match on Zen Planner person id if that ever happens). Filled from the data pulled,
+// blanks only, so anything staff typed is kept:
 //   Rolled over: yes if the same person (by name) has a full membership (not Gratis) beginning on or after
-//     the package; no if the package is completed or cancelled without one; blank while it is running.
+//     the package (also turns an earlier "No" into "Yes");
+//     no if every package is completed or cancelled without one; blank while one is running.
 //   Inducted: ticked once the package has begun and is current, on hold or completed.
 //   Email / phone: the Daily Ad Review lead with that name; phone also from the latest Red / Orange export.
 // dryRun: count, write nothing.
@@ -228,7 +232,7 @@ async function gmSyncWaves(client, dryRun = false) {
     if (data.length < 1000) break;
   }
   const [{ data: existing, error }, { data: report }, { data: leads }] = await Promise.all([
-    client.from('geronimo_wave_members').select('id, wave_month, member_number, first_name, last_name, phone, email, rolled_over, inducted'),
+    client.from('geronimo_wave_members').select('id, wave_month, member_number, first_name, last_name, induction_date, phone, email, goal, why, notes, rolled_over, inducted'),
     client.from('follow_up_reports').select('attendance').order('report_date', { ascending: false }).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     client.from('ad_review_leads').select('first_name, last_name, email, phone')
   ]);
@@ -251,25 +255,34 @@ async function gmSyncWaves(client, dryRun = false) {
     fulls.get(personKey(row)).push(row.mbr_begin_date);
   });
   const today = gmToday();
-  const rows = all.filter(row => gmIsBeginner(row.membership_label) && row.mbr_begin_date >= GM_WAVES_FROM).map(row => {
-    const rolledOver = (fulls.get(personKey(row)) || []).some(begin => begin >= row.mbr_begin_date)
-      ? true : ['COMPLETED', 'CANCELED'].includes(row.mbr_status) ? false : null;
-    const found = contact.get(personKey(row)) || {};
+  const rows = gmWavePeople(all.filter(row => gmIsBeginner(row.membership_label) && row.mbr_begin_date >= GM_WAVES_FROM), personKey).map(list => {
+    const first = list[0];
+    const rolledOver = (fulls.get(personKey(first)) || []).some(begin => begin >= first.mbr_begin_date)
+      ? true : list.every(row => ['COMPLETED', 'CANCELED'].includes(row.mbr_status)) ? false : null;
+    const found = contact.get(personKey(first)) || {};
     return {
-      wave_month: gmMonthStart(row.mbr_begin_date), member_number: row.number, first_name: row.first_name || 'Unknown', last_name: row.last_name,
-      induction_date: row.mbr_begin_date, inducted: row.mbr_begin_date <= today && ['CURRENT', 'HOLD', 'COMPLETED'].includes(row.mbr_status),
+      wave_month: gmMonthStart(first.mbr_begin_date), member_number: first.number, first_name: first.first_name || 'Unknown', last_name: first.last_name,
+      induction_date: first.mbr_begin_date, inducted: list.some(row => row.mbr_begin_date <= today && ['CURRENT', 'HOLD', 'COMPLETED'].includes(row.mbr_status)),
       rolled_over: rolledOver, phone: found.phone || null, email: found.email || null
     };
   });
 
-  const have = new Set(existing.map(member => `${member.wave_month}|${member.member_number}`));
-  const fresh = rows.filter(row => !have.has(`${row.wave_month}|${row.member_number}`));
-  const byKey = new Map(rows.map(row => [`${row.wave_month}|${row.member_number}`, row]));
-  const patches = existing.map(member => {
-    const patch = {};
-    const auto = byKey.get(`${member.wave_month}|${member.member_number}`);
+  // Rows already on file from before one-row-per-person: merge each person's extra rows into one.
+  const { keep, merges, removals } = gmWaveMerge(existing, personKey, rows);
+  const people = new Set(keep.map(personKey));
+  // A package number already on file is the same person even if Zen Planner's name changed since.
+  const numbers = new Set(existing.map(member => member.member_number).filter(Boolean));
+  const fresh = rows.filter(row => !people.has(personKey(row)) && !numbers.has(row.member_number));
+  const byPerson = new Map(rows.map(row => [personKey(row), row]));
+  const patches = keep.map(member => {
+    const patch = { ...(merges.get(member.id) || {}) };
+    const merged = { ...member, ...patch };
+    const auto = byPerson.get(personKey(member));
     const found = contact.get(personKey(member)) || {};
+    member = merged;
     if (member.rolled_over === null && auto && auto.rolled_over !== null) patch.rolled_over = auto.rolled_over;
+    // A "No" turns into "Yes" once a full membership shows up (they joined after all); never Yes -> No.
+    if (member.rolled_over === false && auto?.rolled_over === true) patch.rolled_over = true;
     // ponytail: inducted has no blank, so it is only ever ticked, never unticked; an untick on a started package comes back.
     if (!member.inducted && auto?.inducted) patch.inducted = true;
     if (!member.phone && found.phone) patch.phone = found.phone;
@@ -286,10 +299,59 @@ async function gmSyncWaves(client, dryRun = false) {
       const { error: updateError } = await client.from('geronimo_wave_members').update(patch).eq('id', id);
       if (updateError) throw updateError;
     }
+    // Only after the kept row holds everything typed on the extras.
+    if (removals.length) {
+      const { error: removeError } = await client.from('geronimo_wave_members').delete().in('id', removals);
+      if (removeError) throw removeError;
+    }
   }
-  return { added: fresh.length, updated: patches.length };
+  return { added: fresh.length, updated: patches.length, merged: removals.length };
+}
+
+// Beginner packages grouped by person, each list oldest first: one wave row per person, for their first
+// package (a re-created or follow-on beginner package is the same trial, not a second one).
+function gmWavePeople(packages, personKey) {
+  const by = new Map();
+  packages.forEach(row => {
+    if (!by.has(personKey(row))) by.set(personKey(row), []);
+    by.get(personKey(row)).push(row);
+  });
+  return [...by.values()].map(list => list.sort((a, b) => a.mbr_begin_date.localeCompare(b.mbr_begin_date) || String(a.number).localeCompare(String(b.number))));
+}
+
+// Existing wave rows -> one per person. Kept: the row for the person's first package, else their earliest
+// row. Anything typed on the extras (phone, email, goal, why, notes, rolled over, inducted) fills the kept
+// row's blanks (two different notes are joined), then the extras are removed.
+function gmWaveMerge(existing, personKey, wanted) {
+  const first = new Map(wanted.map(row => [personKey(row), `${row.wave_month}|${row.member_number}`]));
+  const by = new Map();
+  existing.forEach(row => {
+    if (!by.has(personKey(row))) by.set(personKey(row), []);
+    by.get(personKey(row)).push(row);
+  });
+  const keep = [];
+  const merges = new Map();
+  const removals = [];
+  by.forEach((list, person) => {
+    list.sort((a, b) => (first.get(person) === `${b.wave_month}|${b.member_number}`) - (first.get(person) === `${a.wave_month}|${a.member_number}`)
+      || String(a.induction_date || a.wave_month).localeCompare(String(b.induction_date || b.wave_month)) || a.id - b.id);
+    const [kept, ...extras] = list;
+    keep.push(kept);
+    if (!extras.length) return;
+    const patch = {};
+    extras.forEach(extra => {
+      ['phone', 'email', 'goal', 'why'].forEach(field => { if (!kept[field] && !patch[field] && extra[field]) patch[field] = extra[field]; });
+      const notes = patch.notes ?? kept.notes;
+      if (extra.notes && extra.notes !== notes) patch.notes = notes ? `${notes} / ${extra.notes}` : extra.notes;
+      if (kept.rolled_over === null && patch.rolled_over == null && extra.rolled_over !== null) patch.rolled_over = extra.rolled_over;
+      if (!kept.inducted && extra.inducted) patch.inducted = true;
+      removals.push(extra.id);
+    });
+    if (Object.keys(patch).length) merges.set(kept.id, patch);
+  });
+  return { keep, merges, removals };
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { gmAddDays, gmFriday, gmNum, gmComputeWeek, gmMemberFacts, gmSyncWaves };
+  module.exports = { gmAddDays, gmFriday, gmNum, gmComputeWeek, gmMemberFacts, gmSyncWaves, gmWavePeople, gmWaveMerge };
 }

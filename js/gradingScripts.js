@@ -219,6 +219,80 @@ async function gradingSync(button) {
   }
 }
 
+// ── Print (dojo board) and CSV ───────────────────────────────────────────────
+
+const gradingLongDate = iso => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'not set');
+
+// The rows to print or export: group '' = every testing group; who 'eligible' = eligible members only.
+function gradingChosen({ group, who }) {
+  return gradingRows().filter(({ status }) => (!group || status.testGroup === group) && (who !== 'eligible' || status.eligible));
+}
+
+// Testing groups in order (adults first), for the dialog and the printed sections.
+const gradingGroups = () => [...gradingDates].sort((a, b) => (a.program === b.program ? a.test_group.localeCompare(b.test_group) : a.program === 'adults' ? -1 : 1));
+
+// Dialog choices, rebuilt each time from the groups on file.
+function gradingGroupChoices() {
+  document.getElementById('gradingPrintGroups').innerHTML = [['', 'All three'], ...gradingGroups().map(date => [date.test_group, date.label])]
+    .map(([value, label], i) => `<label class="fu-outcome"><input type="radio" name="group" value="${escapeHtml(value)}"${i ? '' : ' checked'}><span>${escapeHtml(label)}</span></label>`).join('');
+}
+
+// A4 sheet for the notice board, as few pages as possible: one section per testing group (each on its
+// own page, with its date), members in two columns, one small table per rank (Name, hours since the
+// last test / hours needed, weekly hour goal). Eligible rows are green with a ✓ ELIGIBLE tag in the
+// goal column (also bold with a thick edge, so they still read on a black-and-white printer).
+const GRADING_PRINT_KEEP = 30; // rows that fit one printed column with room to spare
+function gradingPrint(choice) {
+  const rows = gradingChosen(choice);
+  const groups = gradingGroups().filter(date => !choice.group || date.test_group === choice.group);
+  const section = date => {
+    // Rank by rank; in each rank the eligible first, most hours first.
+    const list = rows.filter(({ status }) => status.testGroup === date.test_group)
+      .sort((a, b) => a.status.order - b.status.order || (Number(b.member.att_since_test) || 0) - (Number(a.member.att_since_test) || 0));
+    if (!list.length) return '';
+    const ranks = [...new Set(list.map(({ member }) => member.rank))];
+    const tables = ranks.map(rank => {
+      const members = list.filter(({ member }) => member.rank === rank);
+      const body = members.map(({ member, status }) => {
+        const hours = `${cellNumber(member.att_since_test) || 0}${status.needed != null ? ` / ${status.needed}` : ''}`;
+        const goal = status.eligible ? '<span class="gp-mark">✓ ELIGIBLE</span>'
+          : status.needed == null ? '<span class="gp-muted">—</span>'
+          : status.weeklyGoal != null ? `${status.weeklyGoal} / wk` : `${status.short} to go`;
+        return `<tr class="${status.eligible ? 'is-eligible' : ''}"><td>${escapeHtml(gradingName(member))}</td><td class="num">${hours}</td><td class="num">${goal}</td></tr>`;
+      }).join('');
+      // The rank name heads the name column; the other headings label the figures. A rank short enough
+      // to fit one column is kept in one column (gp-keep), so it never reads as cut off.
+      return `<table class="gp-rank-table${members.length <= GRADING_PRINT_KEEP ? ' gp-keep' : ''}"><thead><tr><th>${escapeHtml(rank || 'No rank')}</th><th class="num">Hours</th><th class="num">Weekly goal</th></tr></thead><tbody>${body}</tbody></table>`;
+    }).join('');
+    const eligible = list.filter(({ status }) => status.eligible).length;
+    return `<section class="gp-section"><div class="gp-head"><h1>${escapeHtml(date.label)}</h1>
+        <p class="gp-date">Next testing <strong>${escapeHtml(gradingLongDate(date.test_date))}</strong> · <strong>${eligible} eligible</strong>${choice.who === 'eligible' ? '' : ` of ${list.length}`}</p>
+        <p class="gp-key"><span class="gp-mark">✓ ELIGIBLE</span> enough hours to grade · Hours = since last test / needed · Weekly goal = hours a week to be ready · updated ${escapeHtml(new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }))}</p></div>
+      <div class="gp-cols">${tables}</div></section>`;
+  };
+  document.getElementById('gradingPrint').innerHTML = groups.map(section).join('') || '<p>Nobody to list.</p>';
+  document.body.classList.add('grading-printing');
+  window.print();
+}
+window.addEventListener('afterprint', () => document.body.classList.remove('grading-printing'));
+
+function gradingCsv(choice) {
+  const cols = ['Testing group', 'Program', 'First name', 'Last name', 'Rank', 'Att. total', 'Att. since test', 'Hours needed', 'Eligible', 'Hours to go', 'Weekly hour goal', 'Next test date', 'Last test date', 'Age'];
+  // Quote every cell; a leading = + - @ is defused so a spreadsheet never runs it as a formula.
+  const cell = value => `"${String(value ?? '').replace(/^([=+\-@])/, "'$1").replace(/"/g, '""')}"`;
+  const lines = gradingChosen(choice).map(({ member, status }) => [
+    (gradingDates.find(date => date.test_group === status.testGroup) || {}).label || 'Rank not in table', PROGRAM_LABEL[member.program], member.first_name, member.last_name, member.rank, member.att_total, member.att_since_test,
+    status.needed, status.eligible ? 'Yes' : 'No', status.short, status.weeklyGoal, gradingDmy(status.testDate), gradingDmy(member.last_test_date), member.age
+  ].map(cell).join(','));
+  const csv = [cols.map(cell).join(','), ...lines].join('\r\n');
+  const link = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+    download: `grading-${choice.group || 'all'}-${gradingToday()}.csv`
+  });
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 function showError(elId, err) {
   document.getElementById(elId).innerHTML = '<div class="error">' + escapeHtml(err.message || err) + '</div>';
 }
@@ -238,7 +312,7 @@ async function gradingLoad() {
   ]);
   const error = members.error || ranks.error || dates.error;
   if (error) throw new Error(/does not exist|schema cache/i.test(error.message) ? 'The Grading report needs a one-time database update: run supabase/grading.sql in Supabase.' : error.message);
-  gradingMembers = members.data.filter(gradingIncluded); // same rules as the sync, for rows saved before a rule changed
+  gradingMembers = gradingOneProgram(members.data.filter(gradingIncluded)); // same rules as the sync, for rows saved before a rule changed
   gradingRanks = ranks.data;
   gradingDates = dates.data;
   const synced = gradingMembers.map(member => member.synced_at).sort().pop();
@@ -277,6 +351,22 @@ function initGradingPage() {
 
   document.getElementById('gradingSyncBtn')?.addEventListener('click', event => gradingSync(event.currentTarget));
   document.getElementById('ranksSave')?.addEventListener('click', saveRanks);
+
+  const printDialog = document.getElementById('gradingPrintDialog');
+  const printForm = document.getElementById('gradingPrintForm');
+  const choice = () => ({ group: printForm.elements.group.value, who: printForm.elements.who.value });
+  document.getElementById('gradingPrintBtn')?.addEventListener('click', () => {
+    if (!gradingMembers.length) { gradingSay('Nothing to print yet: the Zen Planner data has not loaded.', true); return; }
+    gradingGroupChoices();
+    printDialog.showModal();
+  });
+  document.getElementById('gradingPrintCancel').addEventListener('click', () => printDialog.close());
+  document.getElementById('gradingCsvBtn').addEventListener('click', () => { gradingCsv(choice()); printDialog.close(); });
+  printForm.addEventListener('submit', event => {
+    event.preventDefault();
+    printDialog.close();
+    gradingPrint(choice());
+  });
 
   (async () => {
     window.gradingAccess = await window.portalAccess?.catch(() => null);

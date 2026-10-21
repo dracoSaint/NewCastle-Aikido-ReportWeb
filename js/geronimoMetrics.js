@@ -428,12 +428,12 @@ async function gmRunWaveSync() {
   button.disabled = true;
   try {
     const client = await gmClient();
-    const { added, updated } = await gmSyncWaves(client);
+    const { added, updated, merged } = await gmSyncWaves(client);
     const { data, error } = await client.from(GM_WAVES).select('*');
     if (error) throw error;
     gmMembers = data;
     gmRenderWaves();
-    gmToast(`Added ${added} starter${added === 1 ? '' : 's'}, filled in details for ${updated} ${updated === 1 ? 'person' : 'people'}.`);
+    gmToast(`Added ${added} starter${added === 1 ? '' : 's'}, filled in details for ${updated} ${updated === 1 ? 'person' : 'people'}${merged ? `, merged ${merged} doubled-up ${merged === 1 ? 'row' : 'rows'}` : ''}.`);
   } catch (error) {
     gmToast(`Could not update the waves: ${error.message}`, true);
   } finally {

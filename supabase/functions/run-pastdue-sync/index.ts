@@ -9,7 +9,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const REPO = 'https://api.github.com/repos/dracoSaint/NewCastle-Aikido-ReportWeb/actions/workflows';
-const JOBS: Record<string, string> = { pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml', followup: 'zenplanner-followup.yml', grading: 'zenplanner-grading.yml' };
+const JOBS: Record<string, string> = { pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml', followup: 'zenplanner-followup.yml', grading: 'zenplanner-grading.yml', geronimo: 'zenplanner-geronimo.yml' };
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
