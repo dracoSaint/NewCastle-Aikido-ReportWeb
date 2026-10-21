@@ -173,15 +173,7 @@ async function gmComputeWeek(client, friday, can, ctx = {}) {
       } else if (start <= facts.latest) {
         const packs = facts.packages.filter(item => inWeek(item.made));
         const sales = facts.sales.filter(item => inWeek(item.on));
-        // Packages that ended this week, once a Monday list a week later can show whether they rolled over.
-        const ended = facts.packages.filter(item => inWeek(item.end) && item.end < gmAddDays(facts.latest, -7));
-        if (!ended.length && facts.packages.some(item => inWeek(item.end))) notes.push('rollover % waits for the Monday list a week after the packages end');
-        Object.assign(values, {
-          intro_pack_sales: packs.length,
-          membership_sales: sales.length,
-          rollovers: facts.rollovers.filter(inWeek).length
-        });
-        if (ended.length) values.rollover_pct = Math.round(ended.filter(item => item.rolledOn).length / ended.length * 1000) / 1000;
+        Object.assign(values, { intro_pack_sales: packs.length, membership_sales: sales.length });
         // Sales value: package fee per intro pack + one week's fee per new membership (Pricing Settings).
         const prices = [...packs.map(item => gmNum(pricing[`beginner_fee__${item.label}`])), ...sales.map(item => gmNum(pricing[`weekly_fee__${item.label}`]))];
         if (prices.every(price => price !== null)) values.sales_value = prices.reduce((a, b) => a + b, 0);
@@ -189,6 +181,21 @@ async function gmComputeWeek(client, friday, can, ctx = {}) {
       }
     } catch (error) {
       notes.push(`member list not read (${error.message})`);
+    }
+  }
+
+  // Rollovers and rollover % from the Trial waves list (user's choice, 2026-10-21), so they match it,
+  // hand edits included. Dates from the nightly all-members list (membership_all).
+  if (can('geronimo.view') && can('monday.view')) {
+    try {
+      const [{ data: waves, error }, memberships] = await Promise.all([
+        client.from('geronimo_wave_members').select('member_number, first_name, last_name, induction_date, rolled_over'),
+        gmAllMemberships(client)
+      ]);
+      if (error) throw error;
+      Object.assign(values, gmWaveRollovers(waves, memberships, start, friday));
+    } catch (error) {
+      notes.push(`rollovers not worked out (${error.message})`);
     }
   }
 
@@ -206,6 +213,54 @@ async function gmComputeWeek(client, friday, can, ctx = {}) {
     }
   }
   return { values, notes };
+}
+
+// Every Zen Planner membership, any status (membership_all, synced nightly), paged; loaded once per page or job.
+let gmAllRows = null;
+async function gmAllMemberships(client) {
+  if (gmAllRows) return gmAllRows;
+  const all = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client.from('membership_all').select('number, first_name, last_name, membership_label, mbr_status, mbr_begin_date, mbr_end_date').range(from, from + 999);
+    if (error) throw error;
+    all.push(...data);
+    if (data.length < 1000) break;
+  }
+  return (gmAllRows = all);
+}
+
+// The week's rollovers from the Trial waves list:
+//   rollovers    = wave members marked Yes, in the week their trial ended (or their full membership began, if
+//                  later: they joined after a gap); marked Yes by hand with no full membership -> trial end too.
+//   rollover_pct = of wave members whose trial package ended this week, the share marked Yes (still blank = not counted).
+// The trial is the wave row's package (member_number); its end date comes from the member list.
+// today: nothing later than today counts yet (a trial ending later this week waits for its day).
+function gmWaveRollovers(waves, memberships, start, friday, today = gmToday()) {
+  const inWeek = iso => Boolean(iso) && iso >= start && iso <= friday && iso <= today;
+  const person = row => `${row.first_name || ''} ${row.last_name || ''}`.trim().replace(/\s+/g, ' ').toLowerCase();
+  const byNumber = new Map(memberships.map(row => [String(row.number), row]));
+  const fullBegins = new Map();
+  memberships.filter(row => gmIsFull(row.membership_label) && row.mbr_begin_date).forEach(row => {
+    if (!fullBegins.has(person(row))) fullBegins.set(person(row), []);
+    fullBegins.get(person(row)).push(row.mbr_begin_date);
+  });
+  let rollovers = 0;
+  const ended = [];
+  waves.forEach(member => {
+    const trialEnd = byNumber.get(String(member.member_number))?.mbr_end_date || null;
+    if (inWeek(trialEnd) && member.rolled_over !== null) ended.push(member);
+    if (member.rolled_over !== true) return;
+    // Zen Planner backdates the follow-on membership to the trial's start, so its begin date can't date the
+    // rollover: it counts when the trial ends, or when the full membership begins if that is later (joined after a gap).
+    const from = member.induction_date || '0000';
+    const fullBegin = (fullBegins.get(person(member)) || []).filter(begin => begin >= from).sort()[0] || null;
+    const joined = [trialEnd, fullBegin].filter(Boolean).sort().pop() || null;
+    if (inWeek(joined)) rollovers += 1;
+  });
+  return {
+    rollovers,
+    rollover_pct: ended.length ? Math.round(ended.filter(member => member.rolled_over).length / ended.length * 1000) / 1000 : null
+  };
 }
 
 const GM_WAVES_FROM = '2026-01-01'; // waves start with the 2026 sheet
@@ -353,5 +408,5 @@ function gmWaveMerge(existing, personKey, wanted) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { gmAddDays, gmFriday, gmNum, gmComputeWeek, gmMemberFacts, gmSyncWaves, gmWavePeople, gmWaveMerge };
+  module.exports = { gmAddDays, gmFriday, gmNum, gmComputeWeek, gmMemberFacts, gmSyncWaves, gmWavePeople, gmWaveMerge, gmWaveRollovers };
 }
