@@ -10,8 +10,10 @@ Rules:
 
 ## Update workflow (every change, in order)
 
-Stack: static HTML/JS/CSS + Supabase (browser client), deployed by Netlify on push.
-**Netlify build credits are limited: never push without the user's OK; batch changes into one push.**
+Stack: static HTML/JS/CSS + Supabase (browser client). Deployed by Cloudflare Pages from the `production`
+branch (`npm run build` → `dist/`); Netlify still publishes `main`.
+**Never push without the user's OK; batch changes into one push. Ship = push `testing`, then merge it into
+`production`. NEVER push or merge to `main` unless the user explicitly says so (Netlify credits are nearly gone).**
 Always on: ponytail `full` (minimal code), caveman (terse replies), security-guidance hook. Don't switch levels.
 
 0. **Catch up** — at session start, read the latest entry of `docs/WORKLOG.md` (instructions, decisions,
@@ -38,7 +40,7 @@ Always on: ponytail `full` (minimal code), caveman (terse replies), security-gui
 5. **Hand over** — `graphify update .`; update the docs (below); list what changed + what the user should
    click through. Wait for OK.
 6. **Ship (only after OK)** — `/ship` checklist, `/caveman-commit` message, one commit, one push; then mark
-   the WORKLOG entry `shipped (<commit>)`.
+   the WORKLOG entry `shipped (<commit>)`. Push target: `testing` + `production` (never `main` unless told).
 
 **Docs (every time work finishes or anything changes, before hand-over):**
 - `docs/WORKLOG.md` — add/extend today's entry (template at top): user's instructions, decisions, what was

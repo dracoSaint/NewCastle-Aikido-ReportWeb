@@ -8,7 +8,7 @@
 
 import { pathToFileURL } from 'node:url';
 
-const WORKFLOWS = { followup: 'zenplanner-followup.yml', pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml' };
+const WORKFLOWS = { followup: 'zenplanner-followup.yml', pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml', grading: 'zenplanner-grading.yml' };
 const CATCH_UP_MINUTES = 180; // GitHub sometimes skips a scheduled run; catch up for 3 hours, no longer.
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -66,7 +66,8 @@ async function main() {
       method: 'POST',
       headers: { Authorization: `Bearer ${env('GITHUB_TOKEN')}`, Accept: 'application/vnd.github+json', 'User-Agent': 'bot-scheduler' },
       // The follow-up job's "force" input re-pulls a day already saved; a scheduled run never forces.
-      body: JSON.stringify({ ref: 'main', ...(bot.job === 'followup' ? { inputs: { force: false } } : {}) })
+      // Bots run the production branch (the repo's default since 2026-10-21; main is Netlify only).
+      body: JSON.stringify({ ref: 'production', ...(bot.job === 'followup' ? { inputs: { force: false } } : {}) })
     });
     if (response.ok) console.log(`${bot.job}: started.`);
     else {

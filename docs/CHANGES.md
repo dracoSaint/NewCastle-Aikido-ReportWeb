@@ -5,6 +5,33 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
+## Grading report from Zen Planner (2026-10-21, not yet shipped)
+
+Replaces the Grading Report Google Sheet. A nightly bot pulls Zen Planner's student programs grid; the portal keeps rank hours and testing dates and works out the rest.
+
+- **Bot** (`automation/zenplanner-grading.mjs`, `.github/workflows/zenplanner-grading.yml`): exports the user's grid (Students in Regular Adult and Juniors: rank, Att. Total, Att. Since Test, Enough Att. For Rank?, Last Test Date, age, program, status) into `grading_members`, replacing the snapshot. Fewer than 20 students = nothing changed (Zen Planner hiccup). Nightly 23:45 (Settings > Bots), plus the page's **Sync now**.
+- **Who counts:** Blue Zone Fitness members are left out; Juniors are under 17 only (17+ left out; no age in Zen Planner = kept). Applied by the bot and again by the page.
+- **Rules** (`js/gradingCore.js`, as the sheet): hours needed = the rank's required hours; eligible = attendance since the last test ≥ hours needed; weeks left = whole weeks to the rank's testing-date group date; weekly hour goal = hours still needed / weeks left, rounded up. Yondan has no hours (never eligible, no goal). Ranks are matched ignoring case and punctuation.
+- **Testing-date groups:** Regular Adult Unranked–5th Kyu (7 Nov), Regular Adult 4th Kyu and up (1 Jan), Juniors (7 Nov).
+- **Page** (`pages/REPORTs/GradingReport.html`, `js/gradingScripts.js`): same tabs (Overview with eligible lists, key figures and close to eligible; Regular Adult; Juniors; Member List) from Supabase, with a "Zen Planner data from …" line. New **Ranks & Dates** tab: the three testing dates and each rank's hours and group, with member counts; Save needs `grading.edit`. Zen Planner ranks missing from the table are listed there.
+- **Database** (`supabase/grading.sql`): `grading_members`, `grading_ranks`, `grading_test_dates` (seeded from the sheet), view `grading.view` / change `grading.edit` (Owner and Staff get edit on first run; the bot gets both), ranks and dates in the audit log, the Grading bot in `bot_settings`. Settings > System status shows the Grading sync.
+- Dry run on 21 Oct: 213 students (156 adults, 57 juniors), all 22 Zen Planner ranks matched; 29 adults and 6 juniors eligible.
+- UI fixes (same day): card intro lines ("Within 3 hours…", testing dates) sit inside the card; space between cards; "Eligible" in Weekly Hour Goal is a green chip; on phones the attendance meter and belt names get two columns so nothing runs off the edge.
+
+**Files:** `automation/zenplanner-grading.mjs`, `automation/grading-core.check.mjs`, `.github/workflows/zenplanner-grading.yml`, `js/gradingCore.js`, `js/gradingScripts.js`, `pages/REPORTs/GradingReport.html`, `supabase/grading.sql`, `automation/bot-scheduler.mjs`, `supabase/functions/run-pastdue-sync/index.ts`, `js/access.js`, `js/settings.js`, `css/styles.css`, `.impeccable/config.json`.
+
+**Set-up (in order):**
+1. Run `supabase/grading.sql` in the Supabase SQL editor.
+2. Redeploy the sync function so Sync now knows the new job: `npx supabase login`, then `npx supabase functions deploy run-pastdue-sync --project-ref knnzybqudpdxhddcaxcv` (no install needed), or paste `supabase/functions/run-pastdue-sync/index.ts` into Supabase > Edge Functions > run-pastdue-sync > Code and Deploy.
+3. First data: run the bot once (locally: `node --env-file=automation/.env automation/zenplanner-grading.mjs`, or on GitHub once the workflow is on main).
+4. The repo default branch is `production` (since 2026-10-21): bots, the scheduler and Sync now all run the production branch, so this workflow runs once production has it.
+
+**Check:** `node automation/grading-core.check.mjs`. Compare Overview's eligible lists with the sheet's ELIGIBLE MEMBERS after a fresh sync; change a testing date on Ranks & Dates and watch weekly goals change.
+
+**Known limits:** the old sheet is no longer read (its link is gone from the page); `config.gradingSpreadsheetId` is unused.
+
+---
+
 ## Cloudflare Pages hosting (2026-10-21, not yet shipped)
 
 Moving the site from Netlify to Cloudflare Pages. The site is static (no server code); the bots stay on GitHub Actions and the data stays in Supabase, so neither changes.

@@ -17,9 +17,31 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ---
 
-## 2026-10-21 — Task page links, Past Due follow-ups in today's tasks
+## 2026-10-21 — Grading report bot (Zen Planner → portal)
 
 Status: **awaiting user OK** (local, not pushed).
+
+### Instructions from the user
+- A bot that automatically updates the Grading report from their Zen Planner grid URL; add the sheet's functions (Grading Report sheet, RANK & REQUIRED HRS tab). Plan first, then "start build".
+- Mid-build: Juniors under 17 only (older not included); exclude all members with Program = Blue Zone Fitness.
+
+### Decisions
+- Data in Supabase, sheet retired (user chose). Nightly bot (user chose), 23:45.
+- Testing dates in 3 groups (user's grouping): adults Unranked–5th Kyu; adults 4th Kyu–Yondan; Juniors.
+- Rules copied from the sheet's numbers (weekly goal = ceil(short / weeks left); weeks left = floor(days / 7)). Juniors with no age are kept (3 today). Yondan: no hours, no goal.
+- Bot writes only included members; the page filters again so a rule change shows before the next sync.
+
+### Done
+- See `docs/CHANGES.md` → "Grading report from Zen Planner". Dry run against Zen Planner OK (213 students, all ranks matched). Page previewed with the dry-run data (not saved).
+
+### Open items
+- User: run `supabase/grading.sql`; first real sync (local run, or after the workflow reaches main). `run-pastdue-sync` redeployed by the user 2026-10-21 (npx supabase, grading job live).
+- Done 2026-10-21: repo default branch switched to `production` by the user; scheduler and Sync now dispatch `ref: production`.
+- Later (planned, not built): Home "eligible to grade" tile; a task opening the Grading page.
+
+## 2026-10-21 — Task page links, Past Due follow-ups in today's tasks
+
+Status: **shipped to production (1f5c4c9, production c6e8f6b)**; not on main (Netlify) by choice.
 
 ### Instructions from the user
 - In today's tasks, under the Past Due report task, show members with overdue or close follow-ups. Link tasks to their pages, especially repeating ones.

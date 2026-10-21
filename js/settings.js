@@ -42,6 +42,12 @@ const SETTINGS_SOURCES = [
     detail: row => `Week of ${settingsDay(row.report_date)} · ${row.members_total} members`
   },
   {
+    label: 'Grading report', bot: 'grading', area: 'grading', maxHours: 36,
+    load: client => client.from('grading_members').select('synced_at').order('synced_at', { ascending: false }).limit(1).maybeSingle(),
+    at: row => row.synced_at,
+    detail: () => 'Zen Planner student programs'
+  },
+  {
     label: 'Daily Ad Review import', bot: null, area: 'ads', maxHours: 72,
     load: client => client.from('ad_review_snapshots').select('report_date').order('report_date', { ascending: false }).limit(1).maybeSingle(),
     at: row => `${row.report_date}T12:00:00`,
@@ -519,7 +525,7 @@ const SETTINGS_AUDIT_TABLES = {
   ad_review_leads: ['Ad Review', 'lead'], ad_review_playbook: ['Ad Review', 'playbook'],
   geronimo_weekly: ['Geronimo Metrics', 'week'], geronimo_wave_members: ['Geronimo Metrics', 'wave member'],
   geronimo_scoreboard: ['Geronimo Metrics', 'scoreboard day'],
-  sop_documents: ['SOPs', 'SOP'], tasks: ['Home', 'task'],
+  sop_documents: ['SOPs', 'SOP'], grading_ranks: ['Grading', 'rank'], grading_test_dates: ['Grading', 'testing date'], tasks: ['Home', 'task'],
   app_roles: ['Settings', 'role'], app_role_permissions: ['Settings', 'permission'], app_user_roles: ['Settings', 'user role'],
   bot_settings: ['Settings', 'bot setting'], app_settings: ['Settings', 'report rule']
 };

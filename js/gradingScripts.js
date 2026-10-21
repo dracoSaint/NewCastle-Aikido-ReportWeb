@@ -1,141 +1,42 @@
-/* ============ CONFIG - edit these to match your sheet ============ */
+// Grading report (pages/REPORTs/GradingReport.html). Data: the nightly Zen Planner snapshot
+// (grading_members, automation/zenplanner-grading.mjs) with rank hours and testing dates kept in the
+// portal (grading_ranks, grading_test_dates; supabase/grading.sql). Rules: js/gradingCore.js.
+// Replaces the Grading Report Google Sheet.
 
-// Home page: one sheet, two column-blocks side by side
-const HOME_SHEET_NAME = 'ELIGIBLE MEMBERS'; // <-- confirm this matches your actual tab name
-const HOME_HEADER_ROW = 2;   // 1-indexed
-const HOME_DATA_START_ROW = 3; // 1-indexed
-const HOME_ADULTS_COLS = { start: 2, end: 8 };  // B..J (1-indexed)
-const HOME_JUNIORS_COLS = { start: 10, end: 16 }; // L..T
+let gradingMembers = [];
+let gradingRanks = [];
+let gradingDates = [];
 
-// Other pages: one sheet each, headers on row 1, data from row 2
-const PAGE_CONFIGS = {
-  adults:  { sheetName: 'REG. ADULT GRADING', headerRow: 1, dataStartRow: 2 },
-  juniors: { sheetName: 'JUNIORS GRADING',    headerRow: 1, dataStartRow: 2 },
-  members: { sheetName: 'MEMBER LIST',        headerRow: 1, dataStartRow: 2 }
-};
-/* =================================================================== */
+const gradingToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
+const gradingDmy = iso => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
+const gradingName = member => [member.first_name, member.last_name].filter(Boolean).join(' ');
+const PROGRAM_LABEL = { adults: 'Regular Adult', juniors: 'Juniors' };
 
-let jsonpCounter = 0;
-const sheetCache = {};
-
-const HEADER_FALLBACKS = {
-  homeAdults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Eligibility'],
-  homeJuniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Eligibility'],
-  adults: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
-  juniors: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal'],
-  members: ['Rank', 'First Name', 'Last Name', 'Att. Total', 'Att. Since Test', 'Enough Att. For Rank?', 'Last Test Date']
-};
-
-function normalizeRow(row, length) {
-  const normalized = (row || []).slice();
-  while (normalized.length < length) normalized.push('');
-  return normalized;
+// Every member with their figures, in rank order then by hours since the last test.
+function gradingRows(program) {
+  const today = gradingToday();
+  return gradingMembers
+    .filter(member => !program || member.program === program)
+    .map(member => ({ member, status: gradingStatus(member, gradingRanks, gradingDates, today) }))
+    .sort((a, b) => (a.member.program === b.member.program ? 0 : a.member.program === 'adults' ? -1 : 1)
+      || a.status.order - b.status.order || (Number(a.member.att_since_test) || 0) - (Number(b.member.att_since_test) || 0)
+      || gradingName(a.member).localeCompare(gradingName(b.member)));
 }
 
-function getHeaders(rawRows, headerRow, fallbackKey) {
-  const hIdx = headerRow - 1;
-  const fallback = HEADER_FALLBACKS[fallbackKey] || [];
-  const row = normalizeRow(rawRows[hIdx], fallback.length).slice(0, fallback.length || undefined);
-  return row.map((cell, idx) => {
-    const value = String(cell || '').trim();
-    return value || fallback[idx] || '';
-  });
-}
-
-function fetchSheetRaw(sheetName) {
-  if (sheetCache[sheetName]) return sheetCache[sheetName];
-
-  const promise = new Promise((resolve, reject) => {
-    const cbName = 'gvizCb' + (jsonpCounter++);
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error('Timed out loading "' + sheetName + '". Check the sheet is shared as "Anyone with the link".'));
-    }, 12000);
-
-    function cleanup() {
-      clearTimeout(timeout);
-      delete window[cbName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    window[cbName] = function (response) {
-      cleanup();
-      try {
-        const table = response.table;
-        const colCount = table.cols.length;
-        const rows = table.rows.map(r => {
-          const row = (r.c || []).map(cell => {
-            if (!cell) return '';
-            return cell.f !== undefined && cell.f !== null ? cell.f : (cell.v === null ? '' : cell.v);
-          });
-          return normalizeRow(row, colCount);
-        });
-        resolve(rows);
-      } catch (err) {
-        reject(err);
-      }
-    };
-
-    const url = 'https://docs.google.com/spreadsheets/d/' + config.gradingSpreadsheetId +
-      '/gviz/tq?tqx=out:json;responseHandler:' + cbName +
-      '&sheet=' + encodeURIComponent(sheetName) +
-      '&headers=0';
-
-    const script = document.createElement('script');
-    script.src = url;
-    script.onerror = () => { cleanup(); reject(new Error('Failed to load sheet "' + sheetName + '".')); };
-    document.body.appendChild(script);
-  });
-
-  sheetCache[sheetName] = promise;
-  return promise;
-}
-
-function sliceBlock(rawRows, headerRow, dataStartRow, colStart, colEnd, fallbackKey) {
-  const dIdx = dataStartRow - 1;
-  const cStart = colStart - 1;
-  const cEnd = colEnd;
-
-  // Pad the complete sheet header row before slicing the block. The juniors
-  // block starts later in the sheet, so padding only to the fallback length
-  // makes its header slice empty.
-  const fallback = HEADER_FALLBACKS[fallbackKey] || [];
-  const fullHeaderRow = normalizeRow(rawRows[headerRow - 1], cEnd);
-  const headers = fullHeaderRow.slice(cStart, cEnd).map((header, index) => {
-    const value = String(header || '').trim();
-    return value || fallback[index] || '';
-  });
-  const rows = rawRows.slice(dIdx)
-    .map(r => normalizeRow(r, cEnd).slice(cStart, cEnd))
-    .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
-
-  return { headers, rows };
-}
+const cellNumber = value => (value == null || value === '' ? '' : String(value));
 
 function classify(headerLower, cellLower) {
   if (headerLower.indexOf('eligib') !== -1) {
     return cellLower === 'eligible' ? 'eligible' : 'not-eligible';
   }
+  if (cellLower === 'eligible') return 'eligible'; // Weekly Hour Goal shows "Eligible" once the hours are met
   if (headerLower.indexOf('enough att') !== -1) {
     return cellLower === 'yes' ? 'yes' : 'no';
   }
   return '';
 }
 
-// Name first: First Name + Last Name become one "Name" column at the front.
-function nameFirst(block) {
-  const first = block.headers.findIndex(h => /^first name$/i.test(h));
-  const last = block.headers.findIndex(h => /^last name$/i.test(h));
-  if (first < 0 || last < 0) return block;
-  const rest = block.headers.map((_, i) => i).filter(i => i !== first && i !== last);
-  return {
-    headers: ['Name', ...rest.map(i => block.headers[i])],
-    rows: block.rows.map(r => [[r[first], r[last]].filter(Boolean).join(' '), ...rest.map(i => r[i])])
-  };
-}
-
 function renderTable(container, block) {
-  block = nameFirst(block);
   if (!block.rows.length) {
     container.innerHTML = '<div class="empty">No data found.</div>';
     return;
@@ -160,7 +61,7 @@ function renderTable(container, block) {
         return;
       }
       // Eligible / Yes as a green chip, Not eligible / No as a grey one (same chips as the other reports).
-      const text = escapeHtml(gradingCell(block.headers[c], cell));
+      const text = escapeHtml(String(cell ?? '').trim() || '—');
       const chip = { eligible: 'is-done', yes: 'is-done', 'not-eligible': 'is-todo', no: 'is-todo' }[cls.trim().split(' ')[0]];
       html += '<td class="' + cls + '"' + label + '>' + (chip && text !== '—' ? '<span class="fu-chip ' + chip + '">' + text + '</span>' : text) + '</td>';
     });
@@ -168,14 +69,6 @@ function renderTable(container, block) {
   });
   html += '</tbody></table>';
   container.innerHTML = html;
-}
-
-// Blank cells show a dash; sheet dates (d/m/yyyy text) are padded to 06/12/2025 so the column lines up.
-function gradingCell(header, cell) {
-  const value = String(cell ?? '').trim();
-  if (!value) return '—';
-  if (!/date/i.test(header || '')) return value;
-  return value.replace(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, (_, d, m, y) => `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`);
 }
 
 function escapeHtml(v) {
@@ -196,86 +89,163 @@ function numericColumns(block) {
   });
 }
 
-// The overview sheet is the ELIGIBLE MEMBERS list, so its rows are the count.
-function renderGradingKeyFigure(adults, juniors) {
-  const el = document.getElementById('gradingKeyFigure');
-  if (!el) return;
-  const a = adults.rows.length;
-  const j = juniors.rows.length;
-  el.innerHTML = '<div class="past-due-metric key"><span>Eligible to grade</span><strong>' + (a + j) + '</strong></div>' +
-    '<div class="past-due-metric"><span>Regular adults</span><strong>' + a + '</strong></div>' +
-    '<div class="past-due-metric"><span>Juniors</span><strong>' + j + '</strong></div>';
-}
+// ── Tabs ─────────────────────────────────────────────────────────────────────
 
-function setUpdatedNow() {
-  const now = new Date();
-  document.getElementById('updatedLine').textContent = 'Last updated: ' + now.toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
-function loadHome() {
-  fetchSheetRaw(HOME_SHEET_NAME).then(rawRows => {
-    const adults = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_ADULTS_COLS.start, HOME_ADULTS_COLS.end, 'homeAdults');
-    const juniors = sliceBlock(rawRows, HOME_HEADER_ROW, HOME_DATA_START_ROW, HOME_JUNIORS_COLS.start, HOME_JUNIORS_COLS.end, 'homeJuniors');
-    // The sheet labels the last overview column "Weekly Hour Goal", but it holds Eligible / Not eligible.
-    [adults, juniors].forEach(block => { block.headers = block.headers.map(h => (/weekly hour goal/i.test(h) ? 'Eligibility' : h)); });
-    renderTable(document.getElementById('home-adults-wrap'), adults);
-    renderTable(document.getElementById('home-juniors-wrap'), juniors);
-    renderGradingKeyFigure(adults, juniors);
-  }).catch(err => {
-    showError('home-adults-wrap', err);
-    showError('home-juniors-wrap', err);
+function renderHome() {
+  const all = gradingRows();
+  const eligible = program => all.filter(({ member, status }) => member.program === program && status.eligible);
+  const block = list => ({
+    headers: ['Name', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Eligibility'],
+    rows: list.map(({ member, status }) => [gradingName(member), member.rank, cellNumber(member.att_total), cellNumber(member.att_since_test), cellNumber(status.needed), 'Eligible'])
   });
-}
+  const adults = eligible('adults');
+  const juniors = eligible('juniors');
+  renderTable(document.getElementById('home-adults-wrap'), block(adults));
+  renderTable(document.getElementById('home-juniors-wrap'), block(juniors));
+  document.getElementById('gradingKeyFigure').innerHTML =
+    '<div class="past-due-metric key"><span>Eligible to grade</span><strong>' + (adults.length + juniors.length) + '</strong></div>' +
+    '<div class="past-due-metric"><span>Regular adults</span><strong>' + adults.length + '</strong></div>' +
+    '<div class="past-due-metric"><span>Juniors</span><strong>' + juniors.length + '</strong></div>';
 
-function pageBlock(key) {
-  const config = PAGE_CONFIGS[key];
-  return fetchSheetRaw(config.sheetName).then(rawRows => {
-    const headers = getHeaders(rawRows, config.headerRow, key);
-    const rows = rawRows.slice(config.dataStartRow - 1)
-      .map(row => normalizeRow(row, headers.length).slice(0, headers.length))
-      .filter(r => r.some(cell => cell !== '' && cell !== null && cell !== undefined));
-    return { headers, rows };
-  });
-}
-
-function loadPage(key) {
-  pageBlock(key)
-    .then(block => renderTable(document.getElementById(key + '-wrap'), block))
-    .catch(err => showError(key + '-wrap', err));
-}
-
-// Members within 3 hours of the hours needed: who to line up for the next grading.
-const CLOSE_HOURS = 3;
-function loadCloseToEligible() {
+  // Members within 3 hours of the hours needed: who to line up for the next grading.
+  const close = all.filter(({ status }) => status.short > 0 && status.short <= CLOSE_HOURS)
+    .sort((a, b) => a.status.short - b.status.short);
   const wrap = document.getElementById('home-close-wrap');
-  if (!wrap) return;
-  Promise.all(['adults', 'juniors'].map(key => pageBlock(key).then(block => ({ key, block: nameFirst(block) }))))
-    .then(groups => {
-      const rows = groups.flatMap(({ key, block }) => {
-        const since = block.headers.findIndex(h => /since test/i.test(h));
-        const needed = block.headers.findIndex(h => /hours needed/i.test(h));
-        const rank = block.headers.findIndex(h => /^rank$/i.test(h));
-        return block.rows
-          .map(r => ({ r, short: parseFloat(r[needed]) - parseFloat(r[since]) }))
-          .filter(({ short }) => short > 0 && short <= CLOSE_HOURS)
-          .map(({ r }) => [r[0], key === 'adults' ? 'Adult' : 'Junior', rank >= 0 ? r[rank] : '', r[since], r[needed]]);
-      }).sort((a, b) => (b[3] / b[4]) - (a[3] / a[4]));
-      renderTable(wrap, { headers: ['Name', 'Group', 'Rank', 'Att. Since Test', 'Hours Needed'], rows });
-      if (!rows.length) wrap.innerHTML = '<div class="empty">Nobody is within ' + CLOSE_HOURS + ' hours yet.</div>';
-    })
-    .catch(err => showError('home-close-wrap', err));
+  renderTable(wrap, {
+    headers: ['Name', 'Group', 'Rank', 'Att. Since Test', 'Hours Needed'],
+    rows: close.map(({ member, status }) => [gradingName(member), PROGRAM_LABEL[member.program], member.rank, cellNumber(member.att_since_test), cellNumber(status.needed)])
+  });
+  if (!close.length) wrap.innerHTML = '<div class="empty">Nobody is within ' + CLOSE_HOURS + ' hours yet.</div>';
+}
+const CLOSE_HOURS = 3;
+
+function renderProgram(program) {
+  renderTable(document.getElementById(`${program}-wrap`), {
+    headers: ['Name', 'Rank', 'Att. Total', 'Att. Since Test', 'Hours Needed', 'Weekly Hour Goal', 'Next Test Date'],
+    rows: gradingRows(program).map(({ member, status }) => [
+      gradingName(member), member.rank, cellNumber(member.att_total), cellNumber(member.att_since_test), cellNumber(status.needed),
+      status.eligible ? 'Eligible' : cellNumber(status.weeklyGoal), gradingDmy(status.testDate)
+    ])
+  });
+}
+
+function renderMembers() {
+  renderTable(document.getElementById('members-wrap'), {
+    headers: ['Name', 'Rank', 'Att. Total', 'Att. Since Test', 'Enough Att. For Rank?', 'Last Test Date', 'Age', 'Program', 'Program Status'],
+    rows: gradingRows().map(({ member, status }) => [
+      gradingName(member), member.rank, cellNumber(member.att_total), cellNumber(member.att_since_test), status.eligible ? 'Yes' : 'No',
+      gradingDmy(member.last_test_date), cellNumber(member.age), member.program_name || PROGRAM_LABEL[member.program], member.status
+    ])
+  });
+}
+
+// Ranks & dates: required hours and testing-date groups (edited with "grading.edit").
+function renderRanks() {
+  const canEdit = !window.gradingAccess || window.gradingAccess.can('grading.edit');
+  const lock = canEdit ? '' : ' disabled';
+  const groupOptions = program => gradingDates.filter(date => date.program === program);
+  document.getElementById('ranks-dates').innerHTML = `<div class="grading-dates">${gradingDates.map(date => `
+    <label class="grading-date"><span>${escapeHtml(date.label)}</span>
+      <input type="date" data-date-group="${escapeHtml(date.test_group)}" value="${escapeHtml(date.test_date || '')}"${lock}></label>`).join('')}</div>`;
+  ['adults', 'juniors'].forEach(program => {
+    const rows = gradingRanks.filter(rank => rank.program === program).sort((a, b) => a.sort_order - b.sort_order);
+    const counts = gradingMembers.filter(member => member.program === program)
+      .reduce((all, member) => all.set(gradingRankKey(member.rank), (all.get(gradingRankKey(member.rank)) || 0) + 1), new Map());
+    document.getElementById(`ranks-${program}`).innerHTML = `<table class="grading-rank-table"><thead><tr><th>Rank</th><th class="num">Hours needed</th><th>Testing date</th><th class="num">Members</th></tr></thead><tbody>${rows.map(rank => `
+      <tr data-rank-program="${program}" data-rank="${escapeHtml(rank.rank)}">
+        <td data-label="Rank">${escapeHtml(rank.rank)}</td>
+        <td class="num" data-label="Hours needed"><input type="number" min="0" step="1" inputmode="numeric" aria-label="Hours needed, ${escapeHtml(rank.rank)}" data-field="req_hours" value="${rank.req_hours ?? ''}" placeholder="None"${lock}></td>
+        <td data-label="Testing date"><select aria-label="Testing date group, ${escapeHtml(rank.rank)}" data-field="test_group"${lock}>${groupOptions(program).map(date => `<option value="${escapeHtml(date.test_group)}"${date.test_group === rank.test_group ? ' selected' : ''}>${escapeHtml(date.label)}</option>`).join('')}</select></td>
+        <td class="num" data-label="Members">${counts.get(gradingRankKey(rank.rank)) || 0}</td>
+      </tr>`).join('')}</tbody></table>`;
+  });
+  // Zen Planner ranks with no row here would silently get no hours needed: list them.
+  const unknown = [...new Set(gradingMembers.filter(member => member.rank && !gradingStatus(member, gradingRanks, gradingDates, gradingToday()).rankFound)
+    .map(member => `${PROGRAM_LABEL[member.program]}: ${member.rank}`))];
+  const box = document.getElementById('ranks-unknown');
+  box.hidden = !unknown.length;
+  box.innerHTML = unknown.length ? `<p class="pd-notice">These Zen Planner ranks aren't in the table, so their members show no hours needed: ${unknown.map(escapeHtml).join(', ')}. Ask the dev to add them.</p>` : '';
+  document.getElementById('ranksSave').hidden = !canEdit;
+}
+
+async function saveRanks() {
+  const button = document.getElementById('ranksSave');
+  button.disabled = true;
+  try {
+    const client = window.supabaseClient;
+    const changes = [];
+    document.querySelectorAll('[data-date-group]').forEach(input => {
+      const date = gradingDates.find(item => item.test_group === input.dataset.dateGroup);
+      if ((date.test_date || '') !== input.value) changes.push(client.from('grading_test_dates').update({ test_date: input.value || null }).eq('test_group', date.test_group).select('test_group'));
+    });
+    document.querySelectorAll('[data-rank-program]').forEach(row => {
+      const rank = gradingRanks.find(item => item.program === row.dataset.rankProgram && item.rank === row.dataset.rank);
+      const hours = row.querySelector('[data-field="req_hours"]').value;
+      const group = row.querySelector('[data-field="test_group"]').value;
+      const patch = {};
+      if (String(rank.req_hours ?? '') !== hours) patch.req_hours = hours === '' ? null : Number(hours);
+      if (rank.test_group !== group) patch.test_group = group;
+      if (Object.keys(patch).length) changes.push(client.from('grading_ranks').update(patch).eq('program', rank.program).eq('rank', rank.rank).select('rank'));
+    });
+    if (!changes.length) { gradingSay('Nothing changed.'); return; }
+    const results = await Promise.all(changes);
+    const failed = results.find(result => result.error || !result.data?.length);
+    if (failed) throw new Error(failed.error?.message || 'Not saved: your role can\'t change ranks or dates.');
+    await gradingLoad();
+    gradingSay(`Saved ${changes.length} ${changes.length === 1 ? 'change' : 'changes'}. Every tab now uses them.`);
+  } catch (error) {
+    gradingSay(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function gradingSay(text, bad) {
+  const status = document.getElementById('gradingStatus');
+  status.textContent = text;
+  status.classList.toggle('is-bad', Boolean(bad));
+}
+
+async function gradingSync(button) {
+  button.disabled = true;
+  try {
+    const { error } = await window.supabaseClient.functions.invoke('run-pastdue-sync', { body: { job: 'grading' } });
+    if (error) throw new Error(await error.context?.text?.().catch(() => '') || error.message);
+    gradingSay('Sync started. The report updates in about 3 minutes; refresh the page then.');
+  } catch (error) {
+    gradingSay(error.message || 'Could not start the sync.', true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function showError(elId, err) {
   document.getElementById(elId).innerHTML = '<div class="error">' + escapeHtml(err.message || err) + '</div>';
 }
 
-const loaded = {};
-function loadTab(key) {
-  if (loaded[key]) return;
-  loaded[key] = true;
-  if (key === 'home') { loadHome(); loadCloseToEligible(); }
-  else loadPage(key);
+// ── Load ─────────────────────────────────────────────────────────────────────
+
+const RENDER = { home: renderHome, adults: () => renderProgram('adults'), juniors: () => renderProgram('juniors'), members: renderMembers, ranks: renderRanks };
+let gradingTab = 'home';
+
+async function gradingLoad() {
+  await window.authReady;
+  const client = window.supabaseClient;
+  const [members, ranks, dates] = await Promise.all([
+    client.from('grading_members').select('*'),
+    client.from('grading_ranks').select('*'),
+    client.from('grading_test_dates').select('*').order('test_group')
+  ]);
+  const error = members.error || ranks.error || dates.error;
+  if (error) throw new Error(/does not exist|schema cache/i.test(error.message) ? 'The Grading report needs a one-time database update: run supabase/grading.sql in Supabase.' : error.message);
+  gradingMembers = members.data.filter(gradingIncluded); // same rules as the sync, for rows saved before a rule changed
+  gradingRanks = ranks.data;
+  gradingDates = dates.data;
+  const synced = gradingMembers.map(member => member.synced_at).sort().pop();
+  document.getElementById('updatedLine').textContent = synced
+    ? `Zen Planner data from ${new Date(synced).toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${gradingMembers.length} students`
+    : 'No Zen Planner data yet: press Sync now, or wait for tonight\'s sync.';
+  RENDER[gradingTab]();
 }
 
 function initGradingPage() {
@@ -288,7 +258,8 @@ function initGradingPage() {
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-      loadTab(btn.dataset.tab);
+      gradingTab = btn.dataset.tab;
+      if (gradingMembers.length || gradingRanks.length) RENDER[gradingTab]();
     });
   });
 
@@ -304,8 +275,16 @@ function initGradingPage() {
     });
   }
 
-  setUpdatedNow();
-  loadTab('home');
+  document.getElementById('gradingSyncBtn')?.addEventListener('click', event => gradingSync(event.currentTarget));
+  document.getElementById('ranksSave')?.addEventListener('click', saveRanks);
+
+  (async () => {
+    window.gradingAccess = await window.portalAccess?.catch(() => null);
+  })();
+  gradingLoad().catch(error => {
+    document.getElementById('updatedLine').textContent = 'Could not load the Grading report.';
+    ['home-adults-wrap', 'home-juniors-wrap', 'home-close-wrap', 'adults-wrap', 'juniors-wrap', 'members-wrap'].forEach(id => showError(id, error));
+  });
 }
 
 initGradingPage();
