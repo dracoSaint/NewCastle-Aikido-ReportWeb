@@ -8,8 +8,8 @@
 
 import { pathToFileURL } from 'node:url';
 
-const WORKFLOWS = { followup: 'zenplanner-followup.yml', pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml', grading: 'zenplanner-grading.yml' };
-const CATCH_UP_MINUTES = 180; // GitHub sometimes skips a scheduled run; catch up for 3 hours, no longer.
+const WORKFLOWS = { followup: 'zenplanner-followup.yml', pastdue: 'zenplanner-pastdue.yml', monday: 'zenplanner-monday.yml', grading: 'zenplanner-grading.yml', geronimo: 'zenplanner-geronimo.yml' };
+const CATCH_UP_MINUTES = 720; // GitHub runs this only every 3-6 hours (Oct 2026), so catch up for 12 hours.
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Sydney weekday (0 = Sunday) and minutes past midnight.
@@ -20,14 +20,16 @@ export function sydneyClock(now) {
   return { day: WEEKDAYS.indexOf(parts.weekday), minutes: Number(parts.hour) * 60 + Number(parts.minute) };
 }
 
-// Bots to start now: switched on, today is a run day, the run time passed less than 3 hours ago,
+// Bots to start now: switched on, today is a run day, the run time passed less than 12 hours ago,
 // and nothing (scheduler or Sync button) has started it since that time.
 export function botsDue(settings, now = new Date()) {
   const { day, minutes } = sydneyClock(now);
   return settings.filter(bot => {
     const [hour, minute] = String(bot.run_time).split(':').map(Number);
-    const late = minutes - (hour * 60 + minute);
-    if (!bot.enabled || !bot.run_days.includes(day) || late < 0 || late >= CATCH_UP_MINUTES) return false;
+    // Today's run time, or yesterday's (a late-evening bot reached after midnight still counts).
+    const late = [[day, minutes - (hour * 60 + minute)], [(day + 6) % 7, minutes - (hour * 60 + minute) + 1440]]
+      .find(([runDay, after]) => bot.run_days.includes(runDay) && after >= 0 && after < CATCH_UP_MINUTES)?.[1];
+    if (!bot.enabled || late === undefined) return false;
     const scheduledAt = now.getTime() - late * 60000 - (now.getTime() % 60000);
     return !bot.last_started_at || Date.parse(bot.last_started_at) < scheduledAt;
   });

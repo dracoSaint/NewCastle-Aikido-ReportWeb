@@ -5,17 +5,33 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
+## Geronimo: own nightly bot, wave duplicates, rollovers, scheduler catch-up (2026-10-21, not yet shipped)
+
+Why numbers stopped: the Red / Orange bot, which also pulled Geronimo's attendance, cancels, the all-members list (rollovers, trial waves) and the weekly lock-in, was set in Settings > Bots to **Thursdays 4:30 am only**, and last ran on 17 Oct. GitHub was also running the scheduler only every 3-6 hours while a bot was caught up for just 3 hours, so runs were skipped.
+
+- **Geronimo metrics bot** (`automation/zenplanner-geronimo.mjs`, `.github/workflows/zenplanner-geronimo.yml`): nightly 23:00 (Settings > Bots): week attendance and cancels, all memberships (Monday Board > All Members too), then trial waves from the fresh list, then lock-in of the last two weeks. The Red / Orange bot no longer does these; it can stay weekly.
+- **Scheduler** (`automation/bot-scheduler.mjs`): a bot is caught up for 12 hours (was 3), including across midnight (a 23:00 bot reached at 7 am still runs).
+- **Trial waves: one row per person** (their first 2026+ beginner package; a re-created or follow-on package is the same trial). 42 doubled-up rows were merged on 21 Oct (202 -> 160), keeping anything typed (phone, email, goal, why, notes joined, rolled over, inducted). A package number already on file counts as the same person even after a name change in Zen Planner.
+- **Rolled over:** a "No" turns into "Yes" once a full membership shows up; never Yes -> No.
+
+**Set-up:** run `supabase/geronimo_bot.sql` (adds the bot to Settings > Bots); push to production; redeploy `run-pastdue-sync` (Sync now knows the job).
+
+**Check:** `node automation/bot-scheduler.check.mjs`, `node automation/geronimo-core.check.mjs`. Next morning: Settings > Bots shows Geronimo metrics ran; this week's attendance and cancels are filled.
+
+---
+
 ## Grading report from Zen Planner (2026-10-21, not yet shipped)
 
 Replaces the Grading Report Google Sheet. A nightly bot pulls Zen Planner's student programs grid; the portal keeps rank hours and testing dates and works out the rest.
 
 - **Bot** (`automation/zenplanner-grading.mjs`, `.github/workflows/zenplanner-grading.yml`): exports the user's grid (Students in Regular Adult and Juniors: rank, Att. Total, Att. Since Test, Enough Att. For Rank?, Last Test Date, age, program, status) into `grading_members`, replacing the snapshot. Fewer than 20 students = nothing changed (Zen Planner hiccup). Nightly 23:45 (Settings > Bots), plus the page's **Sync now**.
-- **Who counts:** Blue Zone Fitness members are left out; Juniors are under 17 only (17+ left out; no age in Zen Planner = kept). Applied by the bot and again by the page.
+- **Who counts:** Blue Zone Fitness members are left out; Juniors are under 17 only (17+ left out; no age in Zen Planner = kept); someone under 17 (or with no age) who is in both Juniors and Regular Adult is listed in Juniors only (21 such members on 21 Oct; the 2 under-17s only in Regular Adult stay there). Applied by the bot and again by the page.
 - **Rules** (`js/gradingCore.js`, as the sheet): hours needed = the rank's required hours; eligible = attendance since the last test ≥ hours needed; weeks left = whole weeks to the rank's testing-date group date; weekly hour goal = hours still needed / weeks left, rounded up. Yondan has no hours (never eligible, no goal). Ranks are matched ignoring case and punctuation.
 - **Testing-date groups:** Regular Adult Unranked–5th Kyu (7 Nov), Regular Adult 4th Kyu and up (1 Jan), Juniors (7 Nov).
 - **Page** (`pages/REPORTs/GradingReport.html`, `js/gradingScripts.js`): same tabs (Overview with eligible lists, key figures and close to eligible; Regular Adult; Juniors; Member List) from Supabase, with a "Zen Planner data from …" line. New **Ranks & Dates** tab: the three testing dates and each rank's hours and group, with member counts; Save needs `grading.edit`. Zen Planner ranks missing from the table are listed there.
 - **Database** (`supabase/grading.sql`): `grading_members`, `grading_ranks`, `grading_test_dates` (seeded from the sheet), view `grading.view` / change `grading.edit` (Owner and Staff get edit on first run; the bot gets both), ranks and dates in the audit log, the Grading bot in `bot_settings`. Settings > System status shows the Grading sync.
 - Dry run on 21 Oct: 213 students (156 adults, 57 juniors), all 22 Zen Planner ranks matched; 29 adults and 6 juniors eligible.
+- **Print / Export** (header button): choose a testing group (all three, or one) and Everyone / Eligible only, then **Print** (A4 for the dojo board, compact: one page per testing group, 3 pages for everyone today (was 8); headings 20pt at most; members in two columns, one small table per rank headed by the rank name; columns Name, Hours / needed, Weekly goal; in each rank eligible first and most hours first; eligible rows green, bold, a thick green edge and a "✓ ELIGIBLE" tag in the goal column, so it still reads in black and white) or **Download CSV** (testing group, program, names, rank, attendance, hours needed, eligible, hours to go, weekly goal, next and last test dates, age; formula-safe).
 - UI fixes (same day): card intro lines ("Within 3 hours…", testing dates) sit inside the card; space between cards; "Eligible" in Weekly Hour Goal is a green chip; on phones the attendance meter and belt names get two columns so nothing runs off the edge.
 
 **Files:** `automation/zenplanner-grading.mjs`, `automation/grading-core.check.mjs`, `.github/workflows/zenplanner-grading.yml`, `js/gradingCore.js`, `js/gradingScripts.js`, `pages/REPORTs/GradingReport.html`, `supabase/grading.sql`, `automation/bot-scheduler.mjs`, `supabase/functions/run-pastdue-sync/index.ts`, `js/access.js`, `js/settings.js`, `css/styles.css`, `.impeccable/config.json`.

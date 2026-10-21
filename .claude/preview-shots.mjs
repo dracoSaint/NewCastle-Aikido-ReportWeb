@@ -1,6 +1,6 @@
 // Usage (with `npm start` running): node .claude/preview-shots.mjs .claude/shots [width] [height]
 // Env: ONLY=home,monday (subset)  WAIT=ms  FULL=1 (whole page; default is the viewport, cheaper to view)
-//      INIT="js" (runs before page scripts, e.g. stub data)  EVAL="js expr" (print result per page)  PRE="js" + PREWAIT=ms (run after load, e.g. click a tab)
+//      INIT="js" (runs before page scripts, e.g. stub data)  PDF=1 (also save the print view as .pdf)  EVAL="js expr" (print result per page)  PRE="js" + PREWAIT=ms (run after load, e.g. click a tab)
 // Drives local Chrome over CDP and screenshots each page, printing console errors.
 // Signs in for real through the Supabase API with .claude/preview.env (PREVIEW_EMAIL/PREVIEW_PASSWORD,
 // gitignored); without it, or if login fails, it plants a fake session (layout only: data calls fail).
@@ -33,6 +33,8 @@ const PAGES = {
   regerror: 'pages/register-error.html',
 };
 const only = process.env.ONLY?.split(',');
+// PAGE=path/from/site/root: shoot just that address (e.g. PAGE=.claude/shots/pdfview.html).
+if (process.env.PAGE) { for (const key of Object.keys(PAGES)) delete PAGES[key]; PAGES.page = process.env.PAGE; }
 
 const chrome = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--remote-debugging-port=9333', '--no-first-run', '--hide-scrollbars',
@@ -96,6 +98,13 @@ for (const [name, path] of Object.entries(PAGES)) {
   const { result } = await send('Runtime.evaluate', { expression: 'JSON.stringify({u: location.pathname, h: document.documentElement.scrollHeight, sw: document.documentElement.scrollWidth, sy: Math.round(scrollY)})', returnByValue: true });
   const info = JSON.parse(result.result.value);
   if (process.env.EVAL) console.log('EVAL', (await send('Runtime.evaluate', { expression: process.env.EVAL, returnByValue: true })).result.result.value);
+  // MEDIA=print: screenshot the page with its print styles.
+  if (process.env.MEDIA) await send('Emulation.setEmulatedMedia', { media: process.env.MEDIA });
+  // PDF=1: also save what the browser would print (print styles, backgrounds on) as <page>.pdf.
+  if (process.env.PDF) {
+    const pdf = await send('Page.printToPDF', { printBackground: true, preferCSSPageSize: true });
+    writeFileSync(join(outDir, `${name}.pdf`), Buffer.from(pdf.result.data, 'base64'));
+  }
   const full = process.env.FULL === '1';
   const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: full,
     clip: { x: 0, y: full ? 0 : info.sy, width: +width, height: full ? Math.min(info.h, 6000) : +height, scale: 1 } });

@@ -19,7 +19,7 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ## 2026-10-21 — Grading report bot (Zen Planner → portal)
 
-Status: **awaiting user OK** (local, not pushed).
+Status: **shipped to production (4aee7ed)**; first sync on GitHub 2026-10-21: 213 students, 29 adults + 6 juniors eligible.
 
 ### Instructions from the user
 - A bot that automatically updates the Grading report from their Zen Planner grid URL; add the sheet's functions (Grading Report sheet, RANK & REQUIRED HRS tab). Plan first, then "start build".
@@ -37,6 +37,12 @@ Status: **awaiting user OK** (local, not pushed).
 ### Open items
 - User: run `supabase/grading.sql`; first real sync (local run, or after the workflow reaches main). `run-pastdue-sync` redeployed by the user 2026-10-21 (npx supabase, grading job live).
 - Done 2026-10-21: repo default branch switched to `production` by the user; scheduler and Sync now dispatch `ref: production`.
+- User (later): add export / print for posting on the dojo board, eligible members clearly marked green; then: group the print by the three testing groups. Done: Print / Export dialog (group, everyone / eligible only), A4 print one page per group, CSV. Checked as a PDF: 3 groups, 8 pages. preview-shots.mjs gained MEDIA=print and PDF=1.
+- User (later): fewer pages, headings 20pt max, weekly hour goal after hours needed. Done: two-column compact print, 8 → 3 pages (one per testing group).
+- User (later): the print cut lists early. Cause: the page break per group was ignored (screen layout grid/flex body), so groups ran into each other and the biggest group spilled onto a second page. Fixed: block body when printing, tighter rows, headings kept with their rows, long names and belt names wrap instead of being cut. Checked by rendering the PDF pages (pdf.js page in automation-output/): 3 pages, each group whole.
+- User (later): printed 4th Kyu and up looked cut. Nothing was missing (57 of 57); 2nd Kyu was split across the two columns. Fixed: a rank of up to 30 rows stays in one column (gp-keep; Unranked, 70, still flows); 1px rules instead of hairlines that printed out of line. Still 3 pages.
+- User (later): duplicate names. Cause: 21 under-17s are enrolled in both Juniors and Regular Adult in Zen Planner (separate rank and hours each). User chose: under 17 = Juniors only. Done (gradingOneProgram, in bot and page); adult-only under-17s (2) kept. 192 students, no duplicates.
+- User (later): Geronimo duplicates; why rollovers/attendance not updating. Found: waves one row per package (42 extras; merged live with user OK), Red/Orange bot set to Thursdays 4:30 only (last ran 17 Oct), scheduler throttled by GitHub (3-6 h) vs 3 h catch-up. User chose: separate nightly Geronimo bot; 12 h catch-up; rollover No -> Yes. Done; dry run of the new bot OK (attendance 90, cancels 3/8, 3141 memberships). Open: run supabase/geronimo_bot.sql, push, redeploy function. Urgent: until pushed, the old nightly code would re-add the merged wave rows (only if the Red/Orange bot runs: Thursdays).
 - Later (planned, not built): Home "eligible to grade" tile; a task opening the Grading page.
 
 ## 2026-10-21 — Task page links, Past Due follow-ups in today's tasks

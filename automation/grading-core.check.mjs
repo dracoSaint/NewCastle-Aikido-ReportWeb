@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { gradingStatus, gradingFromExport, gradingRankKey, gradingIncluded } = require('../js/gradingCore.js');
+const { gradingStatus, gradingFromExport, gradingRankKey, gradingIncluded, gradingOneProgram } = require('../js/gradingCore.js');
 const { fuParseTable, fuIso } = require('../js/followUpCore.js');
 
 const dates = [
@@ -57,4 +57,12 @@ assert.equal(gradingIncluded({ program: 'juniors', program_name: 'Juniors', age:
 assert.equal(gradingIncluded({ program: 'juniors', program_name: 'Juniors', age: 16 }), true);
 assert.equal(gradingIncluded({ program: 'juniors', program_name: 'Juniors', age: null }), true);
 assert.equal(gradingIncluded({ program: 'adults', program_name: 'Regular Adult', age: 70 }), true);
+// In both programs and under 17 (or no age): Juniors only. Adult-only under-17s and 17+ stay.
+const dual = gradingOneProgram([
+  { member_key: 'kid', program: 'juniors', age: 14 }, { member_key: 'kid', program: 'adults', age: 14 },
+  { member_key: 'noage', program: 'juniors', age: null }, { member_key: 'noage', program: 'adults', age: null },
+  { member_key: 'teen', program: 'adults', age: 16 },
+  { member_key: 'adult', program: 'adults', age: 30 }
+]);
+assert.deepEqual(dual.map(row => row.member_key + ':' + row.program), ['kid:juniors', 'noage:juniors', 'teen:adults', 'adult:adults']);
 console.log('grading-core check passed');

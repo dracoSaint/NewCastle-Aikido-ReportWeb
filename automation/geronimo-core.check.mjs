@@ -1,7 +1,7 @@
 // Check for js/geronimoCore.js gmMemberFacts (Geronimo sales and rollovers). Run: node automation/geronimo-core.check.mjs
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-const { gmMemberFacts, gmFriday } = createRequire(import.meta.url)('../js/geronimoCore.js');
+const { gmMemberFacts, gmFriday, gmWavePeople, gmWaveMerge } = createRequire(import.meta.url)('../js/geronimoCore.js');
 
 const row = (number, first, label, made, begin, end, report) => ({
   number, first_name: first, last_name: 'Test', membership_label: label, mbr_status: 'CURRENT',
@@ -27,4 +27,20 @@ assert.deepEqual(facts.sales.map(item => [item.label, item.on]), [['8-14 Junior 
 assert.deepEqual(facts.rollovers.sort(), ['2026-09-16', '2026-10-20']);
 assert.equal(gmFriday('2026-10-17'), '2026-10-23'); // Saturday belongs to the week ending the next Friday
 assert.equal(gmFriday('2026-10-23'), '2026-10-23');
+// Waves: one row per person (first beginner package); doubled-up rows merge into the first package's row.
+const key = row => `${row.first_name} ${row.last_name}`.toLowerCase();
+const people = gmWavePeople([
+  { number: '4362', first_name: 'Camilla', last_name: 'Smith', mbr_begin_date: '2026-07-03' },
+  { number: '4361', first_name: 'Camilla', last_name: 'Smith', mbr_begin_date: '2026-07-18' },
+  { number: '4400', first_name: 'Ann', last_name: 'Lee', mbr_begin_date: '2026-08-01' }
+], key);
+assert.deepEqual(people.map(list => [list[0].number, list.length]), [['4362', 2], ['4400', 1]]);
+const merge = gmWaveMerge([
+  { id: 1, wave_month: '2026-07-01', member_number: '4361', first_name: 'Camilla', last_name: 'Smith', induction_date: '2026-07-18', phone: '0400', notes: 'Keen', goal: null, rolled_over: true, inducted: true },
+  { id: 2, wave_month: '2026-07-01', member_number: '4362', first_name: 'Camilla', last_name: 'Smith', induction_date: '2026-07-03', phone: null, notes: 'Called', goal: 'Fitness', rolled_over: null, inducted: false },
+  { id: 3, wave_month: '2026-08-01', member_number: '4400', first_name: 'Ann', last_name: 'Lee', induction_date: '2026-08-01', notes: null, rolled_over: null, inducted: false }
+], key, [{ wave_month: '2026-07-01', member_number: '4362', first_name: 'Camilla', last_name: 'Smith' }, { wave_month: '2026-08-01', member_number: '4400', first_name: 'Ann', last_name: 'Lee' }]);
+assert.deepEqual(merge.keep.map(row => row.id), [2, 3]);           // the first package's row is kept
+assert.deepEqual(merge.removals, [1]);
+assert.deepEqual(merge.merges.get(2), { phone: '0400', notes: 'Called / Keen', rolled_over: true, inducted: true });
 console.log('geronimo-core check passed');

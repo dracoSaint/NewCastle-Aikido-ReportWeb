@@ -15,6 +15,12 @@ assert.deepEqual(due([bot('pastdue', { last_started_at: '2026-10-12T20:05:00Z' }
 assert.deepEqual(due([bot('pastdue', { last_started_at: '2026-10-11T20:05:00Z' })]), ['pastdue'], 'yesterday\'s run does not count');
 assert.deepEqual(due([bot('pastdue', { enabled: false })]), [], 'switched off');
 assert.deepEqual(due([bot('monday', { run_days: [1] })]), [], 'Monday-only bot on a Tuesday');
-assert.deepEqual(due([bot('followup', { run_time: '23:30:00' })]), [], 'not time yet');
-assert.deepEqual(due([bot('pastdue', { run_time: '03:00:00' })]), [], 'more than 3 hours late: wait for tomorrow');
+assert.deepEqual(due([bot('followup', { run_time: '08:00:00', last_started_at: '2026-10-11T22:00:00Z' })]), [], 'not time yet (ran yesterday morning)');
+assert.deepEqual(due([bot('pastdue', { run_time: '03:00:00' })]), ['pastdue'], 'GitHub ran late (4 h): still caught up');
+// 7:10 am Tuesday: Monday's 23:00 run was missed overnight, so it is still caught up (8 h late)...
+assert.deepEqual(due([bot('geronimo', { run_time: '23:00:00' })]), ['geronimo'], 'last night\'s 23:00 run, caught up after midnight');
+// ...unless it already ran after Monday 23:00 Sydney (12:00 UTC Monday), or Monday isn't a run day.
+assert.deepEqual(due([bot('geronimo', { run_time: '23:00:00', last_started_at: '2026-10-12T12:05:00Z' })]), [], 'already ran last night');
+assert.deepEqual(due([bot('geronimo', { run_time: '23:00:00', run_days: [2] })]), [], 'Tuesday-only: tonight, not now');
+assert.deepEqual(botsDue([bot('pastdue', { run_time: '18:00:00' })], new Date('2026-10-13T20:10:00Z')).map(item => item.job), [], 'more than 12 hours late: wait for tomorrow');
 console.log('bot scheduler: ok');
