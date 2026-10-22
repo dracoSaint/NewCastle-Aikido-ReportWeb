@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
-const { pastDueImportBatch, pastDueSopFollowUp } = createRequire(import.meta.url)('../js/pastDueCore.js');
+const { pastDueImportBatch, pastDueSopFollowUp, pastDueMemberFollowUp, pastDueOpenMembers } = createRequire(import.meta.url)('../js/pastDueCore.js');
 
 // Due Thu 8 Oct 2026. Each note moves the follow-up to the next SOP step, on a Mon/Wed/Fri.
 assert.deepEqual(pastDueSopFollowUp('2026-10-08', null), { date: '2026-10-12', step: 'Retry debit' });
@@ -33,4 +33,18 @@ assert.deepEqual(
     { member_key: '47742', member_name: 'Bob Brown', member_number: '47742', due_date: '2026-09-01', amount_due: 90, amount: 30, status: 'PAST DUE', imported_at: '2026-10-09T12:00:00.000Z' }
   ]
 );
+// Follow-up: a staff date holds until a note on or after it; escalated pauses; else the SOP.
+const bill = { due_date: '2026-10-01', status: 'PAST DUE' };
+assert.deepEqual(pastDueMemberFollowUp([{ ...bill, next_follow_up: '2026-10-22' }], '2026-10-20', '2026-10-20'), { date: '2026-10-22', step: 'Set by staff' });
+assert.equal(pastDueMemberFollowUp([{ ...bill, next_follow_up: '2026-10-22' }], '2026-10-22', '2026-10-22').step === 'Set by staff', false);
+assert.deepEqual(pastDueMemberFollowUp([{ ...bill, escalated_to_darius: true }], null, '2026-10-20'), { date: null, step: 'With Darius' });
+assert.equal(pastDueMemberFollowUp([bill], null, '2026-10-20').date, pastDueSopFollowUp('2026-10-01', null).date);
+// Open members: exempt left out, grouped by name, only PAST DUE bills kept.
+const open = pastDueOpenMembers([
+  { member_key: '1', member_name: 'Amy Adams', amount: 10, status: 'PAST DUE' },
+  { member_key: '2', member_name: 'amy  adams', amount: 5, status: 'CLEARED' },
+  { member_key: '3', member_name: 'Bob Brown', amount: 7, status: 'CLEARED' },
+  { member_key: '4', member_name: 'Cat Cole', amount: 9, status: 'PAST DUE' }
+], [{ member_key: '4' }]);
+assert.deepEqual(open.map(member => [member.member_name, member.bills.length]), [['Amy Adams', 1]]);
 console.log('pastDueCore: ok');

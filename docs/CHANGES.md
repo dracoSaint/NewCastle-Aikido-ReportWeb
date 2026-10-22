@@ -5,7 +5,101 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Task alerts, priority, comments; Home at a glance; menu collapse; shortcuts (2026-10-20, not yet shipped)
+## Geronimo: own nightly bot, wave duplicates, rollovers, scheduler catch-up (2026-10-21, not yet shipped)
+
+Why numbers stopped: the Red / Orange bot, which also pulled Geronimo's attendance, cancels, the all-members list (rollovers, trial waves) and the weekly lock-in, was set in Settings > Bots to **Thursdays 4:30 am only**, and last ran on 17 Oct. GitHub was also running the scheduler only every 3-6 hours while a bot was caught up for just 3 hours, so runs were skipped.
+
+- **Geronimo metrics bot** (`automation/zenplanner-geronimo.mjs`, `.github/workflows/zenplanner-geronimo.yml`): nightly 23:00 (Settings > Bots): week attendance and cancels, all memberships (Monday Board > All Members too), then trial waves from the fresh list, then lock-in of the last two weeks. The Red / Orange bot no longer does these; it can stay weekly.
+- **Scheduler** (`automation/bot-scheduler.mjs`): a bot is caught up for 12 hours (was 3), including across midnight (a 23:00 bot reached at 7 am still runs).
+- **Trial waves: one row per person** (their first 2026+ beginner package; a re-created or follow-on package is the same trial). 42 doubled-up rows were merged on 21 Oct (202 -> 160), keeping anything typed (phone, email, goal, why, notes joined, rolled over, inducted). A package number already on file counts as the same person even after a name change in Zen Planner.
+- **Rolled over:** a "No" turns into "Yes" once a full membership shows up; never Yes -> No.
+
+**Set-up:** run `supabase/geronimo_bot.sql` (adds the bot to Settings > Bots); push to production; redeploy `run-pastdue-sync` (Sync now knows the job).
+
+**Check:** `node automation/bot-scheduler.check.mjs`, `node automation/geronimo-core.check.mjs`. Next morning: Settings > Bots shows Geronimo metrics ran; this week's attendance and cancels are filled.
+
+---
+
+## Grading report from Zen Planner (2026-10-21, not yet shipped)
+
+Replaces the Grading Report Google Sheet. A nightly bot pulls Zen Planner's student programs grid; the portal keeps rank hours and testing dates and works out the rest.
+
+- **Bot** (`automation/zenplanner-grading.mjs`, `.github/workflows/zenplanner-grading.yml`): exports the user's grid (Students in Regular Adult and Juniors: rank, Att. Total, Att. Since Test, Enough Att. For Rank?, Last Test Date, age, program, status) into `grading_members`, replacing the snapshot. Fewer than 20 students = nothing changed (Zen Planner hiccup). Nightly 23:45 (Settings > Bots), plus the page's **Sync now**.
+- **Who counts:** Blue Zone Fitness members are left out; Juniors are under 17 only (17+ left out; no age in Zen Planner = kept); someone under 17 (or with no age) who is in both Juniors and Regular Adult is listed in Juniors only (21 such members on 21 Oct; the 2 under-17s only in Regular Adult stay there). Applied by the bot and again by the page.
+- **Rules** (`js/gradingCore.js`, as the sheet): hours needed = the rank's required hours; eligible = attendance since the last test ≥ hours needed; weeks left = whole weeks to the rank's testing-date group date; weekly hour goal = hours still needed / weeks left, rounded up. Yondan has no hours (never eligible, no goal). Ranks are matched ignoring case and punctuation.
+- **Testing-date groups:** Regular Adult Unranked–5th Kyu (7 Nov), Regular Adult 4th Kyu and up (1 Jan), Juniors (7 Nov).
+- **Page** (`pages/REPORTs/GradingReport.html`, `js/gradingScripts.js`): same tabs (Overview with eligible lists, key figures and close to eligible; Regular Adult; Juniors; Member List) from Supabase, with a "Zen Planner data from …" line. New **Ranks & Dates** tab: the three testing dates and each rank's hours and group, with member counts; Save needs `grading.edit`. Zen Planner ranks missing from the table are listed there.
+- **Database** (`supabase/grading.sql`): `grading_members`, `grading_ranks`, `grading_test_dates` (seeded from the sheet), view `grading.view` / change `grading.edit` (Owner and Staff get edit on first run; the bot gets both), ranks and dates in the audit log, the Grading bot in `bot_settings`. Settings > System status shows the Grading sync.
+- Dry run on 21 Oct: 213 students (156 adults, 57 juniors), all 22 Zen Planner ranks matched; 29 adults and 6 juniors eligible.
+- **Print / Export** (header button): choose a testing group (all three, or one) and Everyone / Eligible only, then **Print** (A4 for the dojo board, compact: one page per testing group, 3 pages for everyone today (was 8); headings 20pt at most; members in two columns, one small table per rank headed by the rank name; columns Name, Hours / needed, Weekly goal; in each rank eligible first and most hours first; eligible rows green, bold, a thick green edge and a "✓ ELIGIBLE" tag in the goal column, so it still reads in black and white) or **Download CSV** (testing group, program, names, rank, attendance, hours needed, eligible, hours to go, weekly goal, next and last test dates, age; formula-safe).
+- UI fixes (same day): card intro lines ("Within 3 hours…", testing dates) sit inside the card; space between cards; "Eligible" in Weekly Hour Goal is a green chip; on phones the attendance meter and belt names get two columns so nothing runs off the edge.
+
+**Files:** `automation/zenplanner-grading.mjs`, `automation/grading-core.check.mjs`, `.github/workflows/zenplanner-grading.yml`, `js/gradingCore.js`, `js/gradingScripts.js`, `pages/REPORTs/GradingReport.html`, `supabase/grading.sql`, `automation/bot-scheduler.mjs`, `supabase/functions/run-pastdue-sync/index.ts`, `js/access.js`, `js/settings.js`, `css/styles.css`, `.impeccable/config.json`.
+
+**Set-up (in order):**
+1. Run `supabase/grading.sql` in the Supabase SQL editor.
+2. Redeploy the sync function so Sync now knows the new job: `npx supabase login`, then `npx supabase functions deploy run-pastdue-sync --project-ref knnzybqudpdxhddcaxcv` (no install needed), or paste `supabase/functions/run-pastdue-sync/index.ts` into Supabase > Edge Functions > run-pastdue-sync > Code and Deploy.
+3. First data: run the bot once (locally: `node --env-file=automation/.env automation/zenplanner-grading.mjs`, or on GitHub once the workflow is on main).
+4. The repo default branch is `production` (since 2026-10-21): bots, the scheduler and Sync now all run the production branch, so this workflow runs once production has it.
+
+**Check:** `node automation/grading-core.check.mjs`. Compare Overview's eligible lists with the sheet's ELIGIBLE MEMBERS after a fresh sync; change a testing date on Ranks & Dates and watch weekly goals change.
+
+**Known limits:** the old sheet is no longer read (its link is gone from the page); `config.gradingSpreadsheetId` is unused.
+
+---
+
+## Cloudflare Pages hosting (2026-10-21, not yet shipped)
+
+Moving the site from Netlify to Cloudflare Pages. The site is static (no server code); the bots stay on GitHub Actions and the data stays in Supabase, so neither changes.
+
+**Code changes (work on both hosts):**
+- Cloudflare serves `/pages/Tasks.html` as `/pages/Tasks` (308 redirect; query strings kept). Three checks assumed ".html" and now accept both: the No access page (`js/access.js`), the menu's current-page highlight and Recent (`js/siteMenu.js`), and the page link stored on @mention alerts (`js/notifications.js`; the database only accepts `….html` links).
+- `npm run build` copies only the site (`index.html`, `css`, `js`, `imgs`, `pages`, `_headers`) into `dist/`, so `automation/`, `docs/`, `supabase/` and `CLAUDE.md` are not published.
+- `_headers`: nosniff, `X-Frame-Options: SAMEORIGIN` (the SOP Library frames its own pages), referrer and permissions policies.
+- `npm run preview` builds and serves `dist/` with Cloudflare's own dev server (Wrangler) on http://127.0.0.1:8788, pretty URLs included. `.claude/preview-shots.mjs` takes `BASE=http://127.0.0.1:8788/`.
+
+**Set-up (once, in this order):**
+1. Cloudflare dashboard > Workers & Pages > Create > Pages > Connect to Git > pick `dracoSaint/NewCastle-Aikido-ReportWeb`.
+2. Build settings: Framework preset None; Build command `npm run build`; Build output directory `dist`; Root directory empty. **Production branch `production`** (Netlify keeps publishing `main`; both stay live). No environment variables are needed (the Supabase URL and publishable key are public, in `js/config.js`).
+3. Preview deployments: set to "None" or "Custom: testing" so pushes to `main` / `staging` don't use up Cloudflare builds. Branch flow: `testing` → `main` (Netlify) → `production` (Cloudflare): `git push origin main:production` once main is checked.
+4. Supabase > Authentication > URL Configuration:
+   - Add to Redirect URLs: `https://<project>.pages.dev/**` and `https://*.<project>.pages.dev/**` (and the custom domain below, if any). Without this, password reset and invite links fail.
+   - Change Site URL to the Cloudflare address only when you switch over for good (it is where sign-up / invite emails send people).
+5. Optional custom domain: Pages project > Custom domains > Set up a domain (DNS on Cloudflare is easiest), then add it to Supabase Redirect URLs too.
+6. Test the `pages.dev` site: sign in, open each report, tick a task, tag someone, reset a password.
+7. Netlify stays on (decision 2026-10-21). Keep the Supabase Site URL on the Netlify address until staff move over; then change it to the Cloudflare one.
+
+**Known limits:** a push to `main` builds on Netlify only; a push to `production` builds on Cloudflare only (500 builds a month on the free plan). Bookmarks with `.html` keep working on Cloudflare (they redirect).
+
+---
+
+## Sidebar Today card and Recent pages (2026-10-21, not yet shipped)
+
+- The empty space under the sidebar menu now holds:
+  - **Today card:** the date; My tasks today (done / total, green bar; click opens the TASKS panel, or the Tasks page there); Unread alerts (red when any; click opens the bell); Past Due follow-ups due today or overdue (shown only when a task that opens Past Due has loaded them; click opens the report).
+  - **Recent:** the last 4 menu pages you opened (this browser only). Hidden on short screens (under 760 px tall).
+- Both hide when the sidebar is collapsed to icons. The menu no longer shrinks: on small screens the whole sidebar scrolls.
+- **Files:** `js/siteMenu.js`, `js/notifications.js` (`portal-unread` event), `js/tasks.js` (`portal-pastdue` event), `css/styles.css`.
+- **Check:** open a few reports, then look at Recent; tick a task and watch the bar; click Unread alerts.
+
+---
+
+## Task page links and Past Due follow-ups in the task list (2026-10-21, not yet shipped)
+
+- **Opens:** a task can open a report (Edit task > Opens: Past Due, Red / Orange, Monday Board, Ad Review, Geronimo, Grading, SOP Library). The task shows "Open <report> →". Meant for repeating tasks such as "Check the Red / Orange list".
+- **Past Due follow-ups:** under a task that opens Past Due Members, today's list shows the members whose follow-up is overdue, due today or due in the next 3 days (soonest first; up to 8, then "+N more"): name, balance owing, when, and the SOP step. Same rule as the report's Next follow-up column (now shared: `pastDueMemberFollowUp` and `pastDueOpenMembers` in `js/pastDueCore.js`). Only for roles that can view Past Due.
+- **Member links:** clicking a member opens Past Due Members on the Past Due tab, already searched to that name (`PastDueMembers.html?member=<name>`).
+- Home's Past due tile uses the same shared `pastDueOpenMembers`.
+
+**Files:** `js/tasks.js`, `js/pastDueCore.js`, `js/pastDueMembers.js`, `js/homeGlance.js`, `supabase/notifications_tasks.sql` (section 4: `tasks.link`), `css/styles.css`, `automation/pastdue-core.check.mjs`.
+
+**Set-up:** re-run `supabase/notifications_tasks.sql` (adds the `link` column; saving a task fails until then).
+
+**Check:** `node automation/pastdue-core.check.mjs`. Make a weekday task "Past Due follow-ups" that opens Past Due Members; open the TASKS tab: the members due show under it; click one.
+
+---
+
+## Task alerts, priority, comments; Home at a glance; menu collapse; shortcuts (shipped 2026-10-20, 50e4b5f)
 
 - **Due alerts:** the first time you open the portal each day, your bell gets one alert per one-off task assigned to you that is due today or overdue and not done (`notify_my_due_tasks()`; never twice a day).
 - **Done alerts:** ticking off a task someone else made sends them "<name> finished: <task>" (database trigger on `task_done`).
@@ -24,7 +118,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## TASKS slide-out (2026-10-20, not yet shipped)
+## TASKS slide-out (shipped 2026-10-20, 50e4b5f)
 
 - Home no longer has a Today's tasks section. Instead every page (except the Tasks page) has a dark **TASKS** tab on the right edge with the open-today count. Clicking it slides out today's list from the right: tick off, quick add, Mine / Whole team, Add task, Edit, and a link to all tasks.
 - It stays open as you move between pages (remembered in this browser) until you close it (× or Esc). On phones it covers the screen, so there it always starts closed.
@@ -33,7 +127,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Sidebar menu and Tasks page (2026-10-20, not yet shipped)
+## Sidebar menu and Tasks page (shipped 2026-10-20, 50e4b5f)
 
 - **Sidebar (every page with the menu):** screens 1100 px and wider show a fixed left sidebar (264 px) instead of the burger. It has the logo, Home, then the TASKS, REPORTS and SOP categories, which open and close like an accordion; Settings is at the bottom. Every page has an icon, and the current page is highlighted. Which categories are open is remembered in that browser; the current page's category always opens. On narrower screens the same sidebar slides out from the menu button (Esc, ×, or a tap outside closes it).
 - **Task count:** the Task list link shows a red count of your tasks still open today (yours + whole team), on every page.
@@ -51,7 +145,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Notification centre, @mentions and Home tasks (2026-10-20, not yet shipped)
+## Notification centre, @mentions and Home tasks (shipped 2026-10-20, 50e4b5f)
 
 - **Bell (every signed-in page):** next to the profile button. A red count shows unread alerts. The panel lists the latest 30; clicking one marks it read and opens its page. "Mark all read" clears the count. Refreshes every 2 minutes and when the tab comes back into view.
 - **@mentions:** a tag matches the email name, first name or full name without spaces (`@leisa`, `@leisagraham`). Type `@` in a Red / Orange member note, a Past Due member note or a task's details. A list of people appears (arrow keys + Enter or Tab, or click). Works in every note box: the add-note boxes, the one-line top note and the Log contact note on Red / Orange, and the note edit boxes on both pages. Saving sends each tagged person a notification with the note text; an edit only alerts people newly tagged.
@@ -72,7 +166,7 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Site UI/UX pass (2026-10-19, not yet shipped)
+## Site UI/UX pass (shipped 2026-10-20, 50e4b5f)
 
 An audit of every page at 1440 and 390 px (no console errors or sideways scroll anywhere), then the fixes chosen by the user.
 

@@ -115,7 +115,8 @@
         "rule": "dark-glow",
         "value": "*",
         "files": [
-          "pages/Tasks.html"
+          "pages/Tasks.html",
+          "pages/REPORTs/GradingReport.html"
         ],
         "createdAt": "2026-10-20T00:00:00.000Z",
         "reason": "Claude: page has no box/text-shadow or inline styles; finding comes from shared css/styles.css (same shell as index.html), not this file"

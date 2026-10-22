@@ -17,9 +17,63 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ---
 
+## 2026-10-21 — Grading report bot (Zen Planner → portal)
+
+Status: **shipped to production (4aee7ed)**; first sync on GitHub 2026-10-21: 213 students, 29 adults + 6 juniors eligible.
+
+### Instructions from the user
+- A bot that automatically updates the Grading report from their Zen Planner grid URL; add the sheet's functions (Grading Report sheet, RANK & REQUIRED HRS tab). Plan first, then "start build".
+- Mid-build: Juniors under 17 only (older not included); exclude all members with Program = Blue Zone Fitness.
+
+### Decisions
+- Data in Supabase, sheet retired (user chose). Nightly bot (user chose), 23:45.
+- Testing dates in 3 groups (user's grouping): adults Unranked–5th Kyu; adults 4th Kyu–Yondan; Juniors.
+- Rules copied from the sheet's numbers (weekly goal = ceil(short / weeks left); weeks left = floor(days / 7)). Juniors with no age are kept (3 today). Yondan: no hours, no goal.
+- Bot writes only included members; the page filters again so a rule change shows before the next sync.
+
+### Done
+- See `docs/CHANGES.md` → "Grading report from Zen Planner". Dry run against Zen Planner OK (213 students, all ranks matched). Page previewed with the dry-run data (not saved).
+
+### Open items
+- User: run `supabase/grading.sql`; first real sync (local run, or after the workflow reaches main). `run-pastdue-sync` redeployed by the user 2026-10-21 (npx supabase, grading job live).
+- Done 2026-10-21: repo default branch switched to `production` by the user; scheduler and Sync now dispatch `ref: production`.
+- User (later): add export / print for posting on the dojo board, eligible members clearly marked green; then: group the print by the three testing groups. Done: Print / Export dialog (group, everyone / eligible only), A4 print one page per group, CSV. Checked as a PDF: 3 groups, 8 pages. preview-shots.mjs gained MEDIA=print and PDF=1.
+- User (later): fewer pages, headings 20pt max, weekly hour goal after hours needed. Done: two-column compact print, 8 → 3 pages (one per testing group).
+- User (later): the print cut lists early. Cause: the page break per group was ignored (screen layout grid/flex body), so groups ran into each other and the biggest group spilled onto a second page. Fixed: block body when printing, tighter rows, headings kept with their rows, long names and belt names wrap instead of being cut. Checked by rendering the PDF pages (pdf.js page in automation-output/): 3 pages, each group whole.
+- User (later): printed 4th Kyu and up looked cut. Nothing was missing (57 of 57); 2nd Kyu was split across the two columns. Fixed: a rank of up to 30 rows stays in one column (gp-keep; Unranked, 70, still flows); 1px rules instead of hairlines that printed out of line. Still 3 pages.
+- User (later): duplicate names. Cause: 21 under-17s are enrolled in both Juniors and Regular Adult in Zen Planner (separate rank and hours each). User chose: under 17 = Juniors only. Done (gradingOneProgram, in bot and page); adult-only under-17s (2) kept. 192 students, no duplicates.
+- User (later): Geronimo duplicates; why rollovers/attendance not updating. Found: waves one row per package (42 extras; merged live with user OK), Red/Orange bot set to Thursdays 4:30 only (last ran 17 Oct), scheduler throttled by GitHub (3-6 h) vs 3 h catch-up. User chose: separate nightly Geronimo bot; 12 h catch-up; rollover No -> Yes. Done; dry run of the new bot OK (attendance 90, cancels 3/8, 3141 memberships). Open: run supabase/geronimo_bot.sql, push, redeploy function. Urgent: until pushed, the old nightly code would re-add the merged wave rows (only if the Red/Orange bot runs: Thursdays).
+- Shipped 2026-10-21 (production db1dbd1). Geronimo bot run on GitHub: cancels 3/8, 3142 memberships, waves +2, weeks 16 Oct and 9 Oct locked; attendance missed once (slow first page), saved 90 on a re-run; the bot now tries attendance twice.
+- User (later): gave the attendance-count link (on or after = the Saturday after each Friday, date DD/MM/YYYY). The bot had sent MM/DD/YY, which Zen Planner misread (week to 21 Oct: 90 before, 191 now). Fixed in zenplanner-geronimo.mjs. Open: weekly attendance saved before 21 Oct (old format, Red/Orange bot) may be wrong; can be re-pulled per week with an on-or-before Friday filter if the user wants.
+- User (later): how are rollovers worked out, shouldn't they use the trial waves? They came from the Monday snapshots (dated by membership create date). User chose: from the wave list. Done (gmWaveRollovers): rollovers = wave members marked Yes, in the week their trial ended (or full membership began, if later; Zen Planner backdates the follow-on membership); rollover % = of trials ended that week, share marked Yes; nothing after today counts. User chose to overwrite all 2026 weeks: 42 weeks updated; old values in automation-output/geronimo-rollovers-backup-2026-10-21.json (local only). Early Jan weeks are low: trials from late 2025 are not in the wave list.
+- User (later): exempt Blue Zone members from Grading using their Zen Planner memberships grid (Current/Hold). Same data as membership_all (synced nightly, every status), so that is used: Current or Hold Blue Zone membership (incl. the 6-week intro) = left out, by name, in bot and page. 12 left out (all Regular Adult Unranked); 180 students; eligible unchanged (33).
+- Later (planned, not built): Home "eligible to grade" tile; a task opening the Grading page.
+
+## 2026-10-21 — Task page links, Past Due follow-ups in today's tasks
+
+Status: **shipped to production (1f5c4c9, production c6e8f6b)**; not on main (Netlify) by choice.
+
+### Instructions from the user
+- In today's tasks, under the Past Due report task, show members with overdue or close follow-ups. Link tasks to their pages, especially repeating ones.
+
+### Decisions
+- A task gets an optional "Opens" page. A task that opens Past Due lists follow-ups overdue / today / next 3 days under it (3 so a Friday covers Monday).
+- The follow-up rule moved to `js/pastDueCore.js` so the report and the task list can't drift apart.
+- Member rows link to `PastDueMembers.html?member=<name>` (Past Due tab, searched).
+- Not done (not asked): the same kind of list for Red / Orange.
+- User (later): migrate hosting to Cloudflare; adjust code or give instructions. Done: pretty-URL fixes (access, menu, mention links), `npm run build` to `dist/` (site files only), `_headers`, `npm run preview` (Wrangler). Tested on Wrangler: sign-in page, Home, reports, SOP links, Tasks, Settings, `?member=` link all work; no errors. Set-up steps in CHANGES "Cloudflare Pages hosting". Decision: Cloudflare deploys the `production` branch; Netlify stays on `main` (not turned off). Open: user creates the Pages project (production branch `production`) and adds Supabase redirect URLs; production is behind main, fast-forward with `git push origin main:production` when wanted.
+- User (later): too much unused space on the left; populate it. Done: sidebar Today card (date, tasks progress, unread alerts, Past Due follow-ups due) and Recent pages; the sidebar now scrolls as a whole so the menu never shrinks. See CHANGES "Sidebar Today card and Recent pages".
+
+### Done
+- See `docs/CHANGES.md` → "Task page links and Past Due follow-ups in the task list".
+
+### Open items
+- Re-run `supabase/notifications_tasks.sql` (now also adds `tasks.link`).
+- Click through: make a weekday task opening Past Due; open the TASKS tab; click a member.
+
 ## 2026-10-20 — Notification centre, @mentions, Home task list
 
-Status: **awaiting user OK** (local, not pushed; batched with the 2026-10-19 local work).
+Status: **shipped (50e4b5f, main e548f01)**, 2026-10-20.
 
 ### Instructions from the user
 - Add a notification centre, a way to tag users in comments / notes, and a task list. The Home page shows today's tasks: repeating tasks and new tasks.
@@ -52,7 +106,7 @@ Status: **awaiting user OK** (local, not pushed; batched with the 2026-10-19 loc
 
 ## 2026-10-19 — Site UI/UX pass (audit, then fixes)
 
-Status: **not yet shipped** (local).
+Status: **shipped (50e4b5f, main e548f01)**.
 
 ### Instructions from the user
 - Improve the UI/UX. Chose: audit all pages first, then fix all four proposed groups.
@@ -70,7 +124,7 @@ Status: **not yet shipped** (local).
 
 ## 2026-10-19 — Geronimo UI: yes/no colours, wave filters, tidy extras
 
-Status: **not yet shipped** (local).
+Status: **shipped (50e4b5f, main e548f01)**.
 
 ### Instructions from the user
 - Add colour indicators for yes / no etc. and improve the UI/UX and interactivity to make things easier.
@@ -91,7 +145,7 @@ Status: **not yet shipped** (local).
 
 ## 2026-10-19 — Geronimo trial waves: edit button, nightly sync, phones
 
-Status: **not yet shipped** (local).
+Status: **shipped (50e4b5f, main e548f01)**.
 
 ### Instructions from the user
 - Add an edit function for trial wave members (phone and other details). Asked whether wave members are automatic.
@@ -109,7 +163,7 @@ Status: **not yet shipped** (local).
 - Ship with the next push (together with the autopay change).
  from the Zen Planner autopay report
 
-Status: **not yet shipped** (local).
+Status: **shipped (50e4b5f, main e548f01)**.
 
 ### Instructions from the user
 - Use the Zen Planner autopay members report (membership grid: autopay ON; status Current, Not started, Hold, Cancelled, Cancel pending) for Autopay members.

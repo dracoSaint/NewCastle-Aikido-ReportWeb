@@ -181,7 +181,41 @@ function pastDueSopFollowUp(dueDate, lastAction) {
   return { date: date.toISOString().slice(0, 10), step: pastDueSopStep(Math.round((date - due) / day)) };
 }
 
+// When to follow up a past-due member next: { date, step }. bills: the member's bills; lastAction:
+// day of their latest note (YYYY-MM-DD) or null; today: YYYY-MM-DD. A staff-set date holds until a
+// note is added on or after it; escalated members are with Darius (the SOP pauses); otherwise the SOP.
+function pastDueMemberFollowUp(bills, lastAction, today) {
+  const manual = bills.map(bill => bill.next_follow_up).filter(Boolean).sort().pop();
+  if (manual && !(lastAction >= manual)) return { date: manual, step: 'Set by staff' };
+  if (bills.some(bill => bill.escalated_to_darius || bill.stage === 'Escalated')) return { date: null, step: 'With Darius' };
+  const next = pastDueSopFollowUp(bills.map(bill => pastDueDateValue(bill.due_date)).filter(Boolean).sort()[0], lastAction);
+  if (!next) return { date: null, step: 'No due date' };
+  if (next.date >= today) return next;
+  // Missed steps: name the step the member is at today, not the first one missed.
+  const daysLate = bill => {
+    const due = pastDueDateValue(bill.due_date);
+    return due ? Math.max(0, Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86400000)) : bill.days_overdue ?? 0;
+  };
+  return { ...next, step: pastDueSopStep(Math.max(0, ...bills.map(daysLate))) };
+}
+
+// Members still owing, as the Past Due page counts them: exempt members left out, bills grouped by
+// name, only PAST DUE bills kept. Returns [{ key, member_name, bills }].
+function pastDueOpenMembers(rows, exemptRows) {
+  const ids = item => [item.member_key, item.member_number, item.member_name].map(pastDueIdentity).filter(Boolean);
+  const exempt = new Set((exemptRows || []).flatMap(ids));
+  const members = new Map();
+  rows.filter(row => !ids(row).some(key => exempt.has(key))).forEach(bill => {
+    const key = pastDueIdentity(bill.member_name) || bill.member_key;
+    if (!members.has(key)) members.set(key, { key, member_name: bill.member_name, bills: [] });
+    members.get(key).bills.push(bill);
+  });
+  return [...members.values()]
+    .map(member => ({ ...member, bills: member.bills.filter(bill => bill.status === 'PAST DUE') }))
+    .filter(member => member.bills.length);
+}
+
 // Node (the daily job) loads this file as a module; the browser just gets the globals.
 if (typeof module !== 'undefined') {
-  module.exports = { pastDueParseCsv, pastDueNormalizeRow, pastDueIdentity, pastDueImportBatch, pastDueSopFollowUp, pastDueSopStep };
+  module.exports = { pastDueParseCsv, pastDueNormalizeRow, pastDueIdentity, pastDueImportBatch, pastDueSopFollowUp, pastDueSopStep, pastDueMemberFollowUp, pastDueOpenMembers };
 }

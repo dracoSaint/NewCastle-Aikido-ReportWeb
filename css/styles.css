@@ -3801,7 +3801,9 @@ header p.page-meta {
   gap: 10px;
 }
 
-#openSpreadsheet {
+#openSpreadsheet,
+#gradingPrintBtn,
+#gradingSyncBtn {
   display: inline-flex;
   align-items: center;
   margin: 0;
@@ -3819,7 +3821,9 @@ header p.page-meta {
   transition: background 0.15s ease;
 }
 
-#openSpreadsheet:hover {
+#openSpreadsheet:hover,
+#gradingPrintBtn:hover,
+#gradingSyncBtn:hover {
   background: rgba(255, 255, 255, 0.12);
   transform: none;
   box-shadow: none;
@@ -6237,6 +6241,8 @@ header p.page-meta,
 .profile-btn,
 .login-btn,
 #openSpreadsheet,
+#gradingPrintBtn,
+#gradingSyncBtn,
 .csv-picker-button,
 .sop-open-link,
 .start-tile-go {
@@ -6984,8 +6990,14 @@ th[aria-sort="descending"] .sort-mark {
     content: none;
   }
 
+  /* Attendance (with its stitch meter) and long belt names get two of the four columns. */
   :is(#home-adults-wrap, #home-juniors-wrap, #home-close-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td.measure {
     order: -1;
+    grid-column: span 2;
+  }
+
+  :is(#home-adults-wrap, #home-juniors-wrap, #home-close-wrap, #adults-wrap, #juniors-wrap, #members-wrap) table.stack td[data-label="Rank"] {
+    grid-column: span 2;
   }
 
   /* Past Due: the expander and name lead the record. */
@@ -10480,3 +10492,135 @@ html.reduce-motion *::after {
 .shortcut-list kbd { display: inline-block; min-width: 22px; padding: 2px 7px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 6px; background: var(--paper); font: 600 .8rem var(--font-ui); text-align: center; }
 .fu-dialog .task-comment-form { padding: 0; gap: 8px; }
 @media (max-width: 760px) { .task-tab { top: auto; bottom: 96px; transform: none; } }
+
+/* Task: page link, and the Past Due follow-ups listed under a task that opens that report */
+.task-link { justify-self: start; margin-top: 2px; color: var(--ai-600); font-size: .8rem; font-weight: 600; text-decoration: none; }
+.task-link:hover { text-decoration: underline; }
+.task-sub { grid-column: 1 / -1; display: grid; gap: 2px; margin: 4px 0 0; padding: 0 0 0 32px; list-style: none; }
+.task-sub a { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 2px 12px; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--paper); color: var(--ink-2); font-size: .82rem; text-decoration: none; }
+.task-sub a:hover { background: var(--ai-50); }
+.task-sub strong { overflow: hidden; color: var(--ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.task-sub small { grid-column: 1 / -1; color: var(--ink-3); font-size: .75rem; }
+.task-sub-empty, .task-sub-more { grid-column: 1 / -1; margin: 4px 0 0 32px; color: var(--ink-3); font-size: .8rem; }
+.task-sub-more { color: var(--ai-600); font-weight: 600; text-decoration: none; }
+
+/* Sidebar: Today card and Recent pages (js/siteMenu.js), filling the space under the menu */
+.drawer-today { flex: none; display: grid; gap: 2px; margin: 0 12px 10px; padding: 12px; border-radius: var(--radius); background: var(--ai-50); }
+.drawer-today-date { margin: 0 0 6px; color: var(--ink); font: 400 1.05rem var(--font-head); letter-spacing: .02em; }
+.drawer-today-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-2); font: 500 .85rem var(--font-ui); text-align: left; text-decoration: none; cursor: pointer; }
+.drawer-today-row:hover { background: var(--paper); color: var(--ink); }
+.drawer-today-row:focus-visible { outline: 2px solid var(--ai-600); outline-offset: 1px; }
+.drawer-today-row strong { color: var(--ink); font-weight: 700; }
+.drawer-today-row strong.is-attention, #drawerPastDue strong { color: var(--beni); }
+.drawer-today-bar { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: var(--ai-100); overflow: hidden; }
+.drawer-today-bar span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--moss); transition: width .3s var(--ease-out); }
+.drawer-recent { flex: none; margin: 0 12px 10px; }
+.drawer-recent h3 { margin: 0 0 4px; padding: 0 8px; color: var(--ink-3); font: 700 .72rem var(--font-ui); letter-spacing: .06em; text-transform: uppercase; }
+.drawer-recent-list { display: grid; }
+.drawer-recent-list a { overflow: hidden; padding: 6px 8px; border-radius: var(--radius-sm); color: var(--ink-2); font-size: .85rem; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-recent-list a:hover { background: var(--ai-50); color: var(--ink); }
+html.menu-collapsed .drawer-today, html.menu-collapsed .drawer-recent { display: none; }
+@media (max-height: 760px) { .drawer-recent { display: none; } }
+@media (prefers-reduced-motion: reduce) { .drawer-today-bar span { transition: none; } }
+/* The menu never shrinks for the Today card: the whole sidebar scrolls instead; the footer sits at the bottom when there is room. */
+.page-drawer { overflow-y: auto; }
+.page-drawer .drawer-nav { flex: 0 0 auto; overflow: visible; }
+.page-drawer .drawer-today { margin-top: auto; }
+
+/* Grading: Ranks & Dates tab */
+.grading-dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.grading-date { display: grid; gap: 4px; font-size: .875rem; font-weight: 600; color: var(--ink); }
+.grading-rank-table input[type="number"] { width: 90px; min-height: 36px; text-align: right; }
+.grading-rank-table select { min-height: 36px; max-width: 100%; }
+.grading-save-bar { display: flex; justify-content: flex-end; margin-top: 12px; }
+#gradingStatus:empty { display: none; }
+/* Grading: card intro lines */
+#tab-home .card > .pd-card-lede, #tab-ranks .card > .pd-card-lede { margin-bottom: 14px; }
+#tab-ranks .grading-dates { padding: 0 20px 20px; }
+#ranks-unknown { margin-bottom: 16px; }
+#tab-home > .card, #tab-ranks > .groups, #tab-ranks > .grading-save-bar { margin-top: 16px; }
+
+/* Grading: printed eligibility sheet for the dojo board (js/gradingScripts.js gradingPrint).
+   Hidden on screen; when printing, it is the only thing on the page. */
+.grading-print { display: none; }
+@media print {
+  body.grading-printing > :not(#gradingPrint) { display: none !important; }
+  body.grading-printing { padding: 0 !important; }
+  body.grading-printing .grading-print { display: block; color: #111; font: 10.5pt/1.35 var(--font-ui); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .gp-head h1 { margin: 0; font: 400 26pt/1 var(--font-head); letter-spacing: .02em; }
+  .gp-head p { margin: 4px 0 0; }
+  .gp-dates { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 8px 0 0; padding: 0; list-style: none; }
+  .gp-key { padding-bottom: 8px; border-bottom: 2px solid #111; }
+  .gp-section { margin-top: 14px; }
+  .gp-section h2 { margin: 0 0 6px; font: 400 17pt/1.1 var(--font-head); break-after: avoid; }
+  .gp-section h2 small { margin-left: 8px; font: 600 10pt var(--font-ui); color: #444; }
+  .grading-print table { width: 100%; border-collapse: collapse; }
+  .grading-print thead { display: table-header-group; } /* repeats on every printed page */
+  .grading-print th, .grading-print td { padding: 4px 8px; border-bottom: 1px solid #ccc; text-align: left; }
+  .grading-print thead th { border-bottom: 1.5px solid #111; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .04em; }
+  .grading-print .num { text-align: right; }
+  .grading-print tr { break-inside: avoid; }
+  .grading-print .gp-rank th { padding-top: 9px; border-bottom: 1px solid #888; font-size: 9pt; color: #333; text-transform: uppercase; letter-spacing: .05em; }
+  .grading-print tr.is-eligible td { background: #d7f0df; font-weight: 700; }
+  .grading-print tr.is-eligible td:first-child { box-shadow: inset 5px 0 0 #1e6b3e; }
+  .gp-mark { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #1e6b3e; color: #fff; font-weight: 700; font-size: 9pt; letter-spacing: .04em; }
+  .gp-muted { color: #666; }
+}
+/* Grading print, compact (2026-10-21): two columns, small rows, headings 20pt at most. Overrides the rules above. */
+@media print {
+  @page { size: A4; margin: 10mm 10mm; }
+  body.grading-printing .grading-print { font-size: 8.5pt; line-height: 1.2; }
+  .grading-print .gp-head { margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid #111; }
+  .grading-print .gp-head h1 { font-size: 20pt; line-height: 1; }
+  .grading-print .gp-date { margin: 3px 0 0; font-size: 11pt; }
+  .grading-print .gp-key { margin: 3px 0 0; padding: 0; border: 0; font-size: 7.5pt; color: #333; }
+  .grading-print .gp-cols { column-count: 2; column-gap: 7mm; }
+  .grading-print .gp-rank-table { width: 100%; margin: 0 0 5px; break-inside: auto; }
+  .grading-print .gp-rank-table thead { display: table-header-group; }
+  .grading-print .gp-rank-table thead th { padding: 5px 4px 2px; border-bottom: 1.5px solid #111; font-size: 6.5pt; font-weight: 600; color: #444; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+  .grading-print .gp-rank-table thead th:first-child { font-size: 8.5pt; font-weight: 700; color: #111; }
+  .grading-print .gp-rank-table tr { break-inside: avoid; }
+  .grading-print .gp-rank-table td { padding: 1.6px 4px; border-bottom: .5px solid #d4d4d4; }
+  .grading-print .gp-rank-table td:first-child { overflow: hidden; max-width: 0; width: 66%; text-overflow: ellipsis; white-space: nowrap; }
+  .grading-print .gp-rank-table td.num { width: 17%; white-space: nowrap; }
+  .grading-print tr.is-eligible td { background: #d7f0df; }
+  .grading-print tr.is-eligible td:first-child { box-shadow: inset 3px 0 0 #1e6b3e; padding-left: 6px; }
+  .grading-print .gp-mark { padding: 0 5px; font-size: 7pt; line-height: 1.5; }
+}
+/* Grading print fixes: page breaks need a block body (the screen layout's grid/flex ignores them);
+   slightly tighter rows so the biggest group (about 100 members) fits one A4 page; a rank's heading
+   never sits alone at the foot of a column. */
+@media print {
+  body.grading-printing { display: block !important; min-height: 0 !important; }
+  body.grading-printing .grading-print { font-size: 8pt; line-height: 1.12; }
+  .grading-print .gp-section + .gp-section { break-before: page; page-break-before: always; }
+  .grading-print .gp-rank-table td { padding: 1.1px 4px; }
+  .grading-print .gp-rank-table thead th { padding: 3px 4px 1.5px; }
+  .grading-print .gp-rank-table thead, .grading-print .gp-rank-table tbody tr:first-child { break-after: avoid; }
+  .grading-print .gp-rank-table { margin-bottom: 4px; }
+  .grading-print .gp-head { margin-bottom: 4px; padding-bottom: 4px; }
+}
+@media print {
+  /* A long belt name in the heading is cut short (…) instead of widening its table off the column. */
+  .grading-print .gp-rank-table thead th:first-child { width: 66%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .grading-print .gp-rank-table td { padding-top: .7px; padding-bottom: .7px; }
+  body.grading-printing .grading-print { line-height: 1.1; }
+}
+@media print {
+  .grading-print .gp-key { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grading-print .gp-rank-table thead th.num { white-space: nowrap; }
+}
+@media print {
+  .grading-print .gp-mark { padding: 0 4px; font-size: 6.5pt; letter-spacing: .02em; }
+  .grading-print .gp-rank-table td, .grading-print .gp-rank-table th { padding-left: 3px; padding-right: 3px; }
+}
+@media print {
+  /* Names are never cut short: a long one wraps to a second line (only a few do). */
+  .grading-print .gp-rank-table td:first-child, .grading-print .gp-rank-table thead th:first-child { max-width: none; overflow: visible; white-space: normal; text-overflow: clip; }
+}
+@media print {
+  /* A rank stays in one column unless it's taller than a column (e.g. Unranked); it no longer looks cut. */
+  .grading-print .gp-rank-table.gp-keep { break-inside: avoid; }
+  /* Solid 1px rules: the 0.5px hairlines printed slightly out of line between cells. */
+  .grading-print .gp-rank-table td { border-bottom: 1px solid #ddd; }
+}

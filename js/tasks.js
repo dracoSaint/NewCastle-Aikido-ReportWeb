@@ -56,6 +56,23 @@ function taskOrder(a, b) {
   return (b.priority === 'high') - (a.priority === 'high') || a.start_date.localeCompare(b.start_date) || a.id - b.id;
 }
 
+// Portal links are resolved from this file's own address (pages sit at different depths).
+const TASK_SCRIPT_SRC = typeof document !== 'undefined' ? document.currentScript?.src : '';
+const taskUrl = path => new URL(`../${path}`, TASK_SCRIPT_SRC || 'http://localhost/js/').href;
+
+// Pages a task can open (Edit task > Opens). A task opening Past Due lists the follow-ups under it.
+const TASK_PAST_DUE = 'pages/REPORTs/PastDueMembers.html';
+const TASK_PAGES = [
+  ['', 'Nothing'],
+  [TASK_PAST_DUE, 'Past Due Members'],
+  ['pages/REPORTs/FollowUpReport.html', 'Red / Orange Follow-Up'],
+  ['pages/REPORTs/MondayBoardReport.html', 'Monday Board Report'],
+  ['pages/REPORTs/DailyAdReview.html', 'Daily Ad Review'],
+  ['pages/REPORTs/GeronimoMetrics.html', 'Geronimo Metrics Report'],
+  ['pages/REPORTs/GradingReport.html', 'Grading Report'],
+  ['pages/SOPs/SOPDocuments.html', 'SOP Library']
+];
+
 const TASK_DIALOG = `
   <dialog class="fu-dialog" id="taskDialog" aria-labelledby="taskDialogTitle">
     <form method="dialog" id="taskForm">
@@ -72,6 +89,7 @@ const TASK_DIALOG = `
         </label>
         <label><span id="taskDateLabel">Due date</span><input name="start_date" type="date" required></label>
         <label><span>Priority</span><select name="priority"><option value="normal">Normal</option><option value="high">High</option></select></label>
+        <label class="gm-wide"><span>Opens</span><select name="link">${TASK_PAGES.map(([path, label]) => `<option value="${path}">${label}</option>`).join('')}</select></label>
       </div>
       <div class="fu-dialog-actions">
         <button type="button" class="sop-action-button danger" id="taskDelete" hidden>Delete</button>
@@ -93,8 +111,6 @@ const TASK_DIALOG = `
 // The TASKS tab on the right edge of every page (not the Tasks page, which has the full list): it
 // slides out today's list. Open or closed is remembered in this browser, so it stays as you move around.
 const TASK_PANEL_KEY = 'portal-tasks-open';
-// The Tasks page link is resolved from this file's own address (pages sit at different depths).
-const TASK_SCRIPT_SRC = typeof document !== 'undefined' ? document.currentScript?.src : '';
 const taskPanelHtml = allUrl => `
   <button type="button" class="task-tab" id="taskTab" aria-expanded="false" aria-controls="taskPanel">
     <span>Tasks</span><span class="task-tab-count" data-task-count hidden></span>
@@ -117,7 +133,7 @@ const taskPanelHtml = allUrl => `
   </aside>`;
 
 function taskPanelInit() {
-  document.body.insertAdjacentHTML('beforeend', taskPanelHtml(new URL('../pages/Tasks.html', TASK_SCRIPT_SRC || location.href).href));
+  document.body.insertAdjacentHTML('beforeend', taskPanelHtml(taskUrl('pages/Tasks.html')));
   const tab = document.getElementById('taskTab');
   const panel = document.getElementById('taskPanel');
   const setOpen = open => {
@@ -144,6 +160,7 @@ function taskInit() {
   const showAll = box?.dataset.mode === 'all'; // Tasks page: every task; the slide-out panel: today's only
   const upcomingBox = document.getElementById('taskUpcoming');
   let client, me, people = [], tasks = [], ticks = [], scope = 'mine', editing = null, commentCounts = new Map();
+  let pastDueFollowUps = null; // loaded once per page, when a task opens the Past Due report
   let dialog, form, fields;
 
   const status = document.getElementById('taskStatus');
@@ -171,6 +188,12 @@ function taskInit() {
     commentCounts = new Map();
     (talk.data || []).forEach(row => commentCounts.set(row.task_id, (commentCounts.get(row.task_id) || 0) + 1));
     render();
+    if (box && !pastDueFollowUps && tasks.some(task => task.link === TASK_PAST_DUE)) {
+      await loadPastDueFollowUps().catch(() => { pastDueFollowUps = []; });
+      render();
+      // Sidebar Today card: follow-ups due today or overdue.
+      window.dispatchEvent(new CustomEvent('portal-pastdue', { detail: pastDueFollowUps.filter(member => member.date <= new Date().toLocaleDateString('en-CA')).length }));
+    }
   }
 
   function whenText(task) {
@@ -198,13 +221,58 @@ function taskInit() {
     const late = !tick && task.repeat === 'none' && taskDaysLate(task, taskToday()) > 0;
     const high = task.priority === 'high' ? '<span class="task-high">High</span>' : '';
     const talk = commentCounts.get(task.id) ? ` · ${commentCounts.get(task.id)} ${commentCounts.get(task.id) === 1 ? 'comment' : 'comments'}` : '';
-    const text = `<span class="task-text"><span class="task-title">${high}${esc(task.title)}</span>${task.details ? `<small>${esc(task.details)}</small>` : ''}</span>`;
+    const page = TASK_PAGES.find(([path]) => path && path === task.link);
+    const open = page ? `<a class="task-link" href="${esc(taskUrl(page[0]))}">Open ${esc(page[1])}<span aria-hidden="true"> →</span></a>` : '';
+    const text = `<span class="task-text"><span class="task-title">${high}${esc(task.title)}</span>${task.details ? `<small>${esc(task.details)}</small>` : ''}${open}</span>`;
     return `<li class="task-item${tick ? ' is-done' : ''}${late ? ' is-late' : ''}">
       ${!canTick ? `<span class="task-check is-plain">${text}</span>` : `<label class="task-check"><input type="checkbox" data-tick="${task.id}"${tick ? ' checked' : ''}>${text}</label>`}
       <span class="task-meta">${when}${tick ? ` · done by ${esc(tick.done_by?.split('@')[0])}` : ''}${talk}</span>
       <span class="task-who${task.assigned_to ? '' : ' is-team'}" title="For ${esc(who)}"><span class="sr-only">For ${esc(who)}</span><span aria-hidden="true">${esc(initials)}</span></span>
       <button type="button" class="task-edit" data-edit="${task.id}" aria-label="Edit ${esc(task.title)}">Edit</button>
+      ${!upcoming && task.link === TASK_PAST_DUE ? pastDueListHtml() : ''}
     </li>`;
+  }
+
+  // Under a task that opens the Past Due report: members whose follow-up is overdue, due today or
+  // due in the next 3 days (same rule as the report's Next follow-up column), soonest first.
+  function pastDueListHtml() {
+    if (!pastDueFollowUps) return '<p class="task-sub-empty">Loading follow-ups…</p>';
+    if (!pastDueFollowUps.length) return '<p class="task-sub-empty">No Past Due follow-ups due in the next 3 days.</p>';
+    const today = taskToday();
+    const shown = pastDueFollowUps.slice(0, 8);
+    const more = pastDueFollowUps.length - shown.length;
+    return `<ul class="task-sub" aria-label="Past Due follow-ups">${shown.map(member => {
+      const late = taskDaysLate({ repeat: 'none', start_date: member.date }, today);
+      const when = late > 0 ? `<span class="task-late">${late === 1 ? '1 day' : `${late} days`} overdue</span>` : late === 0 ? 'Today' : shortDate(member.date);
+      return `<li><a href="${esc(`${taskUrl(TASK_PAST_DUE)}?member=${encodeURIComponent(member.name)}`)}"><strong>${esc(member.name)}</strong><span>${esc(member.amount)}</span><span>${when}</span><small>${esc(member.step)}</small></a></li>`;
+    }).join('')}</ul>${more > 0 ? `<a class="task-sub-more" href="${esc(taskUrl(TASK_PAST_DUE))}">+${more} more on the Past Due report</a>` : ''}`;
+  }
+
+  // Loaded only when a task on today's list opens the Past Due report and the role can view it.
+  async function loadPastDueFollowUps() {
+    const access = await window.portalAccess;
+    if (access && !access.can('pastdue.view')) { pastDueFollowUps = []; return; }
+    if (typeof pastDueMemberFollowUp === 'undefined') {
+      await new Promise((resolve, reject) => {
+        const script = Object.assign(document.createElement('script'), { src: taskUrl('js/pastDueCore.js'), onload: resolve, onerror: reject });
+        document.head.append(script);
+      });
+    }
+    const [log, exempt, notes] = await Promise.all([
+      client.from('past_due_member_log').select('member_key, member_number, member_name, amount, status, due_date, days_overdue, next_follow_up, escalated_to_darius, stage'),
+      client.from('past_due_exempted_members').select('member_key, member_number, member_name'),
+      client.from('past_due_member_notes').select('member_identity, created_at').order('created_at', { ascending: false })
+    ]);
+    if (log.error) { pastDueFollowUps = []; return; }
+    const lastNote = new Map();
+    (notes.data || []).forEach(note => { if (!lastNote.has(note.member_identity)) lastNote.set(note.member_identity, new Date(note.created_at).toLocaleDateString('en-CA')); });
+    const today = new Date().toLocaleDateString('en-CA'); // local day, as the report uses
+    const soon = taskAddDays(today, 3);
+    pastDueFollowUps = pastDueOpenMembers(log.data, exempt.data)
+      .map(member => ({ ...pastDueMemberFollowUp(member.bills, lastNote.get(member.key) || null, today), name: member.member_name,
+        amount: member.bills.reduce((sum, bill) => sum + (parseFloat(bill.amount) || 0), 0).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' }) }))
+      .filter(member => member.date && member.date <= soon)
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
 
   function render() {
@@ -265,6 +333,7 @@ function taskInit() {
     fields.repeat.value = task?.repeat || 'none';
     fields.start_date.value = task?.start_date || taskToday();
     fields.priority.value = task?.priority || 'normal';
+    fields.link.value = task?.link || '';
     syncDateLabel();
     document.getElementById('taskComments').hidden = !task;
     if (task) loadComments();
@@ -325,7 +394,8 @@ function taskInit() {
       assigned_to: fields.assigned_to.value || null,
       repeat: fields.repeat.value,
       start_date: fields.start_date.value,
-      priority: fields.priority.value
+      priority: fields.priority.value,
+      link: fields.link.value || null
     };
     const query = editing ? client.from('tasks').update(row).eq('id', editing.id) : client.from('tasks').insert(row);
     const { data, error } = await query.select('id');

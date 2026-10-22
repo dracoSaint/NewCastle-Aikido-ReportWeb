@@ -18,7 +18,11 @@
   });
 
   // This page as a portal link ("pages/REPORTs/FollowUpReport.html"); the database only accepts portal links.
-  const here = () => location.pathname.slice(new URL(siteRoot).pathname.length) || 'index.html';
+  // Pretty-URL hosts (Cloudflare Pages) drop ".html" ("/pages/Tasks", "/"): put it back.
+  const here = () => {
+    const path = location.pathname.slice(new URL(siteRoot).pathname.length).replace(/\/$/, '');
+    return !path || path === 'index' ? 'index.html' : path.endsWith('.html') ? path : `${path}.html`;
+  };
 
   window.portalNotify = async (userIds, { kind = 'mention', title, body = null, link = here() }) => {
     const me = await meReady;
@@ -153,6 +157,7 @@
       const unread = rows.filter(row => !row.read_at).length;
       const count = document.getElementById('notifyCount');
       count.hidden = !unread;
+      window.dispatchEvent(new CustomEvent('portal-unread', { detail: unread })); // sidebar Today card
       count.textContent = unread > 9 ? '9+' : unread;
       btn.setAttribute('aria-label', unread ? `Notifications, ${unread} unread` : 'Notifications');
       document.getElementById('notifyAll').hidden = !unread;

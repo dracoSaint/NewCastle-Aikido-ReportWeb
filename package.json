@@ -1,7 +1,9 @@
 {
   "scripts": {
     "start": "npx live-server --port=8000 --no-browser",
-    "dev": "npx live-server --port=8000 --no-browser"
+    "dev": "npx live-server --port=8000 --no-browser",
+    "build": "rm -rf dist && mkdir dist && cp -r index.html css js imgs pages _headers dist/",
+    "preview": "npm run build && npx wrangler pages dev dist --port 8788"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
