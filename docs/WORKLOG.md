@@ -17,6 +17,35 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ---
 
+## 2026-10-26 — 20 Years campaign tasks + task watchers
+
+Status: awaiting user OK
+
+### Instructions from the user
+- Turn the "20 Years of Practice" send schedule into tasks (SQL), then rewrite their details from the revised send plan PDF (Leis, 19 Oct 2026).
+- Tag Leisa and Darius on the progress of these tasks.
+- Then: choose multiple users as watchers/followers on tasks from the page.
+
+### Decisions
+- Tasks inserted/updated by SQL in the editor, assigned to Drahc; full email copy left in the PDF (2000-char details limit).
+- New `tasks.watchers uuid[]`: watchers get the done alert and comment alerts.
+- Picker = "Followers" dropdown checklist (native `<details>`, scrolls at 200px) in the task dialog, so it holds as the team grows; new followers get an alert.
+
+### Done
+- `supabase/notifications_tasks.sql` section 5: watchers column + insert/update grant, `task_done_notify` alerts creator + watchers.
+- `js/tasks.js`: Followers checkboxes, saved with the task; comment alerts also go to watchers. `css/styles.css` `.task-watchers`.
+- Previewed Tasks dialog at 1440: 4 people listed, no console errors, no overflow.
+
+- Moved off Netlify (user, 2026-10-26): site is https://dashboard.newcastleaikido.com (Cloudflare). Root `_redirects` 301s the old Netlify site there; pushed to `main` on the user's explicit say-so. Not copied into `dist/`.
+- Section 5 confirmed live before shipping (`tasks.watchers` readable).
+
+### Open items
+- Supabase Auth > URL Configuration: Site URL = dashboard.newcastleaikido.com, add `https://dashboard.newcastleaikido.com/**` to Redirect URLs.
+- Staff sign in once on the new address (logins are per site).
+- Watcher UPDATE for the campaign tasks (or set Followers from the dialog).
+
+---
+
 ## 2026-10-21 — Grading report bot (Zen Planner → portal)
 
 Status: **shipped to production (4aee7ed)**; first sync on GitHub 2026-10-21: 213 students, 29 adults + 6 juniors eligible.

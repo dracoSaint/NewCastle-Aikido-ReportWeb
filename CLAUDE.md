@@ -11,9 +11,10 @@ Rules:
 ## Update workflow (every change, in order)
 
 Stack: static HTML/JS/CSS + Supabase (browser client). Deployed by Cloudflare Pages from the `production`
-branch (`npm run build` → `dist/`); Netlify still publishes `main`.
+branch (`npm run build` → `dist/`) at https://dashboard.newcastleaikido.com. Netlify is retired: `main` only
+serves `_redirects`, sending the old Netlify URL to the dashboard (since 2026-10-26).
 **Never push without the user's OK; batch changes into one push. Ship = push `testing`, then merge it into
-`production`. NEVER push or merge to `main` unless the user explicitly says so (Netlify credits are nearly gone).**
+`production`. NEVER push or merge to `main` unless the user explicitly says so (every push spends Netlify credits).**
 Always on: ponytail `full` (minimal code), caveman (terse replies), security-guidance hook. Don't switch levels.
 
 0. **Catch up** — at session start, read the latest entry of `docs/WORKLOG.md` (instructions, decisions,

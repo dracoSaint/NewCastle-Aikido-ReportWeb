@@ -5,6 +5,30 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
+## Netlify retired: redirect to dashboard.newcastleaikido.com (2026-10-26)
+
+The portal lives on Cloudflare Pages at https://dashboard.newcastleaikido.com. The old Netlify site (published from `main`) now only redirects: every path 301s to the same path on the dashboard.
+
+- Files: `_redirects` (repo root; Netlify reads it). `npm run build` does not copy it, so Cloudflare ignores it.
+- Set-up: Supabase Auth > URL Configuration: Site URL `https://dashboard.newcastleaikido.com`, Redirect URLs add `https://dashboard.newcastleaikido.com/**`.
+- Check: open the old Netlify address with any path; it lands on the dashboard at the same path.
+- Limits: staff sign in once on the new address. Pushing `main` still spends Netlify credits.
+
+---
+
+## Task watchers (2026-10-26, not yet shipped)
+
+People in a task's `watchers` list hear when it is ticked off ("<who> finished: <task>") and when someone comments on it, as well as the person who made it. You never get an alert for your own action.
+
+Pick them under **Followers** (a dropdown checklist, any number; it shows the names picked and scrolls past ~6 people) in the Add / Edit task dialog. People newly added get a "<who> added you as a follower" alert.
+
+- Files: `supabase/notifications_tasks.sql` (section 5), `js/tasks.js` (dialog, `save`, `addComment`), `css/styles.css` (`.task-watchers`).
+- Set-up: run section 5 in the Supabase SQL editor **before** the code goes live (saving a task fails until the column exists).
+- Check: edit a task, tick a follower, save; that person gets the alert. Someone else ticks or comments on the task; the follower's bell shows it.
+- Limits: only the task's maker, the person it's for, or a manager can change followers (same rule as editing), so a follower can't unfollow themselves. Followers don't get due alerts and the task doesn't show in their "Mine" list.
+
+---
+
 ## Geronimo: own nightly bot, wave duplicates, rollovers, scheduler catch-up (2026-10-21, not yet shipped)
 
 Why numbers stopped: the Red / Orange bot, which also pulled Geronimo's attendance, cancels, the all-members list (rollovers, trial waves) and the weekly lock-in, was set in Settings > Bots to **Thursdays 4:30 am only**, and last ran on 17 Oct. GitHub was also running the scheduler only every 3-6 hours while a bot was caught up for just 3 hours, so runs were skipped.
