@@ -203,3 +203,25 @@ grant execute on function public.notify_my_due_tasks() to authenticated;
 alter table public.tasks add column if not exists link text
   check (link ~ '^(index\.html|pages/[A-Za-z/]+\.html)(\?[A-Za-z0-9=&_.%-]*)?$');
 grant insert (link), update (link) on table public.tasks to authenticated;
+
+-- 5. Watchers (added 2026-10-26): people who hear when a task is ticked off or commented on, as well
+--    as the person who made it. Picked under "Followers" in the task dialog.
+alter table public.tasks add column if not exists watchers uuid[] not null default '{}';
+grant insert (watchers), update (watchers) on table public.tasks to authenticated;
+
+create or replace function public.task_done_notify() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  t public.tasks;
+begin
+  select * into t from public.tasks where id = new.task_id;
+  insert into public.notifications (user_id, kind, title, link, created_by)
+  select distinct who, 'done',
+         left(coalesce(split_part(auth.jwt() ->> 'email', '@', 1), 'Someone') || ' finished: ' || t.title, 200),
+         'pages/Tasks.html', auth.jwt() ->> 'email'
+  from unnest(t.created_by_id || t.watchers) as who
+  where who is not null and who is distinct from auth.uid();
+  return new;
+end
+$$;
+revoke all on function public.task_done_notify() from public, anon, authenticated;

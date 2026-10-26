@@ -90,6 +90,8 @@ const TASK_DIALOG = `
         <label><span id="taskDateLabel">Due date</span><input name="start_date" type="date" required></label>
         <label><span>Priority</span><select name="priority"><option value="normal">Normal</option><option value="high">High</option></select></label>
         <label class="gm-wide"><span>Opens</span><select name="link">${TASK_PAGES.map(([path, label]) => `<option value="${path}">${label}</option>`).join('')}</select></label>
+        <fieldset class="gm-wide task-watchers"><legend>Followers <small>(told when it's done or commented on)</small></legend>
+          <details id="taskWatchersPick"><summary id="taskWatchersSummary">Nobody</summary><div id="taskWatchers"></div></details></fieldset>
       </div>
       <div class="fu-dialog-actions">
         <button type="button" class="sop-action-button danger" id="taskDelete" hidden>Delete</button>
@@ -334,6 +336,9 @@ function taskInit() {
     fields.start_date.value = task?.start_date || taskToday();
     fields.priority.value = task?.priority || 'normal';
     fields.link.value = task?.link || '';
+    document.getElementById('taskWatchers').innerHTML = people.map(person => `<label class="gm-check"><input type="checkbox" name="watchers" value="${person.user_id}"${task?.watchers?.includes(person.user_id) ? ' checked' : ''}> ${esc(person.name)}</label>`).join('');
+    document.getElementById('taskWatchersPick').open = false;
+    syncWatchers();
     syncDateLabel();
     document.getElementById('taskComments').hidden = !task;
     if (task) loadComments();
@@ -364,9 +369,9 @@ function taskInit() {
     const { error } = await client.from('task_comments').insert({ task_id: editing.id, body });
     if (error) { say(error.message, true); return; }
     field.value = '';
-    // The person who made the task and the person it's for hear about it (not you); tags as usual.
+    // The person who made the task, the person it's for and its watchers hear about it (not you); tags as usual.
     const by = me.user_metadata?.full_name || me.email;
-    const ids = [editing.created_by_id, editing.assigned_to];
+    const ids = [editing.created_by_id, editing.assigned_to, ...(editing.watchers || [])];
     window.portalNotify?.(ids, { kind: 'comment', title: `${by} commented on: ${editing.title}`.slice(0, 200), body: body.slice(0, 300), link: 'pages/Tasks.html' })
       .catch(err => console.warn(err.message));
     window.portalNotifyMentions?.(body, `a comment on "${editing.title}"`);
@@ -383,6 +388,11 @@ function taskInit() {
     render();
   }
 
+  function syncWatchers() {
+    const names = [...form.querySelectorAll('[name="watchers"]:checked')].map(box => box.parentElement.textContent.trim());
+    document.getElementById('taskWatchersSummary').textContent = names.length ? names.join(', ') : 'Nobody';
+  }
+
   function syncDateLabel() {
     document.getElementById('taskDateLabel').textContent = fields.repeat.value === 'none' ? 'Due date' : 'Starts';
   }
@@ -395,7 +405,8 @@ function taskInit() {
       repeat: fields.repeat.value,
       start_date: fields.start_date.value,
       priority: fields.priority.value,
-      link: fields.link.value || null
+      link: fields.link.value || null,
+      watchers: [...form.querySelectorAll('[name="watchers"]:checked')].map(box => box.value)
     };
     const query = editing ? client.from('tasks').update(row).eq('id', editing.id) : client.from('tasks').insert(row);
     const { data, error } = await query.select('id');
@@ -406,6 +417,11 @@ function taskInit() {
     const by = me.user_metadata?.full_name || me.email;
     if (row.assigned_to && row.assigned_to !== editing?.assigned_to) {
       window.portalNotify?.([row.assigned_to], { kind: 'task', title: `${by} gave you a task: ${row.title}`, body: row.details, link: 'pages/Tasks.html' })
+        .catch(err => console.warn(err.message));
+    }
+    const newWatchers = row.watchers.filter(id => !editing?.watchers?.includes(id));
+    if (newWatchers.length) {
+      window.portalNotify?.(newWatchers, { kind: 'task', title: `${by} added you as a follower: ${row.title}`.slice(0, 200), link: 'pages/Tasks.html' })
         .catch(err => console.warn(err.message));
     }
     if (!editing && row.details) window.portalNotifyMentions?.(row.details, `the task "${row.title}"`);
@@ -479,6 +495,7 @@ function taskInit() {
     document.getElementById('taskCancel').addEventListener('click', () => dialog.close());
     document.getElementById('taskDelete').addEventListener('click', remove);
     fields.repeat.addEventListener('change', syncDateLabel);
+    document.getElementById('taskWatchers').addEventListener('change', syncWatchers);
     form.addEventListener('submit', event => { event.preventDefault(); save(); });
     document.querySelectorAll('[data-scope]').forEach(button => button.addEventListener('click', () => {
       scope = button.dataset.scope;
