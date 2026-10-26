@@ -11,10 +11,12 @@ Rules:
 ## Update workflow (every change, in order)
 
 Stack: static HTML/JS/CSS + Supabase (browser client). Deployed by Cloudflare Pages from the `production`
-branch (`npm run build` → `dist/`) at https://dashboard.newcastleaikido.com. Netlify is retired: `main` only
-serves `_redirects`, sending the old Netlify URL to the dashboard (since 2026-10-26).
-**Never push without the user's OK; batch changes into one push. Ship = push `testing`, then merge it into
-`production`. NEVER push or merge to `main` unless the user explicitly says so (every push spends Netlify credits).**
+branch (`npm run build` → `dist/`) at https://dashboard.newcastleaikido.com. Netlify is retired; its last
+deploy (`main`) only redirects the old URL to the dashboard via `_redirects`.
+**Branches (since 2026-10-26): `production` = the live site and main branch. `testing` = test deployments
+(Cloudflare preview) and the rollback branch. `main` is no longer used: never push or merge to it.
+Never push without the user's OK; batch changes into one push. Ship = push `testing`, check its preview if
+needed, then merge it into `production`.**
 Always on: ponytail `full` (minimal code), caveman (terse replies), security-guidance hook. Don't switch levels.
 
 0. **Catch up** — at session start, read the latest entry of `docs/WORKLOG.md` (instructions, decisions,
@@ -41,7 +43,7 @@ Always on: ponytail `full` (minimal code), caveman (terse replies), security-gui
 5. **Hand over** — `graphify update .`; update the docs (below); list what changed + what the user should
    click through. Wait for OK.
 6. **Ship (only after OK)** — `/ship` checklist, `/caveman-commit` message, one commit, one push; then mark
-   the WORKLOG entry `shipped (<commit>)`. Push target: `testing` + `production` (never `main` unless told).
+   the WORKLOG entry `shipped (<commit>)`. Push target: `testing` + `production` (never `main`).
 
 **Docs (every time work finishes or anything changes, before hand-over):**
 - `docs/WORKLOG.md` — add/extend today's entry (template at top): user's instructions, decisions, what was

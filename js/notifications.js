@@ -164,7 +164,7 @@
       document.getElementById('notifyList').innerHTML = rows.length ? rows.map(row => `
         <li><a class="notify-item${row.read_at ? '' : ' is-unread'}" href="${esc(new URL(row.link || 'index.html', siteRoot).href)}" data-id="${row.id}">
           <strong>${esc(row.title)}</strong>${row.body ? `<span>${esc(row.body)}</span>` : ''}
-          <time datetime="${esc(row.created_at)}">${timeAgo(row.created_at)}</time>
+          <time datetime="${esc(row.created_at)}">${timeAgo(row.created_at)}${row.created_by?.includes('@') ? ` · from ${esc(row.created_by.split('@')[0])}` : ''}</time>
         </a></li>`).join('') : '<li class="notify-empty">Nothing yet. @mentions and tasks given to you show up here.</li>';
     }
 

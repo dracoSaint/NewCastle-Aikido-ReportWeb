@@ -1,7 +1,7 @@
 // Check for js/tasks.js repeat rules (Home page task list). Run: node automation/tasks.check.mjs
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-const { taskIsOn, taskDaysLate, taskUpcoming, taskOrder } = createRequire(import.meta.url)('../js/tasks.js');
+const { taskIsOn, taskDaysLate, taskUpcoming, taskOrder, taskState, taskChanges } =createRequire(import.meta.url)('../js/tasks.js');
 
 const task = (repeat, start_date) => ({ repeat, start_date });
 // 2026-10-20 is a Tuesday.
@@ -24,4 +24,17 @@ assert.deepEqual(upcoming.map(([day, list]) => [day, list.map(item => item.id)])
 // Order: high priority first, then earliest date, then oldest.
 const order = [{ id: 1, priority: 'normal', start_date: '2026-10-01' }, { id: 2, priority: 'high', start_date: '2026-10-30' }, { id: 3, priority: 'normal', start_date: '2026-09-01' }].sort(taskOrder);
 assert.deepEqual(order.map(item => item.id), [2, 3, 1]);
+// Status tabs: ticked beats status; old rows and unknown values are pending; every task lands in exactly one tab.
+assert.equal(taskState({ status: null }), 'pending');
+assert.equal(taskState({ status: 'bogus' }), 'pending');
+assert.equal(taskState({ status: 'on_hold' }), 'on_hold');
+assert.equal(taskState({ status: 'in_progress' }, { done_on: '2026-10-27' }), 'done');
+const mix = [[{ status: 'pending' }], [{ status: 'in_progress' }], [{ status: 'on_hold' }], [{ status: 'on_hold' }, {}], [{}]];
+assert.equal(['pending', 'in_progress', 'on_hold', 'done'].reduce((sum, key) => sum + mix.filter(([t, tick]) => taskState(t, tick) === key).length, 0), mix.length);
+// Edits send only what changed.
+const form = { title: 'Call Ann', details: null, assigned_to: 'u1', repeat: 'none', start_date: '2026-10-27', priority: 'normal', status: 'pending', link: null, watchers: ['b', 'a'] };
+assert.deepEqual(taskChanges({ ...form, title: ' Call Ann ', watchers: ['a', 'b'], id: 7 }, form), {});          // same task, followers reordered
+assert.deepEqual(taskChanges({ ...form, details: '', link: undefined, status: null, priority: null, watchers: null }, { ...form, watchers: [] }), {}); // old row, blank fields
+assert.deepEqual(taskChanges(form, { ...form, status: 'on_hold' }), { status: 'on_hold' });
+assert.equal(taskChanges(null, form), form);                                                                     // new task: everything
 console.log('tasks check passed');

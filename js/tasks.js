@@ -7,6 +7,19 @@
 // on today's list from its due date until it is ticked.
 
 const TASK_REPEATS = { none: 'One-off', daily: 'Daily', weekdays: 'Weekdays', weekly: 'Weekly', monthly: 'Monthly' };
+const TASK_STATUSES = { pending: 'Pending', in_progress: 'In progress', on_hold: 'On hold' };
+// Ticked beats status; rows from before the status column (or an unknown value) count as pending.
+const taskState = (task, tick) => tick ? 'done' : TASK_STATUSES[task.status] ? task.status : 'pending';
+
+// What an edit actually changed (all of `next` for a new task), so a save can't undo someone else's change
+// made while the dialog was open. Old rows and blank fields compare as their defaults; follower order is ignored.
+function taskChanges(editing, next) {
+  if (!editing) return next;
+  const was = { ...editing, title: (editing.title || '').trim(), status: taskState(editing), priority: editing.priority || 'normal',
+    watchers: editing.watchers || [], details: editing.details || null, link: editing.link || null, assigned_to: editing.assigned_to || null };
+  const same = (a, b) => JSON.stringify(Array.isArray(a) ? [...a].sort() : a) === JSON.stringify(Array.isArray(b) ? [...b].sort() : b);
+  return Object.fromEntries(Object.entries(next).filter(([key, value]) => !same(value, was[key])));
+}
 
 function taskToday() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
@@ -89,8 +102,9 @@ const TASK_DIALOG = `
         </label>
         <label><span id="taskDateLabel">Due date</span><input name="start_date" type="date" required></label>
         <label><span>Priority</span><select name="priority"><option value="normal">Normal</option><option value="high">High</option></select></label>
-        <label class="gm-wide"><span>Opens</span><select name="link">${TASK_PAGES.map(([path, label]) => `<option value="${path}">${label}</option>`).join('')}</select></label>
-        <fieldset class="gm-wide task-watchers"><legend>Followers <small>(told when it's done or commented on)</small></legend>
+        <label><span>Status</span><select name="status">${Object.entries(TASK_STATUSES).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label>
+        <label><span>Opens</span><select name="link">${TASK_PAGES.map(([path, label]) => `<option value="${path}">${label}</option>`).join('')}</select></label>
+        <fieldset class="gm-wide task-watchers"><legend>Followers <small>(told when its status changes, it's done or someone comments)</small></legend>
           <details id="taskWatchersPick"><summary id="taskWatchersSummary">Nobody</summary><div id="taskWatchers"></div></details></fieldset>
       </div>
       <div class="fu-dialog-actions">
@@ -161,7 +175,7 @@ function taskInit() {
   const box = document.getElementById('taskLists');
   const showAll = box?.dataset.mode === 'all'; // Tasks page: every task; the slide-out panel: today's only
   const upcomingBox = document.getElementById('taskUpcoming');
-  let client, me, people = [], tasks = [], ticks = [], scope = 'mine', editing = null, commentCounts = new Map();
+  let client, me, people = [], tasks = [], ticks = [], scope = 'mine', filter = 'all', editing = null, commentCounts = new Map();
   let pastDueFollowUps = null; // loaded once per page, when a task opens the Past Due report
   let dialog, form, fields;
 
@@ -172,6 +186,7 @@ function taskInit() {
   const doneBefore = task => task.repeat === 'none' && ticks.some(tick => tick.task_id === task.id && tick.done_on !== taskToday());
   const inScope = (task, who) => who === 'all' || !task.assigned_to || task.assigned_to === me.id;
   const todays = who => tasks.filter(task => taskIsOn(task, taskToday()) && inScope(task, who) && !doneBefore(task));
+  const stateOf = task => taskState(task, tickFor(task));
 
   async function load() {
     const today = taskToday();
@@ -222,10 +237,12 @@ function taskInit() {
     const initials = task.assigned_to ? who.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() : 'All';
     const late = !tick && task.repeat === 'none' && taskDaysLate(task, taskToday()) > 0;
     const high = task.priority === 'high' ? '<span class="task-high">High</span>' : '';
+    const st = taskState(task);
+    const state = !tick ? `<span class="task-state is-${st}">${TASK_STATUSES[st]}</span>` : '';
     const talk = commentCounts.get(task.id) ? ` · ${commentCounts.get(task.id)} ${commentCounts.get(task.id) === 1 ? 'comment' : 'comments'}` : '';
     const page = TASK_PAGES.find(([path]) => path && path === task.link);
     const open = page ? `<a class="task-link" href="${esc(taskUrl(page[0]))}">Open ${esc(page[1])}<span aria-hidden="true"> →</span></a>` : '';
-    const text = `<span class="task-text"><span class="task-title">${high}${esc(task.title)}</span>${task.details ? `<small>${esc(task.details)}</small>` : ''}${open}</span>`;
+    const text = `<span class="task-text"><span class="task-title">${high}${state}${esc(task.title)}</span>${task.details ? `<small>${esc(task.details)}</small>` : ''}${open}</span>`;
     return `<li class="task-item${tick ? ' is-done' : ''}${late ? ' is-late' : ''}">
       ${!canTick ? `<span class="task-check is-plain">${text}</span>` : `<label class="task-check"><input type="checkbox" data-tick="${task.id}"${tick ? ' checked' : ''}>${text}</label>`}
       <span class="task-meta">${when}${tick ? ` · done by ${esc(tick.done_by?.split('@')[0])}` : ''}${talk}</span>
@@ -288,7 +305,17 @@ function taskInit() {
       badge.title = `${mineLeft} open today`;
     });
     if (!box) return;
-    const shown = showAll ? tasks.filter(task => inScope(task, scope)) : todays(scope);
+    const all = showAll ? tasks.filter(task => inScope(task, scope)) : todays(scope);
+    // Tasks page: status tabs with counts; the list shows only the picked status.
+    const filterBox = document.getElementById('taskFilter');
+    const states = new Map(all.map(task => [task, stateOf(task)]));
+    if (filterBox) {
+      const counts = { all: all.length };
+      states.forEach(state => { counts[state] = (counts[state] || 0) + 1; });
+      filterBox.innerHTML = [['all', 'All'], ...Object.entries(TASK_STATUSES), ['done', 'Done']].map(([key, label]) =>
+        `<button type="button" class="is-${key}" data-filter="${key}" aria-pressed="${filter === key}">${label} <span>${counts[key] || 0}</span></button>`).join('');
+    }
+    const shown = filter === 'all' ? all : all.filter(task => states.get(task) === filter);
     const oneOffs = shown.filter(task => task.repeat === 'none');
     const groups = [
       ['Repeating', shown.filter(task => task.repeat !== 'none')],
@@ -309,6 +336,7 @@ function taskInit() {
     }
     box.innerHTML = shown.length ? groups.filter(([, list]) => list.length).map(([title, list]) => `
       <div class="task-group"><h3>${title}</h3><ul class="task-list">${list.map(task => itemHtml(task)).join('')}</ul></div>`).join('')
+      : filter !== 'all' && all.length ? '<p class="task-empty">No tasks with this status. Pick All to see everything.</p>'
       : `<p class="task-empty">${showAll ? 'No tasks yet. Add one' : 'No tasks for today. Add one'}, or switch to Whole team.</p>`;
     if (upcomingBox) {
       // Daily / weekday tasks would fill every day: list them once, then what else falls on each day.
@@ -335,6 +363,7 @@ function taskInit() {
     fields.repeat.value = task?.repeat || 'none';
     fields.start_date.value = task?.start_date || taskToday();
     fields.priority.value = task?.priority || 'normal';
+    fields.status.value = task ? taskState(task) : 'pending';
     fields.link.value = task?.link || '';
     document.getElementById('taskWatchers').innerHTML = people.map(person => `<label class="gm-check"><input type="checkbox" name="watchers" value="${person.user_id}"${task?.watchers?.includes(person.user_id) ? ' checked' : ''}> ${esc(person.name)}</label>`).join('');
     document.getElementById('taskWatchersPick').open = false;
@@ -398,33 +427,46 @@ function taskInit() {
   }
 
   async function save() {
-    const row = {
+    const next = {
       title: fields.title.value.trim(),
       details: fields.details.value.trim() || null,
       assigned_to: fields.assigned_to.value || null,
       repeat: fields.repeat.value,
       start_date: fields.start_date.value,
       priority: fields.priority.value,
+      status: fields.status.value,
       link: fields.link.value || null,
       watchers: [...form.querySelectorAll('[name="watchers"]:checked')].map(box => box.value)
     };
+    const row = taskChanges(editing, next);
+    if (!Object.keys(row).length) { dialog.close(); return; }
     const query = editing ? client.from('tasks').update(row).eq('id', editing.id) : client.from('tasks').insert(row);
     const { data, error } = await query.select('id');
     if (error || !data?.length) {
-      say(error?.message || 'Not saved: only the person who made the task, or who it\'s for, can change it.', true);
+      say(/does not exist|schema cache|permission denied/i.test(error?.message || '') ? `Not saved: the task list needs a one-time database update: run supabase/notifications_tasks.sql. (${error.message})`
+        : error?.message || 'Not saved: only the person who made the task, or who it\'s for, can change it.', true);
       return;
     }
     const by = me.user_metadata?.full_name || me.email;
-    if (row.assigned_to && row.assigned_to !== editing?.assigned_to) {
-      window.portalNotify?.([row.assigned_to], { kind: 'task', title: `${by} gave you a task: ${row.title}`, body: row.details, link: 'pages/Tasks.html' })
+    const newAssignee = 'assigned_to' in row && next.assigned_to;
+    if (newAssignee) {
+      window.portalNotify?.([next.assigned_to], { kind: 'task', title: `${by} gave you a task: ${next.title}`.slice(0, 200), body: next.details?.slice(0, 500), link: 'pages/Tasks.html' })
         .catch(err => console.warn(err.message));
     }
-    const newWatchers = row.watchers.filter(id => !editing?.watchers?.includes(id));
+    const newWatchers = next.watchers.filter(id => !editing?.watchers?.includes(id));
+    // Status change: the maker, the person it's for (and who it was for) and the followers hear about it.
+    // Not you, and not anyone who just got "gave you a task" or "added you as a follower".
+    if (editing && 'status' in row) {
+      const ids = [editing.created_by_id, editing.assigned_to, next.assigned_to, ...next.watchers]
+        .filter(id => !(newAssignee && id === next.assigned_to) && !newWatchers.includes(id));
+      window.portalNotify?.(ids, { kind: 'task', title: `${by} set "${next.title}" to ${TASK_STATUSES[next.status]}`.slice(0, 200), link: 'pages/Tasks.html' })
+        .catch(err => console.warn(err.message));
+    }
     if (newWatchers.length) {
-      window.portalNotify?.(newWatchers, { kind: 'task', title: `${by} added you as a follower: ${row.title}`.slice(0, 200), link: 'pages/Tasks.html' })
+      window.portalNotify?.(newWatchers, { kind: 'task', title: `${by} added you as a follower: ${next.title}`.slice(0, 200), link: 'pages/Tasks.html' })
         .catch(err => console.warn(err.message));
     }
-    if (!editing && row.details) window.portalNotifyMentions?.(row.details, `the task "${row.title}"`);
+    if (!editing && next.details) window.portalNotifyMentions?.(next.details, `the task "${next.title}"`);
     dialog.close();
     say(editing ? 'Task saved.' : 'Task added.');
     await load();
@@ -496,6 +538,13 @@ function taskInit() {
     document.getElementById('taskDelete').addEventListener('click', remove);
     fields.repeat.addEventListener('change', syncDateLabel);
     document.getElementById('taskWatchers').addEventListener('change', syncWatchers);
+    document.getElementById('taskFilter')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-filter]');
+      if (!button) return;
+      filter = button.dataset.filter;
+      render(); // rebuilds the tabs: put keyboard focus back on the picked one
+      document.querySelector(`#taskFilter [data-filter="${filter}"]`)?.focus();
+    });
     form.addEventListener('submit', event => { event.preventDefault(); save(); });
     document.querySelectorAll('[data-scope]').forEach(button => button.addEventListener('click', () => {
       scope = button.dataset.scope;
@@ -547,4 +596,4 @@ if (typeof document !== 'undefined') {
   else taskInit();
 }
 
-if (typeof module !== 'undefined') module.exports = { taskIsOn, taskDaysLate, taskUpcoming, taskOrder };
+if (typeof module !== 'undefined') module.exports = { taskIsOn, taskDaysLate, taskUpcoming, taskOrder, taskState, taskChanges };
