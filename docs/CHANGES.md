@@ -12,6 +12,7 @@ The portal lives on Cloudflare Pages at https://dashboard.newcastleaikido.com. T
 - Files: `_redirects` (repo root; Netlify reads it). `npm run build` does not copy it, so Cloudflare ignores it.
 - Set-up: Supabase Auth > URL Configuration: Site URL `https://dashboard.newcastleaikido.com`, Redirect URLs add `https://dashboard.newcastleaikido.com/**`.
 - Check: open the old Netlify address with any path; it lands on the dashboard at the same path.
+- Netlify lowercases `:splat` and Cloudflare paths are case-sensitive (a wrong-case path gets the home page with no styling), so `_redirects` lists every page with its exact-case target, then sends anything else to the dashboard home. **Add a line for each new page.**
 - Limits: staff sign in once on the new address. Pushing `main` still spends Netlify credits.
 
 ---
