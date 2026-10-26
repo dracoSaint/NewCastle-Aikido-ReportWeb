@@ -1,0 +1,3 @@
+# Netlify only (the old site, published from main): send everyone to the Cloudflare site.
+# Not copied into dist/, so Cloudflare Pages never sees it.
+/*  https://dashboard.newcastleaikido.com/:splat  301!
