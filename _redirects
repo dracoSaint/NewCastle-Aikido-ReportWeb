@@ -1,3 +1,34 @@
 # Netlify only (the old site, published from main): send everyone to the Cloudflare site.
 # Not copied into dist/, so Cloudflare Pages never sees it.
-/*  https://dashboard.newcastleaikido.com/:splat  301!
+# Netlify lowercases :splat and Cloudflare paths are case-sensitive, so each page is listed with its
+# exact-case target (Netlify matches the left side in any case; the query string is kept).
+/pages/REPORTs/GradingReport        https://dashboard.newcastleaikido.com/pages/REPORTs/GradingReport.html      301!
+/pages/REPORTs/GradingReport.html   https://dashboard.newcastleaikido.com/pages/REPORTs/GradingReport.html      301!
+/pages/REPORTs/MondayBoardReport        https://dashboard.newcastleaikido.com/pages/REPORTs/MondayBoardReport.html  301!
+/pages/REPORTs/MondayBoardReport.html   https://dashboard.newcastleaikido.com/pages/REPORTs/MondayBoardReport.html  301!
+/pages/REPORTs/PastDueMembers        https://dashboard.newcastleaikido.com/pages/REPORTs/PastDueMembers.html     301!
+/pages/REPORTs/PastDueMembers.html   https://dashboard.newcastleaikido.com/pages/REPORTs/PastDueMembers.html     301!
+/pages/REPORTs/DailyAdReview        https://dashboard.newcastleaikido.com/pages/REPORTs/DailyAdReview.html      301!
+/pages/REPORTs/DailyAdReview.html   https://dashboard.newcastleaikido.com/pages/REPORTs/DailyAdReview.html      301!
+/pages/REPORTs/GeronimoMetrics        https://dashboard.newcastleaikido.com/pages/REPORTs/GeronimoMetrics.html    301!
+/pages/REPORTs/GeronimoMetrics.html   https://dashboard.newcastleaikido.com/pages/REPORTs/GeronimoMetrics.html    301!
+/pages/REPORTs/FollowUpReport        https://dashboard.newcastleaikido.com/pages/REPORTs/FollowUpReport.html     301!
+/pages/REPORTs/FollowUpReport.html   https://dashboard.newcastleaikido.com/pages/REPORTs/FollowUpReport.html     301!
+/pages/SOPs/SOPDocuments        https://dashboard.newcastleaikido.com/pages/SOPs/SOPDocuments.html          301!
+/pages/SOPs/SOPDocuments.html   https://dashboard.newcastleaikido.com/pages/SOPs/SOPDocuments.html          301!
+/pages/Tasks        https://dashboard.newcastleaikido.com/pages/Tasks.html            301!
+/pages/Tasks.html   https://dashboard.newcastleaikido.com/pages/Tasks.html            301!
+/pages/Settings        https://dashboard.newcastleaikido.com/pages/Settings.html         301!
+/pages/Settings.html   https://dashboard.newcastleaikido.com/pages/Settings.html         301!
+/pages/profile        https://dashboard.newcastleaikido.com/pages/profile.html          301!
+/pages/profile.html   https://dashboard.newcastleaikido.com/pages/profile.html          301!
+/pages/login        https://dashboard.newcastleaikido.com/pages/login.html            301!
+/pages/login.html   https://dashboard.newcastleaikido.com/pages/login.html            301!
+/pages/register        https://dashboard.newcastleaikido.com/pages/register.html         301!
+/pages/register.html   https://dashboard.newcastleaikido.com/pages/register.html         301!
+/pages/register-error        https://dashboard.newcastleaikido.com/pages/register-error.html   301!
+/pages/register-error.html   https://dashboard.newcastleaikido.com/pages/register-error.html   301!
+/pages/reset-password        https://dashboard.newcastleaikido.com/pages/reset-password.html   301!
+/pages/reset-password.html   https://dashboard.newcastleaikido.com/pages/reset-password.html   301!
+# Anything else (home, old or unknown paths): the dashboard home.
+/*  https://dashboard.newcastleaikido.com/  301!
