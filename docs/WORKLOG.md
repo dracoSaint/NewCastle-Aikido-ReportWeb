@@ -19,7 +19,7 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ## 2026-10-26 — 20 Years campaign tasks + task watchers
 
-Status: awaiting user OK
+Status: shipped (7840e90) to testing, production and main
 
 ### Instructions from the user
 - Turn the "20 Years of Practice" send schedule into tasks (SQL), then rewrite their details from the revised send plan PDF (Leis, 19 Oct 2026).
