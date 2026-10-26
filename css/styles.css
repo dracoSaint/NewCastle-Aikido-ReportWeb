@@ -10501,6 +10501,17 @@ html.reduce-motion *::after {
 .fu-dialog .task-comment-form { padding: 0; gap: 8px; }
 @media (max-width: 760px) { .task-tab { top: auto; bottom: 96px; transform: none; } }
 
+/* Task status: chip before the title and the status tabs. Grey pending, blue in progress, amber on hold, green done. */
+.task-state.is-pending, .task-filter .is-pending::before { --st: var(--ink-2); --st-bg: var(--paper); }
+.task-state.is-in_progress, .task-filter .is-in_progress::before { --st: color-mix(in srgb, var(--ai-400), black 45%); --st-bg: var(--ai-50); }
+.task-state.is-on_hold, .task-filter .is-on_hold::before { --st: var(--kin); --st-bg: var(--kin-50); }
+.task-filter .is-done::before { --st: var(--moss); }
+.task-state { display: inline-block; margin-right: 8px; padding: 2px 8px; border-radius: 999px; background: var(--st-bg); color: var(--st); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st) 25%, transparent); font: 700 .68rem/1.5 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px; }
+.task-filter { margin: 12px 0; max-width: 100%; box-sizing: border-box; overflow-x: auto; scrollbar-width: thin; }
+.task-filter button { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.task-filter button:not(.is-all)::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--st); }
+.task-filter button span { color: inherit; opacity: .7; font-weight: 500; }
+
 /* Task: page link, and the Past Due follow-ups listed under a task that opens that report */
 .task-link { justify-self: start; margin-top: 2px; color: var(--ai-600); font-size: .8rem; font-weight: 600; text-decoration: none; }
 .task-link:hover { text-decoration: underline; }

@@ -17,6 +17,38 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ---
 
+## 2026-10-27 — Task status
+
+Status: shipping
+
+### Instructions from the user
+- Add a task status function, "may it be in progress or pending etc".
+
+### Decisions
+- Statuses: Pending (default), In progress, On hold. Done stays the tick box (per day for repeating tasks).
+- Chip next to the title for In progress / On hold; Pending shows nothing; hidden once ticked.
+- Changing status alerts the maker, the person it's for and followers. Set in the task dialog only.
+
+### Done
+- `supabase/notifications_tasks.sql` section 6: `tasks.status` + insert/update grant.
+- `js/tasks.js`: `TASK_STATUSES`, Status select, chip, status-change alert; Opens now half width beside Status.
+- `css/styles.css`: `.task-state`. Previewed dialog at 1440 and 390: no errors, no overflow.
+
+- Section 6 run by the user. Found `watchers` update grant missing live (section 5 first ran before the grant line was added): every task save failed with "permission denied for table tasks". User ran the grant; rechecked OK.
+- Then: colour per status (grey Pending, blue In progress, amber On hold, green Done) as a chip, and status tabs with counts above the Tasks page list (All / Pending / In progress / On hold / Done). Tabs scroll sideways on phones.
+
+- `/ship` review (code, security, tests): GO. Then the user asked to fix every risk and flag:
+  - Edits send only changed fields (no overwriting others' changes); repeating tasks reset to Pending on tick (DB trigger); no double alert for a new assignee; filter keeps keyboard focus; one-pass counts; friendly save error when DB setup is missing; `taskState` + 6 asserts in `automation/tasks.check.mjs`; chip padding and pending contrast; CSS tidy.
+  - Section 7: browser alerts limited to mention/task/comment + 60/min per sender; done alerts skip bots and unknown ids; bell shows sender.
+  - Dependabot (4, all from dev-only live-server): swapped to `serve` + `compression` override; `npm audit` 0.
+  - Left standing: update rule `with check (true)` (needed for task hand-offs).
+
+### Open items
+- Run section 7 in Supabase.
+- Quick status change from the list (without opening the dialog) if wanted.
+
+---
+
 ## 2026-10-26 — 20 Years campaign tasks + task watchers
 
 Status: shipped (7840e90) to testing, production and main
@@ -38,6 +70,7 @@ Status: shipped (7840e90) to testing, production and main
 
 - Moved off Netlify (user, 2026-10-26): site is https://dashboard.newcastleaikido.com (Cloudflare). Root `_redirects` 301s the old Netlify site there; pushed to `main` on the user's explicit say-so. Not copied into `dist/`.
 - Section 5 confirmed live before shipping (`tasks.watchers` readable).
+- Workflow (user, 2026-10-26): `production` = live site and main branch; `testing` = test deployments and rollback branch; `main` no longer used. CLAUDE.md updated.
 
 ### Open items
 - Supabase Auth > URL Configuration: Site URL = dashboard.newcastleaikido.com, add `https://dashboard.newcastleaikido.com/**` to Redirect URLs.

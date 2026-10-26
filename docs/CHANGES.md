@@ -5,6 +5,28 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
+## Task status (2026-10-27, not yet shipped)
+
+Each task has a status: **Pending** (default), **In progress** or **On hold**, picked in the Add / Edit task dialog. Every open task shows a coloured chip before the title: grey Pending, blue In progress, amber On hold. Ticked tasks count as Done (green). On the Tasks page, tabs above the list (All / Pending / In progress / On hold / Done, each with a count) show one status at a time; they respect Mine / Whole team. Changing the status alerts the person who made the task, the person it's for and its followers (not you).
+
+- Files: `supabase/notifications_tasks.sql` (section 6), `js/tasks.js` (`TASK_STATUSES`, `stateOf`, dialog, `itemHtml`, `render`, `save`), `pages/Tasks.html` (`#taskFilter`), `css/styles.css` (`.task-state`, `.task-filter`).
+- Set-up: run section 6 in the Supabase SQL editor **before** the code goes live.
+- Check: edit a task, set In progress, save; the chip shows and followers get "<who> set "<task>" to In progress".
+- Self-check: `node automation/tasks.check.mjs` (covers `taskState`, the rule the tabs and chips use).
+- An edit saves only the fields you changed, so it can't undo a change someone else made while your dialog was open. A repeating task goes back to Pending when it's ticked (section 7), so each day starts fresh.
+- Limits: status changes only from the dialog, by the maker, the person it's for or a manager. "Done" is still the tick box, not a status. If two people change the *same* field at the same time, the later save wins. Ticking a repeating task by mistake and unticking it the same day leaves it at Pending (set the status again). An alert blocked by the rate limit only logs a console warning.
+
+## Alerts hardening and local server (2026-10-27, not yet shipped)
+
+- **Alerts:** the browser can only send mention / task / comment alerts, as itself; "finished" and "due" alerts come only from the database. Max 60 alerts a minute per sender, "finished" alerts from ticking included (indexed, and parallel requests are counted in turn). Done alerts skip bots and ids that aren't portal users. The bell shows who sent each alert ("· from leisa").
+- **Unticking:** only the person who ticked it, the task's maker, the person it's for, or a manager. A tick resets a repeating task's status only when the ticker is its maker, assignee or a follower.
+- **Local server:** `npm start` now runs `serve` (still http://127.0.0.1:8000) instead of `live-server`, which carried the 4 Dependabot alerts. `compression` is pinned to 1.8.2 via `overrides`. `npm audit`: 0 vulnerabilities. Pages open without `.html` locally, same as Cloudflare. No live reload: refresh the browser after edits.
+- Files: `supabase/notifications_tasks.sql` (section 7), `js/notifications.js`, `package.json`, `package-lock.json`.
+- Set-up: run section 7 in the Supabase SQL editor (any time; the page doesn't depend on it). Run `npm install` once.
+- Left as is: the task update rule still lets the person a task is for hand it to someone else (`with check (true)`). Tightening it would block normal hand-offs.
+
+---
+
 ## Netlify retired: redirect to dashboard.newcastleaikido.com (2026-10-26)
 
 The portal lives on Cloudflare Pages at https://dashboard.newcastleaikido.com. The old Netlify site (published from `main`) now only redirects: every path 301s to the same path on the dashboard.

@@ -153,6 +153,7 @@ grant select, delete on table public.task_comments to authenticated;
 grant insert (task_id, body) on table public.task_comments to authenticated;
 
 -- Done alerts: ticking off a task someone else made tells the person who made it.
+-- (Replaced by the fuller version in section 7; kept here so the trigger below can be made on a fresh run.)
 create or replace function public.task_done_notify() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
@@ -208,7 +209,48 @@ grant insert (link), update (link) on table public.tasks to authenticated;
 --    as the person who made it. Picked under "Followers" in the task dialog.
 alter table public.tasks add column if not exists watchers uuid[] not null default '{}';
 grant insert (watchers), update (watchers) on table public.tasks to authenticated;
+-- (task_done_notify now also tells the watchers: see section 7.)
 
+-- 6. Status (added 2026-10-27): where a task is up to before it's ticked off. Done is still the tick.
+alter table public.tasks add column if not exists status text not null default 'pending';
+alter table public.tasks drop constraint if exists tasks_status_check;
+alter table public.tasks add constraint tasks_status_check check (status in ('pending', 'in_progress', 'on_hold'));
+grant insert (status), update (status) on table public.tasks to authenticated;
+
+-- 7. Hardening (added 2026-10-27) ------------------------------------------------------------------
+-- The browser may only send mention / task / comment alerts as itself; "done" and "due" alerts come only
+-- from the database functions below (they run as the table owner, so this rule doesn't apply to them).
+drop policy if exists "Send notifications" on public.notifications;
+create policy "Send notifications" on public.notifications
+  for insert to authenticated
+  with check (created_by = auth.jwt() ->> 'email' and kind in ('mention', 'task', 'comment'));
+
+-- At most 60 alerts a minute per sender (including "finished" alerts from ticking), so nobody can flood
+-- everyone's bell. "due" alerts are made by the portal for yourself and aren't counted.
+create index if not exists notifications_sender_idx on public.notifications (created_by, created_at);
+create or replace function public.notifications_rate_limit() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.kind in ('mention', 'task', 'comment', 'done') then
+    perform pg_advisory_xact_lock(hashtext(new.created_by)); -- parallel requests count one after another
+  end if;
+  if new.kind in ('mention', 'task', 'comment', 'done')
+     and (select count(*) from public.notifications
+          where created_by = new.created_by and kind in ('mention', 'task', 'comment', 'done')
+            and created_at > now() - interval '1 minute') >= 60 then
+    raise exception 'Too many notifications sent in the last minute. Try again shortly.';
+  end if;
+  return new;
+end
+$$;
+revoke all on function public.notifications_rate_limit() from public, anon, authenticated;
+drop trigger if exists notifications_rate_limit on public.notifications;
+create trigger notifications_rate_limit before insert on public.notifications
+  for each row execute function public.notifications_rate_limit();
+
+-- Done alerts go to the maker and the watchers, only real portal people (no bots, no made-up ids).
+-- A repeating task starts each day fresh: ticking it puts its status back to pending (only when the ticker
+-- could set the status anyway: the maker, the person it's for, or a follower).
 create or replace function public.task_done_notify() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
@@ -220,8 +262,20 @@ begin
          left(coalesce(split_part(auth.jwt() ->> 'email', '@', 1), 'Someone') || ' finished: ' || t.title, 200),
          'pages/Tasks.html', auth.jwt() ->> 'email'
   from unnest(t.created_by_id || t.watchers) as who
-  where who is not null and who is distinct from auth.uid();
+  where who is not null and who is distinct from auth.uid()
+    and exists (select 1 from auth.users u where u.id = who)
+    and not exists (select 1 from public.app_user_roles r where r.user_id = who and r.role_key = 'bot');
+  if t.repeat <> 'none' and t.status <> 'pending'
+     and (auth.uid() in (t.created_by_id, t.assigned_to) or auth.uid() = any (t.watchers)) then
+    update public.tasks set status = 'pending' where id = t.id;
+  end if;
   return new;
 end
 $$;
 revoke all on function public.task_done_notify() from public, anon, authenticated;
+
+-- Unticking: only the person who ticked it, the task's maker or the person it's for, or a manager.
+drop policy if exists "Staff untick tasks" on public.task_done;
+create policy "Staff untick tasks" on public.task_done for delete to authenticated using (
+  done_by = auth.jwt() ->> 'email' or public.has_permission('access.manage')
+  or exists (select 1 from public.tasks t where t.id = task_id and auth.uid() in (t.created_by_id, t.assigned_to)));
