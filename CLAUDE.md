@@ -31,12 +31,25 @@ Always on: ponytail `full` (minimal code), caveman (terse replies), security-gui
    | Restructure, same behaviour | caveman `safe-refactor` |
    | DB table / RLS (`supabase/*.sql`) | caveman `migration` + supabase plugin |
    | Auth (`js/auth.js`, `js/login.js`), user input, RLS | agent-skills `security-and-hardening` |
-   | UI (`pages/`, `css/styles.css`, `index.html`) | `/impeccable shape` (plan) → build → `/impeccable polish` |
+   | UI (`pages/`, `css/styles.css`, `index.html`) | `/impeccable shape` (plan) → build (+ `ui-ux-pro-max` lookup, below) → `/impeccable polish` |
    | Slow page / query | agent-skills `performance-optimization` |
+   **`ui-ux-pro-max`** (project skill, `.claude/skills/ui-ux-pro-max/`) = UX rule lookup while building UI.
+   `DESIGN.md` (impeccable) stays the only source for colours, fonts, spacing.
+   - Use it for one specific question at a time, e.g. a chip wraps, focus order, a form error, a chart choice.
+     Run `"$PY" .claude/skills/ui-ux-pro-max/scripts/search.py "<2-5 words>" --domain ux -n 3`, with
+     `PY="/c/Users/Drahcir Santos/AppData/Local/Programs/Python/Python312/python.exe"` (Python isn't on PATH).
+     Domains: `ux`, `chart`, `icons`, `color`, `typography`.
+   - Never use `--design-system`, `--persist` or `--stack`. The first two create a rival palette and fonts.
+     No stack matches plain HTML/CSS (`html-tailwind` is Tailwind).
+   - Don't read `references/quick-reference.md` whole (~6k tokens): Grep the rule name. Skip `pro-rules.md`
+     (native mobile apps).
+   - Results are advice, not orders: repo rules and `DESIGN.md` win.
 3. **Preview locally** — `npm start` (http://127.0.0.1:8000), then
    `ONLY=<page> node .claude/preview-shots.mjs .claude/shots 1440 900`; fix any console errors or
    horizontal overflow it prints. Logs in for real (live data, view only) via `.claude/preview.env`. Save tokens: iterate on one page, one width, viewport shots (the default);
-   run `... 390 844` and `FULL=1` only for the final check. Ask the user to click through data pages too.
+   run `... 390 844` and `FULL=1` only for the final check. UI change: also run
+   `ONLY=<page> EVAL="$(cat .claude/ux-audit.js)" node .claude/preview-shots.mjs .claude/shots 390 844` (skip link,
+   headings, names, labels, 24px targets, 16px fields, contrast, text under 12px); fix new findings. Ask the user to click through data pages too.
 4. **Review the diff** — `/caveman-review` (bugs), `/ponytail-review` (bloat);
    + `/impeccable audit <page>` if UI changed; + `/security-review` if auth, RLS or input handling changed.
    Fix findings, repeat step 3 for anything visual.

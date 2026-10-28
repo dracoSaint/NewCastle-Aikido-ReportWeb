@@ -61,6 +61,14 @@
 
     initPageHead(header);
 
+    // Skip link: first thing Tab reaches, jumps past the header and menu to the page's <main>.
+    const main = document.querySelector('main');
+    if (main) {
+      main.id ||= 'main';
+      main.tabIndex = -1;
+      document.body.insertAdjacentHTML('afterbegin', `<a class="skip-link" href="#${main.id}">Skip to content</a>`);
+    }
+
     if (isLoggedIn) {
       initDropdownBehaviour();
       populateAvatarAsync();
@@ -89,7 +97,7 @@
     }
     head.append(text);
 
-    const controls = header.querySelectorAll(':scope > button, :scope > input');
+    const controls = header.querySelectorAll(':scope > button, :scope > a#openSpreadsheet, :scope > input');
     if (controls.length) {
       const actions = document.createElement('div');
       actions.className = 'page-actions';

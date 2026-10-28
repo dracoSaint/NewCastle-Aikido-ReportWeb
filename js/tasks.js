@@ -21,6 +21,18 @@ function taskChanges(editing, next) {
   return Object.fromEntries(Object.entries(next).filter(([key, value]) => !same(value, was[key])));
 }
 
+// Day report as plain text, to paste into an email or chat. rows: [{ task, state, who, when, comments: [{ by, on, body }] }].
+// Each task ends with a blank "Update:" line to type today's progress into.
+function taskReport(heading, rows) {
+  const label = state => state === 'done' ? 'Done' : TASK_STATUSES[state];
+  return [heading, `${rows.filter(row => row.state === 'done').length} of ${rows.length} done`, ...rows.map(({ task, state, who, when, comments }) => ['',
+    `${label(state).toUpperCase()}: ${task.title}`,
+    `For ${who} · ${when}`,
+    ...(task.details ? task.details.split('\n').map(line => `  ${line}`) : []),
+    ...(comments.length ? ['Comments:', ...comments.map(c => `  - ${c.by} (${c.on}): ${c.body}`)] : []),
+    'Update: '].join('\n'))].join('\n');
+}
+
 function taskToday() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
 }
@@ -417,6 +429,26 @@ function taskInit() {
     render();
   }
 
+  // Tasks page: today's tasks (Mine / Whole team) with their comments, as text you can edit, then copy.
+  async function openReport() {
+    const list = todays(scope);
+    const { data, error } = list.length ? await client.from('task_comments').select('*').in('task_id', list.map(task => task.id)).order('created_at') : { data: [] };
+    if (error) throw error;
+    const byOf = comment => nameOf(comment.author_id) === 'Someone' ? comment.author?.split('@')[0] || 'Someone' : nameOf(comment.author_id);
+    const day = new Date(`${taskToday()}T00:00:00`).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+    const text = taskReport(`Tasks report: ${day} (${scope === 'mine' ? people.find(person => person.user_id === me.id)?.name || me.email : 'Whole team'})`, list.map(task => {
+      const tick = tickFor(task);
+      return { task, state: stateOf(task), who: task.assigned_to ? nameOf(task.assigned_to) : 'Whole team',
+        when: tick ? `done by ${tick.done_by?.split('@')[0] || 'someone'}` : whenText(task).replace(/<[^>]+>/g, ''),
+        comments: (data || []).filter(c => c.task_id === task.id).map(c => ({ by: byOf(c), on: shortDate(new Date(c.created_at).toLocaleDateString('en-CA')), body: c.body })) };
+    }));
+    const field = document.getElementById('taskReportText');
+    field.value = text;
+    document.getElementById('taskReportDialog').showModal();
+    field.setSelectionRange(0, 0); // start at the top, not scrolled to the end
+    field.scrollTop = 0;
+  }
+
   function syncWatchers() {
     const names = [...form.querySelectorAll('[name="watchers"]:checked')].map(box => box.parentElement.textContent.trim());
     document.getElementById('taskWatchersSummary').textContent = names.length ? names.join(', ') : 'Nobody';
@@ -534,6 +566,29 @@ function taskInit() {
       });
     });
     document.getElementById('taskAdd').addEventListener('click', () => openDialog());
+    if (document.getElementById('taskReport')) {
+      document.body.insertAdjacentHTML('beforeend', `
+        <dialog class="fu-dialog task-report" id="taskReportDialog" aria-labelledby="taskReportTitle">
+          <form method="dialog">
+            <h2 id="taskReportTitle">Day report</h2>
+            <p class="fu-dialog-sub">Today's tasks. Type your progress after each "Update:", then copy it into an email or chat.
+              It can include member names and comments, so only paste it into staff channels.</p>
+            <label class="sr-only" for="taskReportText">Report</label>
+            <textarea id="taskReportText" rows="18" spellcheck="true"></textarea>
+            <div class="fu-dialog-actions">
+              <button type="submit" class="sop-action-button secondary">Close</button>
+              <button type="button" class="sop-action-button primary" id="taskReportCopy">Copy</button>
+            </div>
+          </form>
+        </dialog>`);
+      document.getElementById('taskReport').addEventListener('click', () => openReport().catch(err => say(err.message, true)));
+      document.getElementById('taskReportCopy').addEventListener('click', async event => {
+        const text = document.getElementById('taskReportText');
+        try { await navigator.clipboard.writeText(text.value); } catch { text.select(); document.execCommand('copy'); }
+        event.target.textContent = 'Copied';
+        setTimeout(() => { event.target.textContent = 'Copy'; }, 1500);
+      });
+    }
     document.getElementById('taskCancel').addEventListener('click', () => dialog.close());
     document.getElementById('taskDelete').addEventListener('click', remove);
     fields.repeat.addEventListener('change', syncDateLabel);
@@ -596,4 +651,4 @@ if (typeof document !== 'undefined') {
   else taskInit();
 }
 
-if (typeof module !== 'undefined') module.exports = { taskIsOn, taskDaysLate, taskUpcoming, taskOrder, taskState, taskChanges };
+if (typeof module !== 'undefined') module.exports = { taskIsOn, taskDaysLate, taskUpcoming, taskOrder, taskState, taskChanges, taskReport };

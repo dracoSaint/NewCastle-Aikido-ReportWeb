@@ -17,9 +17,113 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ---
 
+## 2026-10-28 — ui-ux-pro-max skill
+
+Status: awaiting user OK
+
+### Instructions from the user
+- Install https://github.com/nextlevelbuilder/ui-ux-pro-max-skill in this project and add it to the workflow. The workflow must stay token-efficient, with output at a professional level.
+
+### Decisions
+- Installed only the `ui-ux-pro-max` skill, at project level in `.claude/skills/`. The plugin's other 6 skills (banner, brand, design/logo, design-system/slides, slides, ui-styling) were skipped: they overlap impeccable and marketing, and each would add listing tokens every session.
+- Role: a UX rule lookup during the UI build step, one narrow query at a time (`--domain ux -n 3`). `DESIGN.md` (impeccable) stays the only source for colours, fonts and spacing, so `--design-system` / `--persist` are banned. `--stack` is unused because no stack matches plain HTML/CSS.
+- Read the scripts before installing: Python standard library only, no network or shell calls, file writes only with `--persist`.
+
+### Done
+- `.claude/skills/ui-ux-pro-max/` (3.4 MB; the tests folder was dropped and the MIT LICENSE added). The script paths in SKILL.md now point at the project copy.
+- `.graphifyignore`: `.claude/skills/`, so vendored Python stays out of the graph and out of query results.
+- `CLAUDE.md` step 2: when and how to use it (Python full path, banned flags, Grep the references instead of reading them).
+- Tested: `search.py "badge chip label wraps" --domain ux -n 2` returns the right rules.
+
+- Trial on the Tasks page (user: "test out using ui/ux pro max and see if we can improve our ui/ux"). Ran 6 lookups, and 3 gave usable rules:
+  - Phone status tabs wrap instead of scrolling sideways, so every tab stays visible ("chip collection reflow").
+  - On phones, Mine / Whole team gets its own row. The Day report button had squeezed "Whole team" onto 2 lines ("compact label overflow").
+  - Checked the WCAG 2.2 24 px target size: the 20 px checkbox passes because its whole row is the label.
+  - Kept the status line's reserved height, which stops the list jumping when a message appears (layout-shift rule).
+  - The query about the Pending chip on every row found no match, so nothing changed.
+
+- Then the user asked: "let's try letting ui/ux pro max create some changes to improve our ui/ux setup". I turned the measurable rules from its priority list into `.claude/ux-audit.js` and ran it on all 16 pages at 390px. Fixed: skip link, 16px phone fields (iOS zoom), 24px targets, password-hint contrast, 10px Geronimo text. Details are in CHANGES. The re-audit is clean; no console errors and no overflow at 390 or 1440.
+- False positives dropped: "no name" on Monday date inputs (they sit inside labels) and on Follow-Up buttons (visible text), plus sr-only text flagged as low contrast. The skip link can't be screenshotted, because headless Chrome never applies `:focus`.
+- `CLAUDE.md` step 3: run the audit on any UI change.
+- User: the login page is "too dark for me to read my email". Cause: the old dark-theme rule (`.input-group input:focus~label`, near-black `#110203` box with a 0.85 scale) still applied to the floated label. The final login override now clears it. Also: the label floats for `:-webkit-autofill`, and autofilled fields stay white with dark text.
+- User follow-up: "when I start typing it turns dark and the email font i type is black", which is bad for visually impaired users. Cause: the old `.input-group input:focus` rule (`background: rgba(0,0,0,.6)`, `box-shadow: none` on top of `outline: none`). Rewrote it: white background, `--ink` text, a 2px `--ai-600` outline with 2px offset, 1rem text. My earlier screenshots missed it because headless Chrome never applies `:focus`. To test focus states, copy the `:focus` rules onto a `.fake-focus` class in `PRE` and add that class to the field.
+- User: "please review the site and see anything else we can improve with the UI/UX".
+  - `.claude/ux-audit.js` now simulates focus on every control: it flags controls with no visible focus change, fields that go low-contrast on focus, and blocked zoom. It skips disabled controls.
+  - Fixed: no focus ring on the search fields and 3 profile fields (one `:is(input, select, textarea):focus-visible` rule at the end of styles.css); email / phone links in tables were 21px.
+  - The full re-audit of 16 pages is clean apart from known false positives.
+  - Left alone: the 11.5px uppercase labels (legend on Monday, h3 on Settings), a deliberate style. The fixed TASKS tab covers 12px of the last Home tile's border at 1440 (cosmetic; the fix would shift every page's layout).
+  - The ad-leads check printed lead emails and phones into the session transcript, locally only. Future checks print counts or classes, never cell text.
+
+- User: "add a cool 3d model of our logo on the sign-in page it just rotates slowly while idle and when you start login it either glows green if login is successful or red if login fails".
+  - Built as a CSS 3D coin: `js/login.js` stacks 14 copies of `aikido-logo.png` along Z (inner ones grey, to read as the rim) and it spins in 16s. No WebGL/Three.js: no new dependency, and the transparent PNG gives real depth.
+  - Signing in: a soft pulse. Success: green glow, and the redirect waits 800ms so it shows. Failure: red glow and a small shake, back to idle after 1.8s. Reduced motion: a still logo at a 24° tilt.
+  - The impeccable `dark-glow` hook flagged the coloured glow. Kept it, because the user asked for it.
+
+- User: "now improve the ui/ux make it look more modern and more professional maybe add some gradient colors not too over the top and still be on brand ... maybe add a bit of 3d features".
+  - One CSS "depth layer" at the end of `styles.css`, so every page picks it up from the shared chrome. Brand colours only: a red glow in the header, a blue glow on the home band and login, lit charcoal key plates with a red ember corner, softer and longer card shadows, top-lit primary buttons, and a gradient on the active drawer row and the drawer "today" panel.
+  - 3D: the Home "Start here" tiles tilt toward you on hover (off with reduced motion). Work panels still don't move on hover (DESIGN.md Still Surface Rule). DESIGN.md Elevation now records the layer.
+  - Every gradient ends in a solid colour: a fallback, and the UX audit reads contrast from it (gradient-only backgrounds gave false low-contrast hits).
+  - Checked: 10 pages at 390 are audit-clean, with no overflow and no console errors. Home, Past Due, Monday and Login look right at 1440.
+
+- User: "review the ui/ux and see if it's the best design style". Verdict: keep the style (brand-bound, distinctive) and polish it. The 7 findings were approved with "proceed to fix all found issues".
+  1. SOP reader: the procedure is Google Drive's own `/preview` frame, which is cross-origin, so its Times font and table borders can't be restyled from our CSS. Left as is. The real fix would be turning SOPs into HTML in Supabase, which is a separate project.
+  2. Home on phones: Start tiles are compact (the lead is full width, the other two sit side by side without descriptions), so the 4 numbers show on the first screen.
+  3. Rows in index lists and SOP categories: a 1px hairline instead of the stitch. DESIGN.md Don'ts updated.
+  4. Tasks / Monday toolbars: secondary buttons use the UI font at the segment's 42px height. Bebas is kept for the primary action.
+  5. Past Due on phones: 2 figures per row (the last one full width), and the extra count ("7 bills") on its own line.
+  6. Key plate ember: softer (0.35 to 0.24), and none on phones.
+  7. Side Tasks tab: 32px down to 24px wide, so it fits the page gutter.
+  - Checked: 5 pages at 390 are audit-clean, with no overflow; Home and Tasks look right at 1440.
+  - Seen in passing: the drawer's Recent list pushes the settings icon below the fold at 900px height. It was there before; not changed.
+
+- `/ship` review (code, security, tests in parallel) said GO: no critical or high findings. Fixed before the push:
+  - Day report: a failed comments query now shows an error instead of quietly sending a report with no comments. No more "done by undefined" or "undefined" comment authors.
+  - Removed `outline: none` from `.import-date-field input:focus` and `.pricing-input:focus`, and corrected the comment on the focus-ring rule.
+  - The Tasks tab is 12px (it was 11.5px). The disabled primary button no longer lightens on hover. Login still works if `#logo3d` is missing.
+  - `__pycache__/` is in `.gitignore`. 2 more report assertions (no tasks; pending and on hold).
+- Not changed: there's no CSP header yet (it predates this batch). The Day report can put member details on the clipboard, so staff should take care where they paste it.
+
+- User: "kindly fix these risks" (the 3 risks /ship accepted).
+  - **CSP:** `_headers` now sends a Content-Security-Policy.
+    - Scripts: this site plus jsdelivr only, with no inline scripts or `on*=""` handlers.
+    - Styles: inline styles allowed, since JS sets style attributes.
+    - Other allowances: Google Fonts, Supabase (https and wss), Google Docs/Sheets fetches and frames, `frame-ancestors 'self'`, `object-src 'none'`.
+    - Monday's "Open Spreadsheet" was the only inline handler. It's now an `<a target="_blank" rel="noopener">` with the same id, so it keeps its styling.
+    - Tested on the Cloudflare preview (`npm run preview`, which applies `_headers`). All 16 pages, with every tab clicked, show 0 violations. A test outside script and a test inline handler were both blocked.
+  - **Day report:** the dialog now warns that the report can include member names and comments, so only paste it into staff channels.
+  - **Skill:** `automation/skill-safety.check.mjs` fails if any skill script gains network, shell or dynamic-code calls, or if any skill file changes from the reviewed copy (a SHA-256 over the files with line endings normalised). Committing the skill to git also makes any update show up as a diff.
+
+- User: "fix them and ship after" (the impeccable hook findings on Monday).
+  - **Nested cards:** the This Week / Last Week table panel (`.report-card-panel`) had its own border, shadow and radius inside the `.card`. It's now flat inside the card.
+  - **Cramped padding:** a false positive. `.card` has 0 padding by design, and its h2 and content carry their own 20px inset, which the static check can't see. Recorded as a file-scoped `cramped-padding` exception for MondayBoardReport.html in `.impeccable/config.json`.
+  - **Regression caught:** after "Open Spreadsheet" became an `<a>`, it sat above the title, underlined. `js/siteHeader.js` only moved `:scope > button` into `.page-actions`; it now moves `a#openSpreadsheet` too, and the CSS adds `text-decoration: none`.
+
+### Open items
+- After the push, check the live site once (log in, Monday, SOP) in case Cloudflare serves something the local preview didn't.
+- Possible later project: SOPs as styled HTML instead of the Google Drive frame.
+- Undecided: hide the grey "Pending" chip, since it's the default, on 19 of 30 rows.
+
+## 2026-10-27 — Day report
+
+Status: awaiting user OK
+
+### Instructions from the user
+- "create a function where I can create a progress report or end of day report for the tasks today", with a pasted example: status + title, details, overdue · comments, comments, a spot to enter comments, who it's for.
+
+### Decisions
+- Plain text in an editable box, with Copy (paste into email / chat). Nothing stored, no new table.
+- Today's tasks, following Mine / Whole team. Each task ends with an "Update:" line to type progress into.
+
+### Done
+- `js/tasks.js` `taskReport` (pure, checked in `automation/tasks.check.mjs`) + `openReport` + dialog; `pages/Tasks.html` button; `css/styles.css` `.task-report`.
+- Previewed at 1440 and 390 with live data: report fills, no errors, no overflow.
+
+### Open items
+- Push after the user's OK (with the uncommitted WORKLOG "shipped" line).
+
 ## 2026-10-27 — Task status
 
-Status: shipping
+Status: shipped (c4ef484) to testing + production
 
 ### Instructions from the user
 - Add a task status function, "may it be in progress or pending etc".
