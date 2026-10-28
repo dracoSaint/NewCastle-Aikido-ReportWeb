@@ -1,7 +1,7 @@
 // Check for js/tasks.js repeat rules (Home page task list). Run: node automation/tasks.check.mjs
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-const { taskIsOn, taskDaysLate, taskUpcoming, taskOrder, taskState, taskChanges } =createRequire(import.meta.url)('../js/tasks.js');
+const { taskIsOn, taskDaysLate, taskUpcoming, taskOrder, taskState, taskChanges, taskReport } =createRequire(import.meta.url)('../js/tasks.js');
 
 const task = (repeat, start_date) => ({ repeat, start_date });
 // 2026-10-20 is a Tuesday.
@@ -37,4 +37,13 @@ assert.deepEqual(taskChanges({ ...form, title: ' Call Ann ', watchers: ['a', 'b'
 assert.deepEqual(taskChanges({ ...form, details: '', link: undefined, status: null, priority: null, watchers: null }, { ...form, watchers: [] }), {}); // old row, blank fields
 assert.deepEqual(taskChanges(form, { ...form, status: 'on_hold' }), { status: 'on_hold' });
 assert.equal(taskChanges(null, form), form);                                                                     // new task: everything
+// Day report: done count, status label, details indented, comments, an Update line per task.
+assert.equal(taskReport('Tasks report', [
+  { task: { title: 'E12', details: 'Line 1\nLine 2' }, state: 'in_progress', who: 'Drahcir', when: '4 days overdue', comments: [{ by: 'Darius', on: 'Mon 26 Oct', body: 'Price is $90' }] },
+  { task: { title: 'Call Ann' }, state: 'done', who: 'Whole team', when: 'done by leisa', comments: [] }
+]), 'Tasks report\n1 of 2 done\n\nIN PROGRESS: E12\nFor Drahcir · 4 days overdue\n  Line 1\n  Line 2\nComments:\n  - Darius (Mon 26 Oct): Price is $90\nUpdate: \n\nDONE: Call Ann\nFor Whole team · done by leisa\nUpdate: ');
+assert.equal(taskReport('H', []), 'H\n0 of 0 done');
+assert.equal(taskReport('H', [{ task: { title: 'A' }, state: 'pending', who: 'X', when: 'today', comments: [] },
+  { task: { title: 'B' }, state: 'on_hold', who: 'X', when: 'today', comments: [] }]),
+  'H\n0 of 2 done\n\nPENDING: A\nFor X · today\nUpdate: \n\nON HOLD: B\nFor X · today\nUpdate: ');
 console.log('tasks check passed');

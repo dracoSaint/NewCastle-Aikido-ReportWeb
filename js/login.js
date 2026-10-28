@@ -1,3 +1,13 @@
+    // 3D logo: stack copies of the logo along Z so the spinning coin has thickness (styles: .logo3d).
+    const logo3d = document.getElementById('logo3d') || document.createElement('div');
+    const face = logo3d.querySelector('img');
+    for (let i = 1; face && i < 14; i++) {
+      const layer = face.cloneNode();
+      layer.style.cssText = `--z:${(i * 0.5).toFixed(1)}px; ${i < 13 ? '--edge:1' : ''}`;
+      face.parentNode.appendChild(layer);
+    }
+    const logoState = (s) => { logo3d.className = 'logo3d' + (s ? ' is-' + s : ''); };
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -23,6 +33,7 @@
       submitBtn.disabled = true;
       btnText.textContent = 'Signing in...';
       spinner.hidden = false;
+      logoState('busy');
 
       try {
         if (window.authReady) {
@@ -43,6 +54,9 @@
         }
 
         // Success! Supabase will handle storing the token in localStorage.
+        // Hold a moment so the green glow is seen before leaving.
+        logoState('ok');
+        await new Promise((r) => setTimeout(r, 800));
         // Go to the user's start page (Settings > Preferences), else Home.
         const homeUrl = new URL('../index.html', window.location.href).href;
         const startUrl = window.portalStartUrl ? window.portalStartUrl(data.user) : homeUrl;
@@ -53,7 +67,9 @@
       } catch (err) {
         console.error('Login error:', err);
         showError(err.message || 'An unexpected error occurred. Please try again.');
-        
+        logoState('fail');
+        setTimeout(() => { if (logo3d.classList.contains('is-fail')) logoState(); }, 1800);
+
         // Reset loading state
         submitBtn.disabled = false;
         btnText.textContent = 'Sign In';

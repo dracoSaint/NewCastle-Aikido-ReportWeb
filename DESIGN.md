@@ -245,6 +245,14 @@ Breakpoints: at 1080px figure strips wrap to two columns with the plate spanning
 
 ## Elevation & Depth
 
+> **Depth layer (2026-10-28, user request: more modern, gentle on-brand gradients, a bit of 3D).** The end of `styles.css` adds:
+> - Shell bands: flat ai-800 plus a faint dojo-red glow (`--glow-beni`, top right of the header) and a soft blue glow (`--glow-blue`, home band and login).
+> - Key plates and the active drawer row: a lit charcoal gradient (`--plate`) with a red ember corner and `--raise-dark`.
+> - Paper cards and tiles: a whisper of gradient and the longer, softer `--raise` shadow.
+> - Primary buttons: a top-lit charcoal gradient.
+> - Home "Start here" tiles tilt 4° toward the viewer on hover. They are navigation links, so the Still Surface Rule (below) still applies to work panels.
+> - Every gradient ends in a solid fallback colour.
+
 Mostly flat. Depth comes from the indigo/cotton/paper contrast; shadows are faint on resting panels and appear clearly only on floating layers.
 
 ### Shadow Vocabulary
@@ -316,6 +324,6 @@ At 640px and below, stackable tables become one record per row: two-column grid,
 ### Don't:
 - **Don't** build a row of identical KPI cards; the strip is always one plate plus smaller figures.
 - **Don't** use beni or moss as decoration, or give an ordinary delete a solid beni fill.
-- **Don't** divide headed sections, index lists or menus with solid rules; the stitch does that. Table rows keep their 1px pale asagi rule and cards their 1px line border.
+- **Don't** divide headed sections with solid rules; the stitch does that. (Since 2026-10-28, rows in index lists and SOP categories use a 1px `line` hairline, so the stitch stays a signature on headings and meters instead of repeating on every row.) Table rows keep their 1px pale asagi rule and cards their 1px line border.
 - **Don't** lift, scale or glow panels on hover.
 - **Don't** put a small label, category or kicker line above a page title, card title or key figure; metadata sits beneath it.

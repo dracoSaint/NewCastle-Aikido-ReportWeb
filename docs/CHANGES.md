@@ -5,7 +5,70 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Task status (2026-10-27, not yet shipped)
+## Security hardening: CSP, report warning, skill guard (2026-10-28, not yet shipped)
+
+- **Content-Security-Policy** (`_headers`): the browser only runs scripts from this site and jsdelivr, and blocks inline scripts and `onclick=""` attributes. That limits the damage if member data ever ends up in the page as HTML.
+  - Monday's "Open Spreadsheet" is now a link (it used an inline handler).
+  - Set-up when adding an outside service (a new CDN, API or embed): add its origin to the policy, then test with `npm run preview` (http://127.0.0.1:8788).
+- **Day report warning:** the dialog says the report can contain member details and should only go into staff channels.
+- **Skill guard:** `node automation/skill-safety.check.mjs` checks the vendored ui-ux-pro-max skill for network or shell calls and for any change from the reviewed copy (upstream `28b3b8d`). After a deliberate update, re-read the scripts, then paste the new hash it prints into `EXPECTED`.
+- Check: after the push, log in and open Monday, SOP and Past Due on the live site. The browser console must show no "Content Security Policy" errors.
+- Limits: `style-src` keeps `'unsafe-inline'`, because the JS sets style attributes everywhere. The test page `pages/REPORTs/__failure_modal_test.html` has an inline script, so it won't work on the live site.
+
+## Depth layer: gradients and 3D touches (2026-10-28, not yet shipped)
+
+A more modern finish across the whole site, in the brand colours only:
+- The dark header band has a faint dojo-red glow in the top right. The Home band and the login page have a soft blue glow.
+- The big number tile on each report ($ overdue, total members) is lit charcoal with a red ember corner, and lifts off the page with a soft shadow.
+- White cards and tiles have a longer, softer shadow. Primary buttons are top-lit, like a pressed key.
+- The Home "Start here" tiles tilt toward you when you hover over them.
+- Files: `css/styles.css` (the "Depth layer" block near the end), `DESIGN.md` (Elevation).
+- Check: hover the Home tiles. Look at the dark header and the big number tile on Past Due and Monday.
+- Limits: the tile tilt is off when reduced motion is on. Charts and tables are unchanged.
+- Review fixes, same day:
+  - Home on phones: compact Start tiles, so the numbers show without scrolling.
+  - Plain thin lines between list rows (Home lists, SOP categories). The dashed stitch stays on headings and meters.
+  - Tasks and Monday toolbars: one font and height for the toggles and secondary buttons.
+  - Past Due on phones: 2 figures per row, with "7 bills" on its own line.
+  - A softer red corner on the big number tile, and none on phones.
+  - A slimmer side Tasks tab that no longer covers card edges.
+  - The SOP text itself is Google Drive's own viewer and can't be restyled from the site.
+
+## 3D logo on the login page (2026-10-28, not yet shipped)
+
+The login logo is a spinning 3D coin. While you sign in it pulses softly. It glows green when the login works, then the page moves on after 0.8s. It glows red and shakes when the login fails, then goes back to spinning.
+- Files: `pages/login.html` (`#logo3d`), `js/login.js` (builds the layers, `logoState()`), `css/styles.css` (`.logo3d`).
+- Check: open the login page and watch the logo turn. Enter a wrong password: red. Enter the right one: green, then the dashboard.
+- Limits: the coin's rim is made of 14 stacked copies of the logo, so very close up the edge looks striped. With reduced motion on (in the OS), the logo stands still at a slight tilt. The Settings preference only applies after login.
+
+## Accessibility and phone fixes from the ui-ux-pro-max audit (2026-10-28, not yet shipped)
+
+`.claude/ux-audit.js` checked every page against ui-ux-pro-max's top rule groups (accessibility, touch, layout, type). Fixed:
+- **Skip to content** link on every page with the site header. It's the first thing Tab reaches and jumps past the header and menu.
+- **Phones: every form field is 16px.** Below that, iPhones zoom the page in when a field is tapped (login, search, filters, task quick-add, profile).
+- **Tap targets at least 24px** (WCAG 2.2): Geronimo week buttons were 18px; Follow-Up phone links, note toggles, Past Due links and "Sources" were 20–23px.
+- **Profile password hints** are darker: 3.5:1 contrast became more than 4.5:1.
+- **Geronimo table notes** are 12px (were 10px).
+- **Login:** the "Email Address" / "Password" label, once it floats up, was dark red on a near-black box (left over from the old dark theme). Now it's the red label on the white field, at full size. With a saved login, Chrome's autofill used to leave the label on top of the email; now the label floats and the field stays white with dark text. While you type, the field also used to turn near-black, leaving dark text on dark (another old dark-theme rule, which also hid the focus ring). Now it stays white with dark text at 12:1 contrast and a solid 2px red ring on the active field, and the text is 16px.
+- **Focus rings on every text field.** Search fields (Grading, Follow-Up, SOP) and profile fields showed no focus at all: older field rules with ID-level selectors beat the global `input:focus` ring. One rule at the end of `styles.css` gives every input, select and textarea a 2px ring on focus.
+- **Email / phone links in tables** (Ad Review leads, Geronimo) are 24px tap targets; on phones they stacked at 21px.
+- **Tasks page:** status tabs wrap on phones instead of scrolling sideways. Mine / Whole team gets its own row on phones.
+
+- Files: `js/siteHeader.js` (skip link), `css/styles.css` (`.skip-link`, the phone field rule, `.gm-week-pick`, `.gm-grid small`, `.fu-phone`, `.fu-notes-toggle`, `.pd-link`, `.fu-sources > summary`, `.req`, `.task-filter`, `.home-tasks-tools`).
+- Check: on a phone, tap the login and search fields; the page must not zoom. On desktop, press Tab once on any page; "Skip to content" shows top left, and Enter jumps to the page content.
+- Limits: the login, reset and error pages have no skip link (no site header; only a few controls). The 16px rule uses `!important` as a deliberate floor over each page's own field sizes.
+
+## Day report (2026-10-27, not yet shipped)
+
+**Day report** on the Tasks page (next to Add task) writes up today's tasks as plain text: a heading with the date and whose tasks, "X of Y done", then each task's status, title, who it's for, when it's due (or who ticked it), its details, every comment, and an empty **Update:** line. The text is editable: type today's progress after each "Update:", then **Copy** and paste it into an email or chat.
+
+- Files: `js/tasks.js` (`taskReport`, `openReport`, the report dialog in `initList`), `pages/Tasks.html` (`#taskReport`), `css/styles.css` (`.task-report`).
+- Set-up: none (reads the existing `tasks`, `task_done`, `task_comments`).
+- Check: Tasks page > Day report, with Mine and with Whole team; type an update, Copy, paste.
+- Self-check: `node automation/tasks.check.mjs` (covers the report text).
+- Limits: today's list only (same as the side panel), ignores the status tabs. Nothing is saved: your typed updates go when the dialog closes, so copy first. Comments are all of a task's comments, not only today's.
+
+## Task status (2026-10-27, shipped c4ef484)
 
 Each task has a status: **Pending** (default), **In progress** or **On hold**, picked in the Add / Edit task dialog. Every open task shows a coloured chip before the title: grey Pending, blue In progress, amber On hold. Ticked tasks count as Done (green). On the Tasks page, tabs above the list (All / Pending / In progress / On hold / Done, each with a count) show one status at a time; they respect Mine / Whole team. Changing the status alerts the person who made the task, the person it's for and its followers (not you).
 

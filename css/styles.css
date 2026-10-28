@@ -619,10 +619,6 @@ header::before {
   padding: 0;
 }
 
-.import-date-field input:focus {
-  outline: none;
-}
-
 .exempted-manual-form {
   display: flex;
   flex-wrap: wrap;
@@ -2484,9 +2480,13 @@ footer {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Typing stays dark text on white (12:1); a solid 2px ring shows which field is active. */
 .input-group input:focus {
-  border-color: var(--red);
-  background: rgba(0, 0, 0, 0.6);
+  border-color: var(--ai-600);
+  background: var(--paper);
+  color: var(--ink);
+  outline: 2px solid var(--ai-600);
+  outline-offset: 2px;
   box-shadow: none;
 }
 
@@ -3033,7 +3033,7 @@ footer {
 .req {
   font-size: 0.78rem;
   font-weight: 500;
-  color: #718096;
+  color: var(--ink-2);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3198,7 +3198,6 @@ footer {
   background: #fff;
   border-color: var(--red);
   box-shadow: none;
-  outline: none;
 }
 
 .pricing-input:disabled {
@@ -3526,6 +3525,27 @@ a {
   border: 0;
 }
 
+/* Skip link (js/siteHeader.js): hidden until Tab reaches it. main gets tabindex -1 only as the jump target. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10000;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: var(--ai-800);
+  color: var(--on-ai);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.skip-link:focus { transform: none; }
+main:focus { outline: none; }
+
+/* Phones: 16px form text, or iOS zooms the page in when a field is tapped. A floor over every page's own field sizes, hence !important. */
+@media (max-width: 760px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea { font-size: 16px !important; }
+}
+
 /* ---------- Shell: the indigo header ---------- */
 
 header {
@@ -3806,6 +3826,7 @@ header p.page-meta {
 #gradingSyncBtn {
   display: inline-flex;
   align-items: center;
+  text-decoration: none;
   margin: 0;
   height: 40px;
   padding: 0 16px;
@@ -5305,6 +5326,7 @@ label > span,
   width: 100%;
   min-height: 52px;
   padding: 20px 14px 6px;
+  font-size: 1rem;
 }
 
 .input-group label {
@@ -5950,12 +5972,26 @@ nav.site-nav {
 .input-group label {
   top: 50%;
   translate: 0 -50%;
+  transform: none;
 }
 
+/* Also clears the old dark theme's floated label (near-black box, scale) so it reads on the white field. */
 .input-group input:focus + label,
-.input-group input:not(:placeholder-shown) + label {
+.input-group input:not(:placeholder-shown) + label,
+.input-group input:-webkit-autofill + label {
   top: 7px;
+  left: 15px;
   translate: 0 0;
+  transform: none;
+  padding: 0;
+  background: none;
+}
+
+/* Browser autofill: keep the field white with dark text (the label floats above it, see above). */
+.input-group input:-webkit-autofill {
+  -webkit-text-fill-color: var(--ink);
+  box-shadow: 0 0 0 100px var(--paper) inset;
+  caret-color: var(--ink);
 }
 
 /* ---------- Finish-review fixes ---------- */
@@ -7300,6 +7336,7 @@ th[aria-sort="descending"] .sort-mark {
 }
 
 .pd-link {
+  min-height: 24px;
   padding: 0;
   border: 0;
   background: none;
@@ -8362,6 +8399,7 @@ th[aria-sort="descending"] .sort-mark {
 .fu-notes-toggle {
   display: inline-flex;
   align-items: center;
+  min-height: 24px;
   gap: 4px;
   margin-top: 6px;
   padding: 2px 0;
@@ -8577,6 +8615,7 @@ th[aria-sort="descending"] .sort-mark {
 }
 
 .fu-sources > summary {
+  padding-block: 2px; /* 24px tall tap target */
   cursor: pointer;
   width: fit-content;
 }
@@ -8670,6 +8709,8 @@ th[aria-sort="descending"] .sort-mark {
 }
 
 .fu-phone {
+  display: inline-block;
+  padding-block: 2px; /* 24px tall tap target */
   font-weight: 600;
   white-space: nowrap;
 }
@@ -8801,6 +8842,9 @@ th[aria-sort="descending"] .sort-mark {
   width: 100%;
   resize: vertical;
 }
+
+.task-report { width: min(720px, calc(100vw - 32px)); }
+.task-report textarea { width: 100%; resize: vertical; font: 0.875rem/1.5 ui-monospace, Consolas, monospace; }
 
 .fu-dialog-actions {
   display: flex;
@@ -10255,6 +10299,7 @@ html.reduce-motion *::after {
 .gm-grid .is-selected { background: var(--ai-50); }
 .gm-grid td.is-good { color: var(--moss); font-weight: 600; }
 .gm-grid td.is-bad { color: var(--beni); font-weight: 600; }
+.gm-week-pick { min-height: 24px; } /* WCAG 2.2 target size */
 .gm-week-pick, .gm-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 .gm-week-pick:hover, .gm-link:hover { color: var(--ai-600); text-decoration: underline; }
 
@@ -10269,6 +10314,7 @@ html.reduce-motion *::after {
 @media (max-width: 900px) { .am-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Daily Ad Review: Lead ads / Traffic ads switch, two equal tabs. */
 .ar-kind-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 560px; }
+.gm-grid small { font-size: 0.75rem; } /* not the browser's "smaller" (10px in 12px cells) */
 .gm-grid thead small { display: block; font-weight: 500; color: var(--ink-3); }
 .gm-grid thead small.gm-live { color: var(--moss); }
 .gm-score tr.is-today { background: var(--ai-50); }
@@ -10332,7 +10378,8 @@ html.reduce-motion *::after {
 .task-empty { margin: 14px 0 0; color: var(--ink-3); }
 @media (max-width: 760px) {
   .home-tasks { padding: 28px 16px 0; }
-  .home-tasks-tools { width: 100%; justify-content: space-between; }
+  .home-tasks-tools { width: 100%; justify-content: space-between; flex-wrap: wrap; } /* Mine / Whole team on its own row */
+  .home-tasks-tools > .sop-action-button { flex: 1; }
   .task-item { grid-template-columns: minmax(0, 1fr) auto; }
   .task-meta { grid-column: 1; padding-left: 32px; white-space: normal; }
   .task-edit { grid-row: 1 / span 2; grid-column: 2; }
@@ -10507,7 +10554,7 @@ html.reduce-motion *::after {
 .task-state.is-on_hold, .task-filter .is-on_hold::before { --st: var(--kin); --st-bg: var(--kin-50); }
 .task-filter .is-done::before { --st: var(--moss); }
 .task-state { display: inline-block; margin-right: 8px; padding: 2px 8px; border-radius: 999px; background: var(--st-bg); color: var(--st); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st) 25%, transparent); font: 700 .68rem/1.5 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px; }
-.task-filter { margin: 12px 0; max-width: 100%; box-sizing: border-box; overflow-x: auto; scrollbar-width: thin; }
+.task-filter { margin: 12px 0; max-width: 100%; box-sizing: border-box; flex-wrap: wrap; } /* wrap, not scroll: every tab stays visible */
 .task-filter button { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
 .task-filter button:not(.is-all)::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--st); }
 .task-filter button span { color: inherit; opacity: .7; font-weight: 500; }
@@ -10642,4 +10689,181 @@ html.menu-collapsed .drawer-today, html.menu-collapsed .drawer-recent { display:
   .grading-print .gp-rank-table.gp-keep { break-inside: avoid; }
   /* Solid 1px rules: the 0.5px hairlines printed slightly out of line between cells. */
   .grading-print .gp-rank-table td { border-bottom: 1px solid #ddd; }
+}
+
+/* Login 3D logo (js/login.js stacks 14 copies along Z). Idle: slow spin. Signing in: soft pulse.
+   is-ok glows green, is-fail glows red, as the user asked. */
+.logo3d {
+  --glow: rgba(140, 23, 35, 0.18);
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 14px;
+  perspective: 700px;
+}
+
+.logo3d::before {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.logo3d__spin {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  animation: logo3dSpin 16s linear infinite;
+}
+
+.logo3d__spin img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: translateZ(calc(var(--z, 0px) - 3.25px));
+  transition: filter 0.35s ease;
+}
+
+/* Inner layers read as a grey rim, so the coin edge shows when side-on. */
+.logo3d__spin img[style*="--edge"] { filter: contrast(0.4) brightness(1.5); }
+
+.logo3d.is-busy::before { opacity: 1; animation: logo3dPulse 1.1s ease-in-out infinite; }
+.logo3d.is-ok { --glow: rgba(22, 163, 74, 0.55); }
+.logo3d.is-fail { --glow: rgba(220, 38, 38, 0.5); }
+.logo3d:is(.is-ok, .is-fail)::before { opacity: 1; }
+.logo3d.is-ok .logo3d__spin img:last-child { filter: drop-shadow(0 0 5px rgba(22, 163, 74, 0.9)); }
+.logo3d.is-fail .logo3d__spin img:last-child { filter: drop-shadow(0 0 5px rgba(220, 38, 38, 0.9)); }
+.logo3d.is-fail { animation: logo3dShake 0.45s ease; }
+
+@keyframes logo3dSpin { to { transform: rotateY(360deg); } }
+@keyframes logo3dPulse { 50% { opacity: 0.35; } }
+@keyframes logo3dShake { 25% { translate: -5px 0; } 50% { translate: 5px 0; } 75% { translate: -3px 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .logo3d__spin { animation: none; transform: rotateY(-24deg); }
+  .logo3d.is-busy::before, .logo3d.is-fail { animation: none; }
+}
+
+/* Depth layer (2026-10-28, user: "more modern and more professional, some gradient colours, still on brand,
+   a bit of 3D"). Brand colours only: charcoal base, a faint dojo-red glow, soft blue light. Flat ai-800 stays the
+   base colour, so header + home band still meet without a seam. */
+:root {
+  --glow-beni: radial-gradient(70% 120% at 100% 0%, rgba(124, 45, 46, 0.32), transparent 60%);
+  --glow-blue: radial-gradient(60% 110% at 0% 100%, rgba(130, 165, 224, 0.10), transparent 65%);
+  --plate: linear-gradient(140deg, #3c4046 0%, #2f3237 45%, #25272b 100%);
+  --raise: 0 1px 2px rgba(15, 24, 48, 0.05), 0 10px 28px -16px rgba(15, 24, 48, 0.22);
+  --raise-dark: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 14px 30px -14px rgba(15, 24, 48, 0.55);
+}
+
+header { background: var(--glow-beni), var(--ai-800); }
+.home-start { background: var(--glow-blue), var(--ai-800); }
+.login-body { background: radial-gradient(60% 50% at 50% 30%, rgba(124, 45, 46, 0.35), transparent 70%), var(--glow-blue), var(--ai-800); }
+.drawer-header { background: linear-gradient(120deg, #3a3d42, var(--ai-800) 70%); }
+
+/* Key plates: lit charcoal with a red ember in the corner and a soft drop, so the one number sits above the page. */
+.past-due-metric.key,
+.member-view-tile.key:not(.is-active) {
+  background: radial-gradient(80% 120% at 100% 100%, rgba(124, 45, 46, 0.24), transparent 60%), var(--plate), var(--ai-800);
+  border-color: transparent;
+  box-shadow: var(--raise-dark);
+}
+
+/* Paper surfaces: a whisper of gradient and a longer, softer shadow. */
+.card,
+.past-due-metric:not(.key),
+.glance-tile {
+  background: linear-gradient(180deg, #fff 0%, #fdfcfb 100%), #fff;
+  box-shadow: var(--raise);
+}
+
+/* Primary buttons: charcoal with a top light, like a pressed key. */
+.sop-action-button.primary,
+.login-btn {
+  background: linear-gradient(180deg, #4a4e54 0%, #33363b 100%), var(--ai-700);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(15, 24, 48, 0.25);
+}
+.sop-action-button.primary:hover:not(:disabled),
+.login-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #55595f 0%, #3a3d42 100%), var(--ai-700);
+}
+
+.drawer-nav a.active { background: var(--plate), var(--ai-800); box-shadow: var(--raise-dark); }
+.drawer-today { background: linear-gradient(160deg, var(--ai-50) 0%, #f4f7fc 100%); box-shadow: inset 0 0 0 1px rgba(130, 165, 224, 0.25); }
+
+/* Home "Start here" tiles tilt toward you on hover (they are links, not work panels). */
+.start-grid { perspective: 1200px; }
+.start-tile {
+  transform-origin: 50% 100%;
+  transition: transform 0.35s var(--ease-out, ease), box-shadow 0.35s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.start-tile:hover,
+.start-tile:focus-visible {
+  transform: rotateX(4deg) translateY(-4px);
+  box-shadow: 0 22px 40px -18px rgba(0, 0, 0, 0.6);
+}
+.start-tile-lead { background: linear-gradient(170deg, #fff 55%, #f4f1ee 100%), #fff; box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.55); }
+.start-tile:not(.start-tile-lead) { background: linear-gradient(170deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .start-tile, .start-tile:hover, .start-tile:focus-visible { transform: none; transition: none; }
+}
+
+/* UI review fixes (2026-10-28). */
+/* List rows divide with a plain hairline; the stitch stays on headings and meters, so it reads as a signature, not noise. */
+.index-list a,
+.sop-accordion-group {
+  background-image: linear-gradient(var(--line), var(--line));
+  background-size: 100% 1px;
+}
+.sop-accordion-group { background-size: calc(100% - 36px) 1px; }
+
+/* Toolbars: toggles and secondary buttons share the UI font and height; Bebas is kept for the primary action. */
+:is(.home-tasks-tools, .overview-filters) .sop-action-button.secondary {
+  min-height: 42px;
+  font: 600 0.85rem var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.home-tasks-tools .sop-action-button.primary { min-height: 42px; }
+
+/* Monday This/Last Week: the table panel sits flat inside its card (no card-in-card border and shadow). */
+.card .report-card-panel { border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+
+/* Side Tasks tab fits the 24px page gutter, so it no longer covers card edges. */
+.task-tab { width: 24px; padding-inline: 0; font-size: 0.75rem; }
+
+@media (max-width: 640px) {
+  /* Home: compact Start tiles so the numbers show on the first screen. */
+  .start-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .start-tile-lead { grid-column: 1 / -1; }
+  .start-tile { min-height: 0; padding: 16px; gap: 6px; }
+  .start-tile:not(.start-tile-lead) .start-tile-desc { display: none; }
+  .start-tile:not(.start-tile-lead) .start-tile-name { font-size: 1.3rem; }
+  .home-start { padding-bottom: 24px; }
+
+  /* Past Due: two figures per row, the extra count on its own line, no ember on the small plate. */
+  .past-due-page :is(.past-due-metrics, .past-due-tab-metrics) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .past-due-page .past-due-metric:not(.key):last-child:nth-child(even) { grid-column: 1 / -1; }
+  .past-due-page .past-due-metric strong small { display: block; margin: 2px 0 0; }
+  .past-due-metric.key { background: var(--plate), var(--ai-800); }
+}
+
+/* Every text field shows a solid ring when focused (ui-ux-pro-max focus-states). Older field rules with
+   ID-level selectors override the input:focus halo, so this ring is the fallback. Rules with higher
+   specificity that set outline: none still win; don't add new ones. #quickSwitcherInput opts out on purpose:
+   it's the only field in its dialog. */
+:is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--ai-600);
+  outline-offset: 1px;
+}
+
+/* Email / phone links in table cells: 24px tap targets (WCAG 2.2), they stack on phones. */
+td a:is([href^="mailto:"], [href^="tel:"]) {
+  display: inline-block;
+  padding-block: 2px;
 }
