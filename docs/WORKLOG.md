@@ -17,9 +17,31 @@ Status: in progress | awaiting user OK | shipped (<commit>)
 
 ---
 
-## 2026-10-28 — ui-ux-pro-max skill
+## 2026-10-29 — Zen Planner bot blocked by Pendo popup
 
 Status: awaiting user OK
+
+### Instructions from the user
+- Nightly follow-up job failed (GitHub Actions log pasted): click on "RED/ORANGE ATTENDANCE (30 DAYS COUNT)"
+  timed out after 60 s.
+
+### Decisions
+- Cause: a Pendo in-app tour (`#pendo-base` lightbox) in Zen Planner covered the page and caught every click.
+- Fix once in `withZenPlanner` (all Zen Planner jobs use it): abort requests whose URL has a word starting "pendo" (\bpendo),
+  so the tour never loads. Chosen over closing the popup, because tour layouts change.
+
+### Done
+- `automation/zenplanner.mjs`: `page.context().route(/\bpendo/i, route => route.abort())` after the page opens.
+
+### Open items
+- Not run locally (Playwright not installed here). Check: after push, Actions > Zen Planner follow-up >
+  Run workflow; it should pass the attendance step.
+
+---
+
+## 2026-10-28 — ui-ux-pro-max skill
+
+Status: shipped (c291114)
 
 ### Instructions from the user
 - Install https://github.com/nextlevelbuilder/ui-ux-pro-max-skill in this project and add it to the workflow. The workflow must stay token-efficient, with output at a professional level.
@@ -99,13 +121,13 @@ Status: awaiting user OK
   - **Regression caught:** after "Open Spreadsheet" became an `<a>`, it sat above the title, underlined. `js/siteHeader.js` only moved `:scope > button` into `.page-actions`; it now moves `a#openSpreadsheet` too, and the CSS adds `text-decoration: none`.
 
 ### Open items
-- After the push, check the live site once (log in, Monday, SOP) in case Cloudflare serves something the local preview didn't.
+- Done 2026-10-28: the live site (all 16 pages, every tab) shows 0 CSP violations after deploy 7e6e0de.
 - Possible later project: SOPs as styled HTML instead of the Google Drive frame.
 - Undecided: hide the grey "Pending" chip, since it's the default, on 19 of 30 rows.
 
 ## 2026-10-27 — Day report
 
-Status: awaiting user OK
+Status: shipped (c291114)
 
 ### Instructions from the user
 - "create a function where I can create a progress report or end of day report for the tasks today", with a pasted example: status + title, details, overdue · comments, comments, a spot to enter comments, who it's for.
