@@ -73,6 +73,8 @@ export async function withZenPlanner(work) {
   await mkdir(OUT, { recursive: true });
   const browser = await chromium.launch({ headless: !process.env.HEADED });
   const page = await browser.newPage({ acceptDownloads: true, timezoneId: 'Australia/Sydney', locale: 'en-AU' });
+  // Pendo (Zen Planner's in-app tours) pops a lightbox over the page that blocks clicks. Never load it.
+  await page.context().route(/\bpendo/i, route => route.abort());
   let step = 'signing in';
   try {
     await signIn(page);

@@ -5,7 +5,16 @@ items are in `docs/WORKLOG.md`.
 
 ---
 
-## Security hardening: CSP, report warning, skill guard (2026-10-28, not yet shipped)
+## Zen Planner bots: block Pendo popup (2026-10-29, not yet shipped)
+
+- **What:** Zen Planner started showing a Pendo in-app tour whose lightbox covers the page, so the bots' clicks timed out (follow-up job failed 29 Oct on "RED/ORANGE ATTENDANCE (30 DAYS COUNT)").
+- **Fix** (`automation/zenplanner.mjs`, `withZenPlanner`): the bot browser aborts every request whose URL has a word starting "pendo" (e.g. cdn.pendo.io), so the tour never loads. Covers every Zen Planner job.
+- **Check:** GitHub > Actions > Zen Planner follow-up > Run workflow; the run passes and saves the day's report.
+- **Limit:** if Zen Planner ever serves Pendo under a URL without "pendo", the popup could return; then close it with `page.addLocatorHandler`.
+
+---
+
+## Security hardening: CSP, report warning, skill guard (2026-10-28, shipped c291114)
 
 - **Content-Security-Policy** (`_headers`): the browser only runs scripts from this site and jsdelivr, and blocks inline scripts and `onclick=""` attributes. That limits the damage if member data ever ends up in the page as HTML.
   - Monday's "Open Spreadsheet" is now a link (it used an inline handler).
@@ -15,7 +24,7 @@ items are in `docs/WORKLOG.md`.
 - Check: after the push, log in and open Monday, SOP and Past Due on the live site. The browser console must show no "Content Security Policy" errors.
 - Limits: `style-src` keeps `'unsafe-inline'`, because the JS sets style attributes everywhere. The test page `pages/REPORTs/__failure_modal_test.html` has an inline script, so it won't work on the live site.
 
-## Depth layer: gradients and 3D touches (2026-10-28, not yet shipped)
+## Depth layer: gradients and 3D touches (2026-10-28, shipped c291114)
 
 A more modern finish across the whole site, in the brand colours only:
 - The dark header band has a faint dojo-red glow in the top right. The Home band and the login page have a soft blue glow.
@@ -34,14 +43,14 @@ A more modern finish across the whole site, in the brand colours only:
   - A slimmer side Tasks tab that no longer covers card edges.
   - The SOP text itself is Google Drive's own viewer and can't be restyled from the site.
 
-## 3D logo on the login page (2026-10-28, not yet shipped)
+## 3D logo on the login page (2026-10-28, shipped c291114)
 
 The login logo is a spinning 3D coin. While you sign in it pulses softly. It glows green when the login works, then the page moves on after 0.8s. It glows red and shakes when the login fails, then goes back to spinning.
 - Files: `pages/login.html` (`#logo3d`), `js/login.js` (builds the layers, `logoState()`), `css/styles.css` (`.logo3d`).
 - Check: open the login page and watch the logo turn. Enter a wrong password: red. Enter the right one: green, then the dashboard.
 - Limits: the coin's rim is made of 14 stacked copies of the logo, so very close up the edge looks striped. With reduced motion on (in the OS), the logo stands still at a slight tilt. The Settings preference only applies after login.
 
-## Accessibility and phone fixes from the ui-ux-pro-max audit (2026-10-28, not yet shipped)
+## Accessibility and phone fixes from the ui-ux-pro-max audit (2026-10-28, shipped c291114)
 
 `.claude/ux-audit.js` checked every page against ui-ux-pro-max's top rule groups (accessibility, touch, layout, type). Fixed:
 - **Skip to content** link on every page with the site header. It's the first thing Tab reaches and jumps past the header and menu.
@@ -58,7 +67,7 @@ The login logo is a spinning 3D coin. While you sign in it pulses softly. It glo
 - Check: on a phone, tap the login and search fields; the page must not zoom. On desktop, press Tab once on any page; "Skip to content" shows top left, and Enter jumps to the page content.
 - Limits: the login, reset and error pages have no skip link (no site header; only a few controls). The 16px rule uses `!important` as a deliberate floor over each page's own field sizes.
 
-## Day report (2026-10-27, not yet shipped)
+## Day report (2026-10-27, shipped c291114)
 
 **Day report** on the Tasks page (next to Add task) writes up today's tasks as plain text: a heading with the date and whose tasks, "X of Y done", then each task's status, title, who it's for, when it's due (or who ticked it), its details, every comment, and an empty **Update:** line. The text is editable: type today's progress after each "Update:", then **Copy** and paste it into an email or chat.
 
